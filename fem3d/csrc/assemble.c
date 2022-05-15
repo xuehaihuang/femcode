@@ -3701,6 +3701,9 @@ void getElementFaceEdgeGeoInfo(ELEMENT *elements, idenmat *elementFace, FACE *fa
 		for(j=0;j<3;j++)
 			elements->barycenter[i][j] = (tet[0][j]+tet[1][j]+tet[2][j]+tet[3][j]) / 4.0;
 
+		for(j=0;j<4;j++)
+			axpbyz_array(3, 4.0/3.0, elements->barycenter[i], -1.0/3.0, tet[j], elements->bcFace[i][j]);
+
 		if(elements->vol[i]<0)
 		{
 			printf("The volume of the %d-th tetrahedron is %e.\n", i, elements->vol[i]);
@@ -3771,6 +3774,9 @@ void getElementFaceEdgeGeoInfo(ELEMENT *elements, idenmat *elementFace, FACE *fa
 			// for(k=0;k<3;k++)
 			// 	tet[j][k]=nodes->val[vertex][k];
 		}
+
+		axpbyz_array(3, 1.0/3.0, tet[0], 1.0/3.0, tet[1], faces->barycenter[i]);
+		axpy_array(3, 1.0/3.0, tet[2], faces->barycenter[i]);
 		
 		axpyz_array(3, -1.0, tet[0], tet[1], faces->t01[i]);
 		axpyz_array(3, -1.0, tet[0], tet[2], faces->t02[i]);

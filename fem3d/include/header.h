@@ -203,6 +203,8 @@ typedef struct ELEMENT{
 	double *vol;
 	/** barycenter of the element*/
 	double **barycenter;
+	/** barycenter of four faces of the element*/
+	double ***bcFace;
 	/** value of the barycentric coordinates lambda at the origin of coordinate (0,0,0) */
 	double **lambdaConst;
 	/** gradient of the barycentric coordinates lambda */
@@ -231,8 +233,7 @@ typedef struct FACE{
 	int row;	  
 	/** number of columns */
 	int col;	
-	/** the first three columns store the three vertice, the fourth and fifth columns store the affiliated elements锟斤拷
-        the fifth column stores -1 if the face is on boundary */
+	/** the first three columns store the three vertice, the fourth and fifth columns store the affiliated elements, the fifth column stores -1 if the face is on boundary */
 	int **val;
 	/** unit normal vector of face*/
 	double **nvector;
@@ -245,6 +246,8 @@ typedef struct FACE{
 	double **t12;
 	/** area of face*/
 	double *area;
+	/** barycenter of face*/
+	double **barycenter;
 	/** boundary type of face
 	0 : non - boundary, i.e., an interior edge or face.
 	1 : first type, i.e., a Dirichlet boundary edge or face.
@@ -805,6 +808,9 @@ void getPermutation(int *a, int *b, int *perm, int n);
 int vv2edge3d(int v1, int v2);
 void edge2vv3d(int edge, int *v);
 void face2vertices3d(int face, int *v);
+
+/* basiscoeff.c */
+void getHuangZhangBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges);
 
 /* basicData.c */
 void morley_basis(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double *phi);

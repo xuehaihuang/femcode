@@ -1627,6 +1627,7 @@ void getFaceInfo(ELEMENT *elements, iCSRmat *elementsTran, FACE *faces, dennode 
 	faces->t01 = (double**)calloc(faces->row, sizeof(double *));
 	faces->t02 = (double**)calloc(faces->row, sizeof(double *));
 	faces->t12 = (double**)calloc(faces->row, sizeof(double *));
+	faces->barycenter = (double**)calloc(faces->row, sizeof(double *));
 	for (i = 0; i<faces->row; i++)
 	{
 		faces->nvector[i] = (double*)calloc(3, sizeof(double));
@@ -1635,6 +1636,7 @@ void getFaceInfo(ELEMENT *elements, iCSRmat *elementsTran, FACE *faces, dennode 
 		faces->t01[i] = (double*)calloc(3, sizeof(double));
 		faces->t02[i] = (double*)calloc(3, sizeof(double));
 		faces->t12[i] = (double*)calloc(3, sizeof(double));
+		faces->barycenter[i] = (double*)calloc(3, sizeof(double));
 	}
 	faces->area = (double*)calloc(faces->row, sizeof(double));
 	faces->bdFlag = (int*)calloc(faces->row, sizeof(int));

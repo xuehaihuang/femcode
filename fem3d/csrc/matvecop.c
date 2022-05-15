@@ -132,6 +132,7 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 	A->type = (int*)calloc(A->row, sizeof(int));
 	A->vertices=(double***)calloc(A->row, sizeof(double **));
 	A->barycenter=(double**)calloc(A->row, sizeof(double *));
+	A->bcFace=(double***)calloc(A->row, sizeof(double **));
 	A->lambdaConst=(double**)calloc(A->row, sizeof(double *));
 	A->gradLambda=(double***)calloc(A->row, sizeof(double **));
 	A->nvector=(double***)calloc(A->row, sizeof(double **));
@@ -146,6 +147,7 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 		A->val[i]=(int*)calloc(A->col, sizeof(int));
 		A->vertices[i]=(double**)calloc(A->col, sizeof(double *));
 		A->barycenter[i]=(double*)calloc(A->col-1, sizeof(double));
+		A->bcFace[i]=(double**)calloc(A->col, sizeof(double *));
 		A->lambdaConst[i]=(double*)calloc(A->col, sizeof(double));
 		A->gradLambda[i]=(double**)calloc(A->col, sizeof(double *));
 		A->nvector[i]=(double**)calloc(A->col, sizeof(double *));
@@ -157,6 +159,7 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 		for(j=0;j<A->col;j++)
 		{
 			A->vertices[i][j]=(double*)calloc(A->col-1, sizeof(double));
+			A->bcFace[i][j]=(double*)calloc(A->col-1, sizeof(double));
 			A->gradLambda[i][j]=(double*)calloc(A->col-1, sizeof(double));
 			A->nvector[i][j]=(double*)calloc(A->col-1, sizeof(double));
 			A->fperm[i][j] = (int*)malloc((A->col - 1) * sizeof(int));
@@ -186,12 +189,14 @@ int free_ELEMENT(ELEMENT *A)
 		for(j=0;j<A->col;j++)
 		{
 			free(A->vertices[i][j]);
+			free(A->bcFace[i][j]);
 			free(A->gradLambda[i][j]);
 			free(A->nvector[i][j]);
 			free(A->fperm[i][j]);
 			free(A->fpermi[i][j]);
 		}
 		free(A->vertices[i]);
+		free(A->bcFace[i]);
 		free(A->gradLambda[i]);
 		free(A->nvector[i]);
 		free(A->fperm[i]);
@@ -208,6 +213,7 @@ int free_ELEMENT(ELEMENT *A)
 	free(A->vol);
 	free(A->vertices);
 	free(A->barycenter);
+	free(A->bcFace);
 	free(A->lambdaConst);
 	free(A->gradLambda);
 	free(A->nvector);
@@ -240,6 +246,7 @@ int create_FACE(int m, int n, FACE *A)
 	A->t01=(double**)calloc(A->row, sizeof(double *));
 	A->t02=(double**)calloc(A->row, sizeof(double *));
 	A->t12=(double**)calloc(A->row, sizeof(double *));
+	A->barycenter=(double**)calloc(A->row, sizeof(double *));
 	int i;
 	for(i=0;i<A->row;i++)
 	{
@@ -250,6 +257,7 @@ int create_FACE(int m, int n, FACE *A)
 		A->t01[i]=(double*)calloc(3, sizeof(double));
 		A->t02[i]=(double*)calloc(3, sizeof(double));
 		A->t12[i]=(double*)calloc(3, sizeof(double));
+		A->barycenter[i]=(double*)calloc(3, sizeof(double));
 	}
 	A->area=(double*)calloc(A->row, sizeof(double));
 	A->bdFlag = (int*)calloc(A->row, sizeof(int));
@@ -274,6 +282,7 @@ int free_FACE(FACE *A)
 		free(A->t01[i]);
 		free(A->t02[i]);
 		free(A->t12[i]);
+		free(A->barycenter[i]);
 	}
 	free(A->val);
 	free(A->nvector);
@@ -283,6 +292,7 @@ int free_FACE(FACE *A)
 	free(A->t02);
 	free(A->t12);
 	free(A->area);
+	free(A->barycenter);
 	free(A->bdFlag);
 	A->row=0;
 	A->col=0;
@@ -379,6 +389,22 @@ int free_dden_matrix(ddenmat *A)
 	A->row=0;
 	A->col=0;
 	return 1;
+}
+
+/**
+ * \fn void init_dden_matrix(ddenmat *A, double val)
+ * \brief Initial double dense matrix
+ * \param *A pointer to the ddenmat matrix
+ * \param val initial value
+ */
+void init_dden_matrix(ddenmat *A, double val)
+{		
+	int i, j;
+	for(i=0;i<A->row;i++)
+	{
+		for(j=0;j<A->col;j++)
+			A->val[i][j] = val;
+	}
 }
 
 /**

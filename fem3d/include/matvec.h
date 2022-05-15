@@ -45,6 +45,7 @@ int create_EDGE(int m, int n, EDGE *A);
 int free_EDGE(EDGE *A);
 int create_dden_matrix(int m, int n, ddenmat *A);
 int free_dden_matrix(ddenmat *A);
+void init_dden_matrix(ddenmat *A, double val);
 int create_dden_matrix3(int l, int m, int n, ddenmat3 *A);
 int free_dden_matrix3(ddenmat3 *A);
 int create_dbd_matrix(int m, int n, int nb, dBDmat *A);

@@ -64,6 +64,26 @@ int main (int argc, const char * argv[])
 	
 	getElementFaceEdgeGeoInfo(&elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1]);
 
+	/***************************Generate coefficient of basis functions**************************/
+	ddenmat3 basisCoeffs;
+	create_dden_matrix3(elements[glevelNum - 1].row, 32, 32, &basisCoeffs);
+	getHuangZhangBasisCoeffs(&basisCoeffs, &elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1]);
+	free_dden_matrix3(&basisCoeffs);///////////
+	/********************************************************************************************/
+	
+	// int j,k;
+	// double *val1, *val2; 
+	// for(i=0;i<elements[glevelNum - 1].row;i++)
+	// {
+	// 	for(j=0;j<4;j++)
+	// 	{
+	// 		val1=elements[glevelNum - 1].bcFace[i][j];
+	// 		k=elementFace[glevelNum - 1].val[i][j];
+	// 		val2=faces[glevelNum - 1].barycenter[k];
+	// 		printf("(%lf, %lf, %lf), (%lf, %lf, %lf), (%lf, %lf, %lf)\n", val1[0],val1[1],val1[2],val2[0],val2[1],val2[2],val1[0]-val2[0],val1[1]-val2[1],val1[2]-val2[2]);
+	// 	}
+	// }
+
 	printf("h=%f\n", edges[glevelNum - 1].length[1]);
 
 	/** Step 2. discete method */
