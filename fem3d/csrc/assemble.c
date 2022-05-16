@@ -1066,6 +1066,8 @@ void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 	free(index);
 	
 	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
 	num_qp = getNumQuadPoints_ShunnWilliams(2*elementDOF->dop, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -1078,6 +1080,19 @@ void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 
 		for (k1 = 0; k1<elementDOF->col; k1++)
 		{
+			for (k2 = 0; k2<elementDOF->col; k2++)
+			{
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					lagrange3d_basis(lambdas[i1], k1, elementDOF->dop, phi1);
+					lagrange3d_basis(lambdas[i1], k2, elementDOF->dop, phi2);
+					lA.val[k1][k2] += vol * weight[i1] * phi1[0] * phi2[0];
+				}
+			} // k2
+		} // k1
+
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
 			i = elementDOF->val[k][k1];
 			for (k2 = 0; k2<elementDOF->col; k2++)
 			{
@@ -1086,18 +1101,14 @@ void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 				{
 					if (A->JA[j1] == j)
 					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							lagrange3d_basis(lambdas[i1], k1, elementDOF->dop, phi1);
-							lagrange3d_basis(lambdas[i1], k2, elementDOF->dop, phi2);
-							A->val[j1] += vol * weight[i1] * phi1[0] * phi2[0];
-						}
+						A->val[j1] += lA.val[k1][k2];
 						break;
 					}
 				} // j1
 			} // k2
 		} // k1
-	} // k	
+	} // k
+	free_dden_matrix(&lA);	
 }
 
 /**
@@ -1249,6 +1260,8 @@ void assembleBiGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFac
 	free(index);
 	
 	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF->dop - 1), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -1259,6 +1272,20 @@ void assembleBiGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFac
 		gradLambda = elements->gradLambda[k];
 		// end set parameters
 
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF->col; k2++)
+			{
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					lagrange3d_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
+					lagrange3d_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
+					lA.val[k1][k2] += vol * weight[i1] * dot_array(3, phi1, phi2);
+				}
+			} // k2
+		} // k1
+		
 		for (k1 = 0; k1<elementDOF->col; k1++)
 		{
 			i = elementDOF->val[k][k1];
@@ -1269,18 +1296,14 @@ void assembleBiGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFac
 				{
 					if (A->JA[j1] == j)
 					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							lagrange3d_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
-							lagrange3d_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
-							A->val[j1] += vol * weight[i1] * dot_array(3, phi1, phi2);
-						}
+						A->val[j1] += lA.val[k1][k2];
 						break;
 					}
 				} // j1
 			} // k2
 		} // k1
 	} // k	
+	free_dden_matrix(&lA);
 }
 
 /**
@@ -1759,6 +1782,8 @@ void assembleBiCurlNedelec1st3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 	free(index);
 	
 	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -1780,6 +1805,20 @@ void assembleBiCurlNedelec1st3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 		}
 		// end set parameters
 
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					nedelec1st3d_basisCurl(lambdas[i1], grd_lambda, eorien, fpermi, k1, elementDOF[0].dop, phi1);
+					nedelec1st3d_basisCurl(lambdas[i1], grd_lambda, eorien, fpermi, k2, elementDOF[0].dop, phi2);
+					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+				}
+			} // k2
+		} // k1
+
 		for (k1 = 0; k1<elementDOF[0].col; k1++)
 		{
 			i = elementDOF[0].val[k][k1];
@@ -1790,18 +1829,14 @@ void assembleBiCurlNedelec1st3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 				{
 					if (A->JA[j1] == j)
 					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							nedelec1st3d_basisCurl(lambdas[i1], grd_lambda, eorien, fpermi, k1, elementDOF[0].dop, phi1);
-							nedelec1st3d_basisCurl(lambdas[i1], grd_lambda, eorien, fpermi, k2, elementDOF[0].dop, phi2);
-							A->val[j1] += vol*weight[i1] * dot_array(3, phi1, phi2);
-						}
+						A->val[j1] += lA.val[k1][k2];
 						break;
 					}
 				} // j1
 			} // k2
 		} // k1
-	} // k	
+	} // k
+	free_dden_matrix(&lA);
 }
 
 /**
@@ -1933,6 +1968,8 @@ void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 	free(index);
 	
 	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lA);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
 	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -1961,6 +1998,20 @@ void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 		}
 		// end set parameters
 
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
+					nedelec1st3d_basis(lambdas[i1], grd_lambda, eorien, fpermi, k2, elementDOF[0].dop, phi2);
+					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+				}
+			} // k2
+		} // k1
+
 		for (k1 = 0; k1<elementDOF[1].col; k1++)
 		{
 			i = elementDOF[1].val[k][k1];
@@ -1971,18 +2022,14 @@ void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 				{
 					if (A->JA[j1] == j)
 					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
-							nedelec1st3d_basis(lambdas[i1], grd_lambda, eorien, fpermi, k2, elementDOF[0].dop, phi2);
-							A->val[j1] += vol*weight[i1] * dot_array(3, phi1, phi2);
-						}
+						A->val[j1] += lA.val[k1][k2];
 						break;
 					}
 				} // j1
 			} // k2
 		} // k1
-	} // k	
+	} // k
+	free_dden_matrix(&lA);	
 }
 
 /**
@@ -2203,6 +2250,8 @@ void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 	free(index);
 	
 	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -2225,6 +2274,20 @@ void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 		}
 		// end set parameters
 
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					nedelec2nd3d_basisCurl(lambdas[i1], grd_lambda, eperm, k1, elementDOF[0].dop, phi1);
+					nedelec2nd3d_basisCurl(lambdas[i1], grd_lambda, eperm, k2, elementDOF[0].dop, phi2);
+					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+				}
+			} // k2
+		} // k1
+
 		for (k1 = 0; k1<elementDOF[0].col; k1++)
 		{
 			i = elementDOF[0].val[k][k1];
@@ -2235,18 +2298,14 @@ void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 				{
 					if (A->JA[j1] == j)
 					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							nedelec2nd3d_basisCurl(lambdas[i1], grd_lambda, eperm, k1, elementDOF[0].dop, phi1);
-							nedelec2nd3d_basisCurl(lambdas[i1], grd_lambda, eperm, k2, elementDOF[0].dop, phi2);
-							A->val[j1] += vol*weight[i1] * dot_array(3, phi1, phi2);
-						}
+						A->val[j1] += lA.val[k1][k2];
 						break;
 					}
 				} // j1
 			} // k2
 		} // k1
 	} // k	
+	free_dden_matrix(&lA);
 }
 
 /**
@@ -2372,6 +2431,8 @@ void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 	free(index);
 	
 	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lA);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
 	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -2401,6 +2462,20 @@ void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 		}
 		// end set parameters
 
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
+					nedelec2nd3d_basis(lambdas[i1], grd_lambda, eperm, k2, elementDOF[0].dop, phi2);
+					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+				}
+			} // k2
+		} // k1
+
 		for (k1 = 0; k1<elementDOF[1].col; k1++)
 		{
 			i = elementDOF[1].val[k][k1];
@@ -2411,18 +2486,14 @@ void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 				{
 					if (A->JA[j1] == j)
 					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
-							nedelec2nd3d_basis(lambdas[i1], grd_lambda, eperm, k2, elementDOF[0].dop, phi2);
-							A->val[j1] += vol*weight[i1] * dot_array(3, phi1, phi2);
-						}
+						A->val[j1] += lA.val[k1][k2];
 						break;
 					}
 				} // j1
 			} // k2
 		} // k1
-	} // k	
+	} // k
+	free_dden_matrix(&lA);	
 }
 
 /**
@@ -2647,6 +2718,8 @@ void assembleBiCurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, 
 	free(index);
 	
 	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -2668,6 +2741,20 @@ void assembleBiCurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, 
 		}
 		// end set parameters
 
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					huangQuadcurl3d_basisCurl(lambdas[i1], grd_lambda, nvf, eorien, fpermi, k1, phi1);
+					huangQuadcurl3d_basisCurl(lambdas[i1], grd_lambda, nvf, eorien, fpermi, k2, phi2);
+					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+				}
+			} // k2
+		} // k1
+
 		for (k1 = 0; k1<elementDOF[0].col; k1++)
 		{
 			i = elementDOF[0].val[k][k1];
@@ -2678,18 +2765,14 @@ void assembleBiCurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, 
 				{
 					if (A->JA[j1] == j)
 					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							huangQuadcurl3d_basisCurl(lambdas[i1], grd_lambda, nvf, eorien, fpermi, k1, phi1);
-							huangQuadcurl3d_basisCurl(lambdas[i1], grd_lambda, nvf, eorien, fpermi, k2, phi2);
-							A->val[j1] += vol*weight[i1] * dot_array(3, phi1, phi2);
-						}
+						A->val[j1] += lA.val[k1][k2];
 						break;
 					}
 				} // j1
 			} // k2
 		} // k1
 	} // k
+	free_dden_matrix(&lA);
 }
 
 /**
@@ -2816,6 +2899,8 @@ void assembleBiGradcurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFa
 	free(index);
 	
 	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-2), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -2837,6 +2922,20 @@ void assembleBiGradcurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFa
 		}
 		// end set parameters
 
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					huangQuadcurl3d_basisGradCurl(grd_lambda, nvf, eorien, fpermi, k1, phi1);
+					huangQuadcurl3d_basisGradCurl(grd_lambda, nvf, eorien, fpermi, k2, phi2);
+					lA.val[k1][k2] += vol*weight[i1] * dot_array(9, phi1, phi2);
+				}
+			} // k2
+		} // k1
+
 		for (k1 = 0; k1<elementDOF[0].col; k1++)
 		{
 			i = elementDOF[0].val[k][k1];
@@ -2847,18 +2946,14 @@ void assembleBiGradcurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFa
 				{
 					if (A->JA[j1] == j)
 					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							huangQuadcurl3d_basisGradCurl(grd_lambda, nvf, eorien, fpermi, k1, phi1);
-							huangQuadcurl3d_basisGradCurl(grd_lambda, nvf, eorien, fpermi, k2, phi2);
-							A->val[j1] += vol*weight[i1] * dot_array(9, phi1, phi2);
-						}
+						A->val[j1] += lA.val[k1][k2];
 						break;
 					}
 				} // j1
 			} // k2
 		} // k1
 	} // k	
+	free_dden_matrix(&lA);
 }
 
 /**
@@ -2984,6 +3079,8 @@ void assembleHuangGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *element
 	free(index);
 	
 	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lA);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
 	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -3013,6 +3110,23 @@ void assembleHuangGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *element
 		}
 		// end set parameters
 
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
+					axy_array(3, lambdas[i1][3], vertices[3], x);
+					for(i2=0;i2<3;i2++)
+						axpy_array(3, lambdas[i1][i2], vertices[i2], x);
+					huangQuadcurl3d_basis(x, xK, lambdas[i1], grd_lambda, vertices, nvf, eorien, fpermi, k2, phi2);
+					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+				}
+			} // k2
+		} // k1
+
 		for (k1 = 0; k1<elementDOF[1].col; k1++)
 		{
 			i = elementDOF[1].val[k][k1];
@@ -3023,21 +3137,14 @@ void assembleHuangGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *element
 				{
 					if (A->JA[j1] == j)
 					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
-							axy_array(3, lambdas[i1][3], vertices[3], x);
-							for(i2=0;i2<3;i2++)
-								axpy_array(3, lambdas[i1][i2], vertices[i2], x);
-							huangQuadcurl3d_basis(x, xK, lambdas[i1], grd_lambda, vertices, nvf, eorien, fpermi, k2, phi2);
-							A->val[j1] += vol*weight[i1] * dot_array(3, phi1, phi2);
-						}
+						A->val[j1] += lA.val[k1][k2];
 						break;
 					}
 				} // j1
 			} // k2
 		} // k1
-	} // k	
+	} // k
+	free_dden_matrix(&lA);	
 }
 
 /**
