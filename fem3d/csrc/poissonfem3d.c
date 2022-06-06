@@ -150,16 +150,16 @@ void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, ide
 	amgparam.truncation_threshold = Input->AMG_truncation_threshold;
 	amgparam.max_row_sum = Input->AMG_max_row_sum;
 
-	/* AMG solver */
+	/* PCG+AMG */
 	if (itsolver_type == 1) {
 		printf("AMG iterative solver\n");
-		classicAMG(&A, &b, &_uh, &amgparam);
+		classicAMG_PCG(&A, &b, &_uh, &amgparam, print_level);
 	}
 
-	/* PCG+AMG */
+	/* AMG solver */
 	else if (itsolver_type == 2) {
 		printf("AMG preconditioned CG solver\n");
-		classicAMG_PCG(&A, &b, &_uh, &amgparam, print_level);
+		classicAMG(&A, &b, &_uh, &amgparam);
 	}
 
 	/* PCG+diag */
