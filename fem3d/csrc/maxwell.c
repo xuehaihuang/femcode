@@ -78,6 +78,46 @@ void maxwell3d_curlu(double *x, double *val)
 }
 
 /**
+ * \fn void maxwell3d_gradcurlu(double *x, double *val)
+ * \brief gradcurl of the true solution u
+ * \param *x the cooridates of the point in three dimensions
+ * \return function value
+ */
+void maxwell3d_gradcurlu(double *x, double *val)
+{
+	double t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21;
+	t2 = pii*x[0];
+    t3 = pii*x[1];
+  	t4 = pii*x[2];
+  	t5 = pii*pii*pii;
+  	t6 = t2*2.0;
+  	t7 = t3*2.0;
+  	t8 = t4*2.0;
+  	t9 = cos(t2);
+  	t10 = cos(t3);
+  	t11 = cos(t4);
+  	t12 = sin(t2);
+  	t13 = sin(t3);
+  	t14 = sin(t4);
+  	t15 = cos(t6);
+  	t16 = cos(t7);
+  	t17 = cos(t8);
+  	t18 = t12*t12;
+  	t19 = t13*t13;
+  	t20 = t14*t14;
+  	t21 = t5*t9*t10*t11*t12*t13*t14*8.0;
+    val[0] = t5*t11*t14*t15*t19*4.0;
+  	val[1] = t21;
+  	val[2] = t5*t9*t12*t17*t19*4.0;
+  	val[3] = t21;
+  	val[4] = t5*t11*t14*t16*t18*4.0;
+  	val[5] = t5*t10*t13*t17*t18*4.0;
+  	val[6] = t5*t20*sin(t6)*(t16*2.0-1.0)*-2.0;
+  	val[7] = t5*t20*sin(t7)*(t15*2.0-1.0)*-2.0;
+  	val[8] = t5*t11*t14*(t18+t19-t18*t19*4.0)*-4.0;
+}
+
+/**
  * \fn void maxwell3d_gradu(double *x, double *val)
  * \brief gradient of the true solution u
  * \param *x the cooridates of the point in three dimensions
@@ -85,9 +125,33 @@ void maxwell3d_curlu(double *x, double *val)
  */
 void maxwell3d_gradu(double *x, double *val)
 {
-	maxwell3d_gradu1(x, val);
-	maxwell3d_gradu2(x, val+3);
-	maxwell3d_gradu3(x, val+6);
+	double t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15;
+	t2 = pii*x[0];
+  	t3 = pii*x[1];
+  	t4 = pii*x[2];
+  	t5 = pii*pii;
+  	t6 = cos(t2);
+  	t7 = cos(t3);
+  	t8 = cos(t4);
+  	t9 = sin(t2);
+  	t10 = sin(t3);
+  	t11 = sin(t4);
+  	t12 = t9*t9;
+  	t13 = t10*t10;
+  	t14 = t11*t11;
+  	t15 = t5*t6*t7*t9*t10*t14*4.0;
+  	val[0] = t15;
+  	val[1] = t5*t12*t14*cos(t3*2.0)*2.0;
+  	val[2] = t5*t7*t8*t10*t11*t12*4.0;
+  	val[3] = t5*t13*t14*cos(t2*2.0)*-2.0;
+  	val[4] = -t15;
+  	val[5] = t5*t6*t8*t9*t11*t13*-4.0;
+	val[6] = 0;
+	val[7] = 0;
+	val[8] = 0;
+	// maxwell3d_gradu1(x, val);
+	// maxwell3d_gradu2(x, val+3);
+	// maxwell3d_gradu3(x, val+6);
 }
 
 /**

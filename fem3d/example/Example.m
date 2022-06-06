@@ -18,8 +18,11 @@ gradu = simplify(gradu);
 curlu = curl(u,X);
 curlu = simplify(curlu);
 
+gradcurlu = jacobian(curlu,X);
+gradcurlu = simplify(gradcurlu);
+
 f = curl(curlu,X);
-f =simplify(f);
+f = simplify(f);
 
 % write to files
 ccode(f(1),'file','f1.c')
@@ -37,4 +40,6 @@ ccode(gradu(2,3),'file','u2z.c')
 ccode(gradu(3,1),'file','u3x.c')
 ccode(gradu(3,2),'file','u3y.c')
 ccode(gradu(3,3),'file','u3z.c')
+ccode(gradu,'file','gradu.c')
 ccode(curlu,'file','curlu.c')
+ccode(gradcurlu,'file','gradcurlu.c')

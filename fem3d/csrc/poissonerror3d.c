@@ -53,6 +53,9 @@ void geterrorsPoissonLagrange3d(double *errors, dvector *uh, ELEMENT *elements, 
 	int num_qp;
 	double lambdas[100][4], weight[100];
 
+	dvector luh;
+	create_dvector(elementDOF[0].col, &luh);
+	
 	num_qp=getNumQuadPoints_ShunnWilliams(9, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 		
@@ -64,6 +67,12 @@ void geterrorsPoissonLagrange3d(double *errors, dvector *uh, ELEMENT *elements, 
 		vertices = elements->vertices[k];
 		// end set parameters
 		
+		for (i = 0; i<elementDOF[0].col; i++)
+		{
+			j = elementDOF[0].val[k][i];
+			luh.val[i] = uh->val[j];
+		}
+
 		// L2 norm of u-u_h
 		for(i1=0;i1<num_qp;i1++)
 		{
@@ -75,8 +84,7 @@ void geterrorsPoissonLagrange3d(double *errors, dvector *uh, ELEMENT *elements, 
 			for(k1=0;k1<elementDOF->col;k1++)
 			{
 				lagrange3d_basis(lambdas[i1], k1, elementDOF->dop, &phi0);
-				j1=elementDOF->val[k][k1];
-				val[0]+=phi0*uh->val[j1];
+				val[0]+=phi0*luh.val[k1];
 			}
 			errors[0]+=vol*weight[i1]*val[0]*val[0];
 		}
@@ -92,13 +100,13 @@ void geterrorsPoissonLagrange3d(double *errors, dvector *uh, ELEMENT *elements, 
 			for(k1=0;k1<elementDOF->col;k1++)
 			{
 				lagrange3d_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
-				j1=elementDOF->val[k][k1];
-                axpy_array(3, -uh->val[j1], phi1, val);
+				axpy_array(3, -luh.val[k1], phi1, val);
 			}
 			errors[1]+=vol*weight[i1]*dot_array(3, val, val);
 		}
 	}
-	
+	free_dvector(&luh);
+
 	errors[2]=errors[0]+errors[1];
 	
 	for(i=0;i<3;i++)

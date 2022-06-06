@@ -104,6 +104,14 @@ int dBDmat_mv0(double alpha, dBDmat *A, dvector *x, dvector *y);
 int dBDMultiplydvector(double alpha, dBDmat *A, dvector *x, dvector *y);
 int getdiag(int n, dCSRmat *A, dvector *diag);
 
+void Axy_ddenmat(double alpha, ddenmat *A, double *x, double *y);
+void Atxy_ddenmat(double alpha, ddenmat *A, double *x, double *y);
+void AB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C);
+void ABt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C);
+void AtB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C);
+void ABAt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C);
+
+
 void compress_dcsr(dCSRmat *A, dCSRmat *B, double EPS);
 
 int inverse_dBDmat(dBDmat *A, dBDmat *Ainv);

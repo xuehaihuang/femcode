@@ -18,7 +18,6 @@
 
 #include <stdio.h>
 #include <string.h>
-
 #include "header.h"
 #include "matvec.h"
 
@@ -32,7 +31,7 @@
 int read_Input_data(char *filenm, Input_data *Input)
 {
 	int val;
-	int ibuff; double dbuff;
+	int ibuff; double dbuff; short sibuff;
 	char buffer[500];
 	FILE *fp;
 	int ret = 1;
@@ -83,6 +82,7 @@ int read_Input_data(char *filenm, Input_data *Input)
 	Input->variationalform_type = 1;
 	Input->stress_fem_type = 1;
 	Input->fem_num = 1;
+	Input->nitsche = 0;
 	
 	// use default input parameters
 	if(filenm==NULL) return(0);
@@ -595,6 +595,18 @@ int read_Input_data(char *filenm, Input_data *Input)
 			val = fscanf(fp, "%d", &ibuff);
 			if (val != 1) { ret = 0; break; }
 			Input->fem_num = ibuff;
+			fgets(buffer, 500, fp); // skip rest of line
+		}
+
+		else if (strcmp(buffer, "nitsche") == 0)
+		{
+			val = fscanf(fp, "%s", buffer);
+			if (val != 1 || strcmp(buffer, "=") != 0) {
+				ret = 0; break;
+			}
+			val = fscanf(fp, "%hd", &sibuff);
+			if (val != 1) { ret = 0; break; }
+			Input->nitsche = sibuff;
 			fgets(buffer, 500, fp); // skip rest of line
 		}
 

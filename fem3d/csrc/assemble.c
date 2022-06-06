@@ -951,6 +951,54 @@ void getElementDOF_HuangGradcurl3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, i
 }
 
 /**
+* \fn void getElementDOF_HuangZhang3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges)
+* \brief get the degrees of freedom of the Huang-Zhang element in three dimensions for grad-curl
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elements pointer to triangulation: the first 4 columns store the indexes of vertices
+* \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+* \param *faces pointer to faces: the first three columns store the three vertices, the fourth and fifth columns store the affiliated elements
+								  the fifth column stores -1 if the face is on boundary
+* \param *elementEdge pointer to relation between tetrahedrons and edges: each row stores 6 edges index
+* \param *edges pointer to edges: store the two vertice
+* \param nvertices number of vertices
+* \param dop degree of polynomial
+*/
+void getElementDOF_HuangZhang3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges)
+{
+	int i, j, k, ii[3];
+	int nt = elements->row;
+	int nf = faces->row;
+	int ne = edges->row;
+//	int nn = nvertices;
+	int *perm;
+
+	create_elementDOF(5, ne*2 + nf*5, nt, 32, elementDOF);
+
+	int edge, face;
+	for (k = 0; k<nt; k++)
+	{
+		for (j = 0; j<6; j++)
+		{
+			edge = elementEdge->val[k][j];
+			perm = elements->eperm[k][j];
+
+			for(ii[0]=0;ii[0]<2;ii[0]++)
+			{
+				ii[1]=1-ii[0];
+				elementDOF->val[k][2*j+ ii[0]] = edge*2 + ii[perm[0]];
+			}
+		}
+
+		for (j = 0; j<4; j++)
+		{
+			face = elementFace->val[k][j];
+			for (i = 0; i<5; i++)
+				elementDOF->val[k][12 + 5 * j + i] = ne*2 + face*5 + i;
+		}
+	} // k
+}
+
+/**
  * \fn void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
  * \brief assemble mass matrix (u, v)
  * \param *A pointer to mass matrix
@@ -977,7 +1025,7 @@ void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 	// int nfaces=faces->row;
 	int element, face, edge, node;
 	
-	double phi, phi1[3], phi2[3];
+	double phi, phi1[3], phi2[3], val1;
 	int k1,k2,i1,j1,l1,l2,i2,ej;
 	double x[3];
 	double vol;
@@ -1082,12 +1130,14 @@ void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 		{
 			for (k2 = 0; k2<elementDOF->col; k2++)
 			{
+				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
 					lagrange3d_basis(lambdas[i1], k1, elementDOF->dop, phi1);
 					lagrange3d_basis(lambdas[i1], k2, elementDOF->dop, phi2);
-					lA.val[k1][k2] += vol * weight[i1] * phi1[0] * phi2[0];
+					val1 += vol * weight[i1] * phi1[0] * phi2[0];
 				}
+				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 
@@ -1168,7 +1218,7 @@ void assembleBiGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFac
 	int nfaces=faces->row;
 	int element, face, edge, node;
 	
-	double phi, phi1[3], phi2[3];
+	double phi, phi1[3], phi2[3], val1;
 	int k1,k2,i1,j1,l1,l2,i2,ej;
 	double x[3], **gradLambda, **nv, *nvf[4], *etv[6], **vertices;
 	double vol, s[4], h[6];
@@ -1277,12 +1327,14 @@ void assembleBiGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFac
 		{
 			for (k2 = 0; k2<elementDOF->col; k2++)
 			{
+				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
 					lagrange3d_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
 					lagrange3d_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
-					lA.val[k1][k2] += vol * weight[i1] * dot_array(3, phi1, phi2);
+					val1 += vol * weight[i1] * dot_array(3, phi1, phi2);
 				}
+				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 		
@@ -1335,7 +1387,9 @@ void assembleRHSLagrange3d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDO
 	int num_qp;
 	double lambdas[100][4], weight[100];
 			
-	 /************************************************** right hand side b *****************************************************************/
+	dvector lb;
+	create_dvector(elementDOF->col, &lb);
+	/************************************************** right hand side b *****************************************************************/
 	create_dvector(elementDOF->dof, b);
 	num_qp = getNumQuadPoints_ShunnWilliams(9, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -1346,20 +1400,27 @@ void assembleRHSLagrange3d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDO
 		vertices = elements->vertices[k];
 		// end set parameters
 
-		for (k1 = 0; k1<elementDOF->col; k1++)
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOF->col; i++)
 		{
-			i = elementDOF->val[k][k1];
 			for (i1 = 0; i1<num_qp; i1++)
 			{
-				lagrange3d_basis(lambdas[i1], k1, elementDOF->dop, &phi);
+				lagrange3d_basis(lambdas[i1], i, elementDOF->dop, &phi);
 				axy_array(3, lambdas[i1][3], vertices[3], x);
 				for(j=0;j<3;j++)
 					axpy_array(3, lambdas[i1][j], vertices[j], x);
-					b->val[i] += vol*weight[i1] * f(x)*phi;
+					lb.val[i] += vol*weight[i1] * f(x)*phi;
 				// b->val[i] += vol*weight[i1] * poisson3d_f(x)*phi;
 			} // i1
-		} // k1 
+		} // k1
+
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			i = elementDOF->val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1
 	} // k
+	free_dvector(&lb);
 }
 
 /**
@@ -1690,7 +1751,7 @@ void assembleBiCurlNedelec1st3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 	int nfaces=faces->row;
 	int element, face, edge, node;
 	
-	double phi, phi1[3], phi2[3];
+	double phi, phi1[3], phi2[3], val1;
 	int k1,k2,i1,j1,l1,l2,i2,ej;
 	double x[3], **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
 	double vol, s[4], h[6];
@@ -1810,12 +1871,14 @@ void assembleBiCurlNedelec1st3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 		{
 			for (k2 = 0; k2<elementDOF[0].col; k2++)
 			{
+				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
 					nedelec1st3d_basisCurl(lambdas[i1], grd_lambda, eorien, fpermi, k1, elementDOF[0].dop, phi1);
 					nedelec1st3d_basisCurl(lambdas[i1], grd_lambda, eorien, fpermi, k2, elementDOF[0].dop, phi2);
-					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+					val1 += vol*weight[i1] * dot_array(3, phi1, phi2);
 				}
+				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 
@@ -1877,7 +1940,7 @@ void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 	int nfaces=faces->row;
 	int element, face, edge, node;
 	
-	double phi, phi1[3], phi2[3];
+	double phi, phi1[3], phi2[3], val1;
 	int k1,k2,i1,j1,l1,l2,i2,ej;
 	double x[3], **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
 	double vol, s[4], h[6];
@@ -2003,12 +2066,14 @@ void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 		{
 			for (k2 = 0; k2<elementDOF[0].col; k2++)
 			{
+				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
 					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
 					nedelec1st3d_basis(lambdas[i1], grd_lambda, eorien, fpermi, k2, elementDOF[0].dop, phi2);
-					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+					val1 += vol*weight[i1] * dot_array(3, phi1, phi2);
 				}
+				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 
@@ -2080,7 +2145,9 @@ void assembleRHSNedelec1st3d(dvector *b, ELEMENT *elements, idenmat *elementFace
 	int *index;
 	int istart;
 	
-	 /************************************************** right hand side b *****************************************************************/
+	dvector lb;
+	create_dvector(elementDOF[0].col, &lb);
+	/************************************************** right hand side b *****************************************************************/
 	create_dvector(elementDOF[0].dof, b);
 	num_qp = getNumQuadPoints_ShunnWilliams(9, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -2109,21 +2176,28 @@ void assembleRHSNedelec1st3d(dvector *b, ELEMENT *elements, idenmat *elementFace
 		}
 		// end set parameters
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
 			for (i1 = 0; i1<num_qp; i1++)
 			{
-				nedelec1st3d_basis(lambdas[i1], grd_lambda, eorien, fpermi, k1, elementDOF[0].dop, phi1);
+				nedelec1st3d_basis(lambdas[i1], grd_lambda, eorien, fpermi, i, elementDOF[0].dop, phi1);
 				axy_array(3, lambdas[i1][3], vertices[3], x);
 				for(j=0;j<3;j++)
 					axpy_array(3, lambdas[i1][j], vertices[j], x);
 				// maxwell3d_f(x, phi2);
 				f(x, phi2);
-				b->val[i] += vol*weight[i1] * dot_array(3, phi1, phi2);
+				lb.val[i] += vol*weight[i1] * dot_array(3, phi1, phi2);
 			} // i1
-		} // k1 
+		} // i
+
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			i = elementDOF[0].val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1
 	} // k
+	free_dvector(&lb);
 }
 
 /**
@@ -2158,7 +2232,7 @@ void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 	int nfaces=faces->row;
 	int element, face, edge, node;
 	
-	double phi, phi1[3], phi2[3];
+	double phi, phi1[3], phi2[3], val1;
 	int k1,k2,i1,j1,l1,l2,i2,ej;
 	double x[3], **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
 	double vol, s[4], h[6];
@@ -2279,12 +2353,14 @@ void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 		{
 			for (k2 = 0; k2<elementDOF[0].col; k2++)
 			{
+				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
 					nedelec2nd3d_basisCurl(lambdas[i1], grd_lambda, eperm, k1, elementDOF[0].dop, phi1);
 					nedelec2nd3d_basisCurl(lambdas[i1], grd_lambda, eperm, k2, elementDOF[0].dop, phi2);
-					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+					val1 += vol*weight[i1] * dot_array(3, phi1, phi2);
 				}
+				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 
@@ -2340,7 +2416,7 @@ void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 	int nfaces=faces->row;
 	int element, face, edge, node;
 	
-	double phi, phi1[3], phi2[3];
+	double phi, phi1[3], phi2[3], val1;
 	int k1,k2,i1,j1,l1,l2,i2,ej;
 	double x[3], **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
 	double vol, s[4], h[6];
@@ -2467,12 +2543,14 @@ void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 		{
 			for (k2 = 0; k2<elementDOF[0].col; k2++)
 			{
+				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
 					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
 					nedelec2nd3d_basis(lambdas[i1], grd_lambda, eperm, k2, elementDOF[0].dop, phi2);
-					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+					val1 += vol*weight[i1] * dot_array(3, phi1, phi2);
 				}
+				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 
@@ -2544,6 +2622,8 @@ void assembleRHSNedelec2nd3d(dvector *b, ELEMENT *elements, idenmat *elementFace
 	int *index;
 	int istart;
 	
+	dvector lb;
+	create_dvector(elementDOF[0].col, &lb);
 	 /************************************************** right hand side b *****************************************************************/
 	create_dvector(elementDOF[0].dof, b);
 	num_qp = getNumQuadPoints_ShunnWilliams(9, 3); // the number of numerical intergation points
@@ -2574,21 +2654,950 @@ void assembleRHSNedelec2nd3d(dvector *b, ELEMENT *elements, idenmat *elementFace
 		}
 		// end set parameters
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
 			for (i1 = 0; i1<num_qp; i1++)
 			{
-				nedelec2nd3d_basis(lambdas[i1], grd_lambda, eperm, k1, elementDOF[0].dop, phi1);
+				nedelec2nd3d_basis(lambdas[i1], grd_lambda, eperm, i, elementDOF[0].dop, phi1);
 				axy_array(3, lambdas[i1][3], vertices[3], x);
 				for(j=0;j<3;j++)
 					axpy_array(3, lambdas[i1][j], vertices[j], x);
 				// maxwell3d_f(x, phi2);
 				f(x, phi2);
-				b->val[i] += vol*weight[i1] * dot_array(3, phi1, phi2);
+				lb.val[i] += vol*weight[i1] * dot_array(3, phi1, phi2);
 			} // i1
 		} // k1 
+
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			i = elementDOF[0].val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1 
 	} // k
+	free_dvector(&lb);
+}
+
+/**
+ * \fn void assembleBiCurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+ * \brief assemble stiffness matrix 
+ * \param *A pointer to stiffness matrix
+ * \param *basisCoeffs pointer to coefficients of basis
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \param lambda Lame constant
+ * \param mu Lame constant or Poisson ratio of plate
+ * \return void
+ */
+void assembleBiCurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+{
+	/**	
+	Ax1 + B^Tx2 = b
+	Bx1 - Cx2   = 0
+	where x1: u_h, x2: lambda_h
+	**/
+	
+	int i,j,k,l;
+
+	int nvertices=nodes->row;
+	int nedges=edges->row;
+	int nfaces=faces->row;
+	int element, face, edge, node;
+	
+	double phi, phi1[3], phi2[3], val1;
+	int k1,k2,i1,j1,l1,l2,i2,ej;
+	double x[3], *xK, **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
+	double vol, s[4], h[6];
+	int rowstart[3], row31[3];
+	int count;
+	short *forien, *eorien;
+	int **fpermi;
+	double *lambdaConst;
+
+	int num_qp;
+	double lambdas[100][4], lambdas2[100][3], weight[100];
+	
+	int *index;
+	int istart;
+	
+	
+	/************************************************** stiffness matrix A *****************************************************************/
+	A->row = elementDOF[0].dof;
+	A->col = A->row;
+	A->IA=(int*)calloc(A->row+1, sizeof(int));
+	A->JA=NULL;
+	A->val=NULL;
+	
+	index=(int*)calloc(A->col, sizeof(int));
+	for(i=0;i<A->col;i++)
+		index[i]=-1;
+	// step 1A: Find first the structure IA of the stiffness matrix A
+	for(i=0;i<A->row;i++)
+	{
+		count=0;
+		istart=-2;
+		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
+		{
+			element = elementdofTran->JA[j];
+
+			for (k = 0; k<elementDOF[0].col; k++)
+			{
+				node = elementDOF[0].val[element][k];
+				if (index[node] == -1)
+				{
+					index[node] = istart;
+					istart = node;
+					count++;
+				}
+			}
+		}
+		A->IA[i+1]=count;
+
+		for(j=0;j<count;j++)
+		{
+			l=istart;
+			istart=index[l];
+			index[l]=-1;
+		}		
+	} // i
+	
+	for(i=0;i<A->row;i++)
+		A->IA[i+1]+=A->IA[i];
+	
+	A->nnz=A->IA[A->row];
+	
+	// step 2A: Find the structure JA of the stiffness matrix A
+	A->JA=(int*)calloc(A->nnz,sizeof(int));
+	for (i = 0; i<A->row; i++)
+	{
+		istart = -2;
+		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
+		{
+			element = elementdofTran->JA[j];
+
+			for (k = 0; k<elementDOF[0].col; k++)
+			{
+				node = elementDOF[0].val[element][k];
+				if (index[node] == -1)
+				{
+					index[node] = istart;
+					istart = node;
+				}
+			}
+		}
+
+		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
+		{
+			A->JA[j] = istart;
+			istart = index[istart];
+			index[A->JA[j]] = -1;
+		}
+	} // i
+	free(index);
+	
+	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA, lB; // local A: lA = C lB C^T
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lB);
+	// step 3A: Loop element by element and compute the actual entries storing them in A
+	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 3); // the number of numerical intergation points
+	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		vol = elements->vol[k];
+		grd_lambda = elements->gradLambda[k];
+		vertices = elements->vertices[k];
+		nv = elements->nvector[k];
+		forien = elements->forien[k];
+		eorien = elements->eorien[k];
+		fpermi = elements->fpermi[k];
+		lambdaConst = elements->lambdaConst[k];
+		for (i = 0; i < elementFace->col; i++)
+		{
+			face = elementFace->val[k][i];
+			nvf[i] = faces->nvector[face];
+		}
+		// end set parameters
+
+		init_dden_matrix(&lB, 0.0);
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				val1 = 0;
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					huangzhang03d_basisCurl(lambdas[i1], grd_lambda, k1, phi1);
+					huangzhang03d_basisCurl(lambdas[i1], grd_lambda, k2, phi2);
+					val1 += vol*weight[i1] * dot_array(3, phi1, phi2);
+				}
+				lB.val[k1][k2] += val1;
+			} // k2
+		} // k1
+
+		ddenmat lbC;
+		lbC.row=basisCoeffs->row; lbC.col=basisCoeffs->col; lbC.val=basisCoeffs->val[k];
+		ABAt_ddenmat(1.0, &lbC, &lB, &lA);
+
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			i = elementDOF[0].val[k][k1];
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				j = elementDOF[0].val[k][k2];
+				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
+				{
+					if (A->JA[j1] == j)
+					{
+						A->val[j1] += lA.val[k1][k2];
+						break;
+					}
+				} // j1
+			} // k2
+		} // k1
+	} // k
+	free_dden_matrix(&lA);
+	free_dden_matrix(&lB);
+}
+
+/**
+ * \fn void assembleBiGradcurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+ * \brief assemble stiffness matrix 
+ * \param *A pointer to stiffness matrix
+ * \param *BT pointer to stiffness matrix
+ * \param *C pointer to stiffness matrix
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \param lambda Lame constant
+ * \param mu Lame constant or Poisson ratio of plate
+ * \return void
+ */
+void assembleBiGradcurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+{
+	int i,j,k,l;
+
+	int nvertices=nodes->row;
+	int nedges=edges->row;
+	int nfaces=faces->row;
+	int element, face, edge, node;
+	
+	double phi, phi1[9], phi2[9], val1;
+	int k1,k2,i1,j1,l1,l2,i2,ej;
+	double x[3], *xK, **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
+	double vol, s[4], h[6];
+	int rowstart[3], row31[3];
+	int count;
+	short *forien, *eorien;
+	int **fpermi;
+	double *lambdaConst;
+
+	int num_qp;
+	double lambdas[100][4], lambdas2[100][3], weight[100];
+	
+	int *index;
+	int istart;
+	
+	
+	/************************************************** stiffness matrix A *****************************************************************/
+	A->row = elementDOF[0].dof;
+	A->col = A->row;
+	A->IA=(int*)calloc(A->row+1, sizeof(int));
+	A->JA=NULL;
+	A->val=NULL;
+	
+	index=(int*)calloc(A->col, sizeof(int));
+	for(i=0;i<A->col;i++)
+		index[i]=-1;
+	// step 1A: Find first the structure IA of the stiffness matrix A
+	for(i=0;i<A->row;i++)
+	{
+		count=0;
+		istart=-2;
+		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
+		{
+			element = elementdofTran->JA[j];
+
+			for (k = 0; k<elementDOF[0].col; k++)
+			{
+				node = elementDOF[0].val[element][k];
+				if (index[node] == -1)
+				{
+					index[node] = istart;
+					istart = node;
+					count++;
+				}
+			}
+		}
+		A->IA[i+1]=count;
+
+		for(j=0;j<count;j++)
+		{
+			l=istart;
+			istart=index[l];
+			index[l]=-1;
+		}		
+	} // i
+	
+	for(i=0;i<A->row;i++)
+		A->IA[i+1]+=A->IA[i];
+	
+	A->nnz=A->IA[A->row];
+	
+	// step 2A: Find the structure JA of the stiffness matrix A
+	A->JA=(int*)calloc(A->nnz,sizeof(int));
+	for (i = 0; i<A->row; i++)
+	{
+		istart = -2;
+		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
+		{
+			element = elementdofTran->JA[j];
+
+			for (k = 0; k<elementDOF[0].col; k++)
+			{
+				node = elementDOF[0].val[element][k];
+				if (index[node] == -1)
+				{
+					index[node] = istart;
+					istart = node;
+				}
+			}
+		}
+
+		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
+		{
+			A->JA[j] = istart;
+			istart = index[istart];
+			index[A->JA[j]] = -1;
+		}
+	} // i
+	free(index);
+	
+	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA, lB; // local A: lA = C lB C^T
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lB);
+	// step 3A: Loop element by element and compute the actual entries storing them in A
+	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-2), 3); // the number of numerical intergation points
+	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		vol = elements->vol[k];
+		grd_lambda = elements->gradLambda[k];
+		vertices = elements->vertices[k];
+		nv = elements->nvector[k];
+		forien = elements->forien[k];
+		eorien = elements->eorien[k];
+		fpermi = elements->fpermi[k];
+		lambdaConst = elements->lambdaConst[k];
+		for (i = 0; i < elementFace->col; i++)
+		{
+			face = elementFace->val[k][i];
+			nvf[i] = faces->nvector[face];
+		}
+		// end set parameters
+
+		init_dden_matrix(&lB, 0.0);
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{	
+				val1 = 0;
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					huangzhang03d_basisGradCurl(lambdas[i1], grd_lambda, k1, phi1);
+					huangzhang03d_basisGradCurl(lambdas[i1], grd_lambda, k2, phi2);
+					val1 += vol*weight[i1] * dot_array(9, phi1, phi2);
+				}
+				lB.val[k1][k2] += val1;
+			} // k2
+		} // k1
+
+		ddenmat lbC;
+		lbC.row=basisCoeffs->row; lbC.col=basisCoeffs->col; lbC.val=basisCoeffs->val[k];
+		ABAt_ddenmat(1.0, &lbC, &lB, &lA);
+
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			i = elementDOF[0].val[k][k1];
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				j = elementDOF[0].val[k][k2];
+				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
+				{
+					if (A->JA[j1] == j)
+					{
+						A->val[j1] += lA.val[k1][k2];
+						break;
+					}
+				} // j1
+			} // k2
+		} // k1
+	} // k	
+	free_dden_matrix(&lA);
+	free_dden_matrix(&lB);
+}
+
+/**
+ * \fn void assembleBiGradcurlperturbHuangZhang3d(dCSRmat *A, double paraeps, short nitsche, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+ * \brief assemble stiffness matrix 
+ * \param *A pointer to stiffness matrix
+ * \param *BT pointer to stiffness matrix
+ * \param *C pointer to stiffness matrix
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \param lambda Lame constant
+ * \param mu Lame constant or Poisson ratio of plate
+ * \return void
+ */
+void assembleBiGradcurlperturbHuangZhang3d(dCSRmat *A, double paraeps, short nitsche, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+{
+	int i,j,k,l;
+
+	int nvertices=nodes->row;
+	int nedges=edges->row;
+	int nfaces=faces->row;
+	int element, face, edge, node;
+	
+	double phi, phi0[9], phi1[9], phi2[9], val1;
+	int k1,k2,i1,j1,l1,l2,i2,ej;
+	double x[3], *xK, **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
+	double vol, s, h[6], C11;
+	int fi[3], rowstart[3], row31[3];
+	int count;
+	short *forien, *eorien;
+	int **fpermi;
+	double *lambdaConst;
+
+	int num_qp, num_qp1, num_qp2;
+	double lambdasT[4]; 
+	double lambdas[100][4], weight[100];
+	double lambdas1[100][4], weight1[100];
+	double lambdas2[100][3], weight2[100];
+	
+	int *index;
+	int istart;
+	
+	
+	/************************************************** stiffness matrix A *****************************************************************/
+	A->row = elementDOF[0].dof;
+	A->col = A->row;
+	A->IA=(int*)calloc(A->row+1, sizeof(int));
+	A->JA=NULL;
+	A->val=NULL;
+	
+	index=(int*)calloc(A->col, sizeof(int));
+	for(i=0;i<A->col;i++)
+		index[i]=-1;
+	// step 1A: Find first the structure IA of the stiffness matrix A
+	for(i=0;i<A->row;i++)
+	{
+		count=0;
+		istart=-2;
+		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
+		{
+			element = elementdofTran->JA[j];
+
+			for (k = 0; k<elementDOF[0].col; k++)
+			{
+				node = elementDOF[0].val[element][k];
+				if (index[node] == -1)
+				{
+					index[node] = istart;
+					istart = node;
+					count++;
+				}
+			}
+		}
+		A->IA[i+1]=count;
+
+		for(j=0;j<count;j++)
+		{
+			l=istart;
+			istart=index[l];
+			index[l]=-1;
+		}		
+	} // i
+	
+	for(i=0;i<A->row;i++)
+		A->IA[i+1]+=A->IA[i];
+	
+	A->nnz=A->IA[A->row];
+	
+	// step 2A: Find the structure JA of the stiffness matrix A
+	A->JA=(int*)calloc(A->nnz,sizeof(int));
+	for (i = 0; i<A->row; i++)
+	{
+		istart = -2;
+		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
+		{
+			element = elementdofTran->JA[j];
+
+			for (k = 0; k<elementDOF[0].col; k++)
+			{
+				node = elementDOF[0].val[element][k];
+				if (index[node] == -1)
+				{
+					index[node] = istart;
+					istart = node;
+				}
+			}
+		}
+
+		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
+		{
+			A->JA[j] = istart;
+			istart = index[istart];
+			index[A->JA[j]] = -1;
+		}
+	} // i
+	free(index);
+	
+	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA, lB; // local A: lA = C lB C^T
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lB);
+	// step 3A: Loop element by element and compute the actual entries storing them in A
+	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-2), 3); // the number of numerical intergation points
+	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
+	num_qp1 = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 3); // the number of numerical intergation points
+	init_ShunnWilliams3d(num_qp1, lambdas1, weight1); // Shunn-Williams intergation initial
+	num_qp2=getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 2); // the number of numerical intergation points
+	init_ShunnWilliams2d(num_qp2, lambdas2, weight2); // Shunn-Williams intergation initial
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		vol = elements->vol[k];
+		grd_lambda = elements->gradLambda[k];
+		vertices = elements->vertices[k];
+		nv = elements->nvector[k];
+		forien = elements->forien[k];
+		eorien = elements->eorien[k];
+		fpermi = elements->fpermi[k];
+		lambdaConst = elements->lambdaConst[k];
+		for (i = 0; i < elementFace->col; i++)
+		{
+			face = elementFace->val[k][i];
+			nvf[i] = faces->nvector[face];
+		}
+		// end set parameters
+
+		init_dden_matrix(&lB, 0.0);
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{	
+				val1 =0;
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					huangzhang03d_basisGradCurl(lambdas[i1], grd_lambda, k1, phi1);
+					huangzhang03d_basisGradCurl(lambdas[i1], grd_lambda, k2, phi2);
+					val1 += vol*weight[i1] * dot_array(9, phi1, phi2);
+				}
+				if(nitsche > 0){
+					for (i = 0; i < elementFace->col; i++){
+						face = elementFace->val[k][i];
+						s = faces->area[face];
+						C11 = 5.0 / sqrt(s);
+						if (faces->bdFlag[face] == 1 || faces->bdFlag[face] == 2 || faces->bdFlag[face] == 3 || faces->bdFlag[face] == 4){ // Dirichlet boundary
+							face2vertices3d(i, fi);
+							for (i1 = 0; i1<num_qp2; i1++){
+								lambdasT[i]=0;
+								for(j=0;j<3;j++) lambdasT[fi[j]] = lambdas2[i1][j];
+
+								huangzhang03d_basisGradCurl(lambdasT, grd_lambda, k1, phi1);
+								huangzhang03d_basisCurl(lambdasT, grd_lambda, k2, phi2);
+								for(j=0;j<3;j++) phi0[j] = dot_array(3, nv[i], phi1+j);
+								val1 -= s*weight2[i1] * dot_array(3, phi0, phi2);
+
+								huangzhang03d_basisCurl(lambdasT, grd_lambda, k1, phi1);
+								huangzhang03d_basisGradCurl(lambdasT, grd_lambda, k2, phi2);
+								for(j=0;j<3;j++) phi0[j] = dot_array(3, nv[i], phi2+j);
+								val1 -= s*weight2[i1] * dot_array(3, phi1, phi0);
+
+								huangzhang03d_basisCurl(lambdasT, grd_lambda, k1, phi1);
+								huangzhang03d_basisCurl(lambdasT, grd_lambda, k2, phi2);
+								val1 += s*weight2[i1] * C11 * dot_array(3, phi1, phi2);
+							}
+						}
+					}
+				}
+
+				lB.val[k1][k2] += val1*paraeps*paraeps;
+				val1 = 0;
+				for (i1 = 0; i1<num_qp1; i1++)
+				{
+					huangzhang03d_basisCurl(lambdas1[i1], grd_lambda, k1, phi1);
+					huangzhang03d_basisCurl(lambdas1[i1], grd_lambda, k2, phi2);
+					val1 += vol*weight1[i1] * dot_array(3, phi1, phi2);
+				}
+				lB.val[k1][k2] += val1;
+			} // k2
+		} // k1
+
+		ddenmat lbC;
+		lbC.row=basisCoeffs->row; lbC.col=basisCoeffs->col; lbC.val=basisCoeffs->val[k];
+		ABAt_ddenmat(1.0, &lbC, &lB, &lA);
+
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			i = elementDOF[0].val[k][k1];
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				j = elementDOF[0].val[k][k2];
+				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
+				{
+					if (A->JA[j1] == j)
+					{
+						A->val[j1] += lA.val[k1][k2];
+						break;
+					}
+				} // j1
+			} // k2
+		} // k1
+	} // k	
+	free_dden_matrix(&lA);
+	free_dden_matrix(&lB);
+}
+
+/**
+ * \fn void assembleHuangZhangGradLagrange3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+ * \brief assemble stiffness matrix 
+ * \param *A pointer to stiffness matrix
+ * \param *basisCoeffs pointer to coefficients of basis
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \param lambda Lame constant
+ * \param mu Lame constant or Poisson ratio of plate
+ * \return void
+ */
+void assembleHuangZhangGradLagrange3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+{	
+	int i,j,k,l;
+
+	int nvertices=nodes->row;
+	int nedges=edges->row;
+	int nfaces=faces->row;
+	int element, face, edge, node;
+	
+	double phi, phi1[9], phi2[9], val1;
+	int k1,k2,i1,j1,l1,l2,i2,ej;
+	double x[3], *xK, **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
+	double vol, s[4], h[6];
+	int rowstart[3], row31[3];
+	int count;
+	short *forien, *eorien;
+	int **fpermi;
+	double *lambdaConst;
+
+	int num_qp;
+	double lambdas[100][4], weight[100];
+	
+	int *index;
+	int istart;
+	
+	/************************************************** stiffness matrix A *****************************************************************/
+	A->row = elementDOF[1].dof;
+	A->col = elementDOF[0].dof;
+	A->IA=(int*)calloc(A->row+1, sizeof(int));
+	A->JA=NULL;
+	A->val=NULL;
+	
+	index=(int*)calloc(A->col, sizeof(int));
+	for(i=0;i<A->col;i++)
+		index[i]=-1;
+	// step 1A: Find first the structure IA of the stiffness matrix A
+	for(i=0;i<A->row;i++)
+	{
+		count=0;
+		istart=-2;
+		for(j=elementdofTran[1].IA[i];j<elementdofTran[1].IA[i+1];j++)
+		{
+			element = elementdofTran[1].JA[j];
+
+			for (k = 0; k<elementDOF[0].col; k++)
+			{
+				node = elementDOF[0].val[element][k];
+				if (index[node] == -1)
+				{
+					index[node] = istart;
+					istart = node;
+					count++;
+				}
+			}
+		}
+		A->IA[i+1]=count;
+
+		for(j=0;j<count;j++)
+		{
+			l=istart;
+			istart=index[l];
+			index[l]=-1;
+		}		
+	} // i
+	
+	for(i=0;i<A->row;i++)
+		A->IA[i+1]+=A->IA[i];
+	
+	A->nnz=A->IA[A->row];
+	
+	// step 2A: Find the structure JA of the stiffness matrix A
+	A->JA=(int*)calloc(A->nnz,sizeof(int));
+	for (i = 0; i<A->row; i++)
+	{
+		istart = -2;
+		for (j = elementdofTran[1].IA[i]; j<elementdofTran[1].IA[i + 1]; j++)
+		{
+			element = elementdofTran[1].JA[j];
+
+			for (k = 0; k<elementDOF[0].col; k++)
+			{
+				node = elementDOF[0].val[element][k];
+				if (index[node] == -1)
+				{
+					index[node] = istart;
+					istart = node;
+				}
+			}
+		}
+
+		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
+		{
+			A->JA[j] = istart;
+			istart = index[istart];
+			index[A->JA[j]] = -1;
+		}
+	} // i
+	free(index);
+	
+	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA, lB; // local A: lA = lB C^T
+	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lA);
+	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lB);
+	// step 3A: Loop element by element and compute the actual entries storing them in A
+	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 3); // the number of numerical intergation points
+	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		vol = elements->vol[k];
+		xK = elements->barycenter[k];
+		grd_lambda = elements->gradLambda[k];
+		vertices = elements->vertices[k];
+		nv = elements->nvector[k];
+		forien = elements->forien[k];
+		eorien = elements->eorien[k];
+		fpermi = elements->fpermi[k];
+		lambdaConst = elements->lambdaConst[k];
+		for (i = 0; i < elementFace->col; i++)
+		{
+			face = elementFace->val[k][i];
+			nvf[i] = faces->nvector[face];
+			s[i] = faces->area[face];
+		}
+		for (i = 0; i<6; i++)
+		{
+			edge = elementEdge->val[k][i];
+			etv[i] = edges->tvector[edge];
+			h[i] = edges->length[edge];
+		}
+		// end set parameters
+
+		init_dden_matrix(&lB, 0.0);
+		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				val1 = 0;
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
+					huangzhang03d_basis(lambdas[i1], grd_lambda, k2, phi2);
+					val1 += vol*weight[i1] * dot_array(3, phi1, phi2);
+				}
+				lB.val[k1][k2] += val1;
+			} // k2
+		} // k1
+
+		ddenmat lbC;
+		lbC.row=basisCoeffs->row; lbC.col=basisCoeffs->col; lbC.val=basisCoeffs->val[k];
+		ABt_ddenmat(1.0, &lB, &lbC, &lA);
+
+		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		{
+			i = elementDOF[1].val[k][k1];
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			{
+				j = elementDOF[0].val[k][k2];
+				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
+				{
+					if (A->JA[j1] == j)
+					{
+						A->val[j1] += lA.val[k1][k2];
+						break;
+					}
+				} // j1
+			} // k2
+		} // k1
+	} // k
+	free_dden_matrix(&lA);
+	free_dden_matrix(&lB);	
+}
+
+/**
+ * \fn void assembleRHSHuangZhang3d(dvector *b, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, void (*f)(double *, double *))
+ * \brief assemble stiffness matrix 
+ * \param *A pointer to stiffness matrix
+ * \param *BT pointer to stiffness matrix
+ * \param *C pointer to stiffness matrix
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \param lambda Lame constant
+ * \param mu Lame constant or Poisson ratio of plate
+ * \return void
+ */
+void assembleRHSHuangZhang3d(dvector *b, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, void (*f)(double *, double *))
+{
+	/**	
+	Ax1 + B^Tx2 = b
+	Bx1 - Cx2   = 0
+	where x1: u_h, x2: lambda_h
+	**/
+	
+	int i,j,k,l;
+
+	int nvertices=nodes->row;
+	int nedges=edges->row;
+	int nfaces=faces->row;
+	int element, face, edge, node;
+	
+	double phi, phi1[9], phi2[9];
+	int k1,k2,i1,j1,l1,l2,i2,ej;
+	double x[3], *xK, **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
+	double vol, s[4], h[6];
+	int rowstart[3], row31[3];
+	int count;
+	short *forien, *eorien;
+	int **fpermi;
+	double *lambdaConst;
+
+	int num_qp;
+	double lambdas[100][4], lambdas2[100][3], weight[100];
+	
+	int *index;
+	int istart;
+
+	dvector la, lb;
+	create_dvector(elementDOF[0].col, &la);
+	create_dvector(elementDOF[0].col, &lb);
+	/************************************************** right hand side b *****************************************************************/
+	create_dvector(elementDOF[0].dof, b);
+	num_qp = getNumQuadPoints_ShunnWilliams(9, 3); // the number of numerical intergation points
+	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		vol = elements->vol[k];
+		xK = elements->barycenter[k];
+		grd_lambda = elements->gradLambda[k];
+		vertices = elements->vertices[k];
+		nv = elements->nvector[k];
+		forien = elements->forien[k];
+		eorien = elements->eorien[k];
+		fpermi = elements->fpermi[k];
+		lambdaConst = elements->lambdaConst[k];
+		for (i = 0; i < elementFace->col; i++)
+		{
+			face = elementFace->val[k][i];
+			nvf[i] = faces->nvector[face];
+			s[i] = faces->area[face];
+		}
+		for (i = 0; i<6; i++)
+		{
+			edge = elementEdge->val[k][i];
+			etv[i] = edges->tvector[edge];
+			h[i] = edges->length[edge];
+		}
+		// end set parameters
+
+		init_dvector(&la, 0.0);
+		for (i = 0; i<elementDOF[0].col; i++){	
+			for (i1 = 0; i1<num_qp; i1++){
+				axy_array(3, lambdas[i1][3], vertices[3], x);
+				for(j=0;j<3;j++)
+					axpy_array(3, lambdas[i1][j], vertices[j], x);
+				huangzhang03d_basis(lambdas[i1], grd_lambda, i, phi1);
+				f(x, phi2);
+				la.val[i] += vol*weight[i1] * dot_array(3, phi1, phi2);
+			} // i1
+		} // i
+
+		ddenmat lbC;
+		lbC.row=basisCoeffs->row; lbC.col=basisCoeffs->col; lbC.val=basisCoeffs->val[k];
+		Axy_ddenmat(1.0, &lbC, la.val, lb.val);
+
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			i = elementDOF[0].val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1 
+	} // k
+	free_dvector(&la);
+	free_dvector(&lb);
 }
 
 /**
@@ -2626,7 +3635,7 @@ void assembleBiCurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, 
 	int nfaces=faces->row;
 	int element, face, edge, node;
 	
-	double phi, phi1[3], phi2[3];
+	double phi, phi1[3], phi2[3], val1;
 	int k1,k2,i1,j1,l1,l2,i2,ej;
 	double x[3], *xK, **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
 	double vol, s[4], h[6];
@@ -2745,13 +3754,15 @@ void assembleBiCurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, 
 		for (k1 = 0; k1<elementDOF[0].col; k1++)
 		{
 			for (k2 = 0; k2<elementDOF[0].col; k2++)
-			{
+			{	
+				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
 					huangQuadcurl3d_basisCurl(lambdas[i1], grd_lambda, nvf, eorien, fpermi, k1, phi1);
 					huangQuadcurl3d_basisCurl(lambdas[i1], grd_lambda, nvf, eorien, fpermi, k2, phi2);
-					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+					val1 += vol*weight[i1] * dot_array(3, phi1, phi2);
 				}
+				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 
@@ -2807,7 +3818,7 @@ void assembleBiGradcurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFa
 	int nfaces=faces->row;
 	int element, face, edge, node;
 	
-	double phi, phi1[9], phi2[9];
+	double phi, phi1[9], phi2[9], val1;
 	int k1,k2,i1,j1,l1,l2,i2,ej;
 	double x[3], *xK, **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
 	double vol, s[4], h[6];
@@ -2927,12 +3938,14 @@ void assembleBiGradcurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFa
 		{
 			for (k2 = 0; k2<elementDOF[0].col; k2++)
 			{
+				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
 					huangQuadcurl3d_basisGradCurl(grd_lambda, nvf, eorien, fpermi, k1, phi1);
 					huangQuadcurl3d_basisGradCurl(grd_lambda, nvf, eorien, fpermi, k2, phi2);
-					lA.val[k1][k2] += vol*weight[i1] * dot_array(9, phi1, phi2);
+					val1 += vol*weight[i1] * dot_array(9, phi1, phi2);
 				}
+				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 
@@ -2988,7 +4001,7 @@ void assembleHuangGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *element
 	int nfaces=faces->row;
 	int element, face, edge, node;
 	
-	double phi, phi1[9], phi2[9];
+	double phi, phi1[9], phi2[9], val1;
 	int k1,k2,i1,j1,l1,l2,i2,ej;
 	double x[3], *xK, **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
 	double vol, s[4], h[6];
@@ -3115,6 +4128,7 @@ void assembleHuangGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *element
 		{
 			for (k2 = 0; k2<elementDOF[0].col; k2++)
 			{
+				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
 					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
@@ -3122,8 +4136,9 @@ void assembleHuangGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *element
 					for(i2=0;i2<3;i2++)
 						axpy_array(3, lambdas[i1][i2], vertices[i2], x);
 					huangQuadcurl3d_basis(x, xK, lambdas[i1], grd_lambda, vertices, nvf, eorien, fpermi, k2, phi2);
-					lA.val[k1][k2] += vol*weight[i1] * dot_array(3, phi1, phi2);
+					val1 += vol*weight[i1] * dot_array(3, phi1, phi2);
 				}
+				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 
@@ -3201,6 +4216,8 @@ void assembleRHSHuang3d(dvector *b, ELEMENT *elements, idenmat *elementFace, FAC
 	int *index;
 	int istart;
 	
+	dvector lb;
+	create_dvector(elementDOF[0].col, &lb);
 	/************************************************** right hand side b *****************************************************************/
 	create_dvector(elementDOF[0].dof, b);
 	num_qp = getNumQuadPoints_ShunnWilliams(9, 3); // the number of numerical intergation points
@@ -3231,21 +4248,28 @@ void assembleRHSHuang3d(dvector *b, ELEMENT *elements, idenmat *elementFace, FAC
 		}
 		// end set parameters
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
 			for (i1 = 0; i1<num_qp; i1++)
 			{
 				axy_array(3, lambdas[i1][3], vertices[3], x);
 				for(j=0;j<3;j++)
 					axpy_array(3, lambdas[i1][j], vertices[j], x);
-				huangQuadcurl3d_basis(x, xK, lambdas[i1], grd_lambda, vertices, nvf, eorien, fpermi, k1, phi1);
+				huangQuadcurl3d_basis(x, xK, lambdas[i1], grd_lambda, vertices, nvf, eorien, fpermi, i, phi1);
 				// quadcurl3d_f(x, phi2);
 				f(x, phi2);
-				b->val[i] += vol*weight[i1] * dot_array(3, phi1, phi2);
+				lb.val[i] += vol*weight[i1] * dot_array(3, phi1, phi2);
 			} // i1
+		} // k1
+
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			i = elementDOF[0].val[k][k1];
+			b->val[i] += lb.val[k1];
 		} // k1 
 	} // k
+	free_dvector(&lb);
 }
 
 /**
@@ -4418,6 +5442,98 @@ void getFreenodesInfoHuangGradcurl3d(FACE *faces, EDGE *edges, dennode *nodes, i
 				for (i = 0; i < 2; i++)
 					nfFlag->val[ne + j*2 + i] = 1;
 				nnf += 2;
+			}
+		}
+	}
+
+
+	create_ivector(nnf, nfreenodes);
+	create_ivector(dof - nnf, freenodes);
+
+	j = 0; k = 0;
+	for (i = 0; i<dof; i++)
+	{
+		if (nfFlag->val[i] == 1) //  non-free node
+		{
+			nfreenodes->val[k] = i;
+			index->val[i] = k;
+			k++;
+		}
+		else // free variable
+		{
+			freenodes->val[j] = i;
+			index->val[i] = j;
+			j++;
+		}
+	}
+}
+
+/**
+* \fn void getFreenodesInfoHuangZhang3d(FACE *faces, EDGE *edges, dennode *nodes, int type, ELEMENT_DOF *elementDOF)
+* \brief get freenodes information of the Huang-Zhang element in three dimensions for grad-curl
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to nodes: the first column stores the x coordinate of points, the second column stores the y coordinate of points
+* \param type the type of boundary condition: 0: free, 1: clamped, 2: simply supported
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void getFreenodesInfoHuangZhang3d(FACE *faces, EDGE *edges, dennode *nodes, int type, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k, nnf;
+
+	int nn = nodes->row;
+	int nf = faces->row;
+	int ne = edges->row;
+	int dof = elementDOF->dof;
+	int dop = elementDOF->dop;
+
+	if(type<0)
+		type = 0;
+	if(type>2)
+		type = 2;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	create_ivector(dof, nfFlag);
+	create_ivector(dof, index);
+
+	nnf = 0; // number of non-free nodes
+	if(type>0) // simply supported
+	{
+		for (j = 0; j<ne; j++)
+		{
+			if (edges->bdFlag[j] == 1 || edges->bdFlag[j] == 2 || edges->bdFlag[j] == 3 || edges->bdFlag[j] == 4) // Dirichlet boundary
+			{
+				nfFlag->val[j*2] = 1;
+				nfFlag->val[j*2+1] = 1;
+				nnf += 2;
+			}
+		}
+
+		for (j = 0; j<nf; j++)
+		{
+			if (faces->bdFlag[j] == 1 || faces->bdFlag[j] == 2 || faces->bdFlag[j] == 3 || faces->bdFlag[j] == 4) // Dirichlet boundary
+			{
+				for (i = 0; i < 2; i++)
+					nfFlag->val[ne*2 + j*5 + i] = 1;
+				nnf += 2;
+			}
+		}
+	}
+	
+	if(type==1) // clamped
+	{
+		for (j = 0; j<nf; j++)
+		{
+			if (faces->bdFlag[j] == 1 || faces->bdFlag[j] == 2 || faces->bdFlag[j] == 3 || faces->bdFlag[j] == 4) // Dirichlet boundary
+			{
+				for (i = 2; i < 5; i++)
+					nfFlag->val[ne*2 + j*5 + i] = 1;
+				nnf += 3;
 			}
 		}
 	}

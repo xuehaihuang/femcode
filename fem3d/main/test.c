@@ -64,12 +64,6 @@ int main (int argc, const char * argv[])
 	
 	getElementFaceEdgeGeoInfo(&elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1]);
 
-	/***************************Generate coefficient of basis functions**************************/
-	ddenmat3 basisCoeffs;
-	create_dden_matrix3(elements[glevelNum - 1].row, 32, 32, &basisCoeffs);
-	getHuangZhangBasisCoeffs(&basisCoeffs, &elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1]);
-	free_dden_matrix3(&basisCoeffs);///////////
-	/********************************************************************************************/
 	
 	// int j,k;
 	// double *val1, *val2; 
@@ -98,6 +92,10 @@ int main (int argc, const char * argv[])
 	else if(problem_num == 3) // Quad-curl equation
 	{
 		quadcurlfem(&elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
+	}
+	else if(problem_num == 4) // Quad-curl perturbation equation
+	{
+		quadcurlperturbfem(&elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
 	}
 	else
 	{

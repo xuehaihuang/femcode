@@ -1456,7 +1456,6 @@ int dBDMultiplydvector(double alpha, dBDmat *A, dvector *x, dvector *y)
 	return 1;
 }
 
-
 /**
  * \fn int getdiag(int n, dCSRmat *A, dvector *diag)
  * \brief Get first n diagonal entries of a CSR matrix A
@@ -1480,6 +1479,149 @@ int getdiag(int n, dCSRmat *A, dvector *diag)
 	}
 
 	return ret;
+}
+
+/**
+ * \fn void Axy_ddenmat(double alpha, ddenmat *A, double *x, double *y)
+ * \brief Matrix-vector multiplication y = alpha*A*x
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ */
+void Axy_ddenmat(double alpha, ddenmat *A, double *x, double *y)
+{
+	int i,j;	
+	double temp;
+	
+	for(i=0;i<A->row;i++) {
+		temp=0.0;
+		for(j=0;j<A->col;j++)
+			temp += A->val[i][j]*x[j];
+		y[i] = temp*alpha;
+	}
+}
+
+/**
+ * \fn void Atxy_ddenmat(double alpha, ddenmat *A, double *x, double *y)
+ * \brief Matrix-vector multiplication y = alpha*A^T*x
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ */
+void Atxy_ddenmat(double alpha, ddenmat *A, double *x, double *y)
+{
+	int i,j;	
+	double temp;
+	
+	for(i=0;i<A->col;i++) {
+		temp=0.0;
+		for(j=0;j<A->row;j++)
+			temp += A->val[j][i]*x[j];
+		y[i] = temp*alpha;
+	}
+}
+
+/**
+ * \fn void AB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+ * \brief Matrix-vector multiplication C = alpha*A*B
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ */
+void AB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+{
+	int i,j,k;	
+	double temp;
+	if(A->col!=B->row) {
+		printf("AB_ddenmat: A->col!=B->row\n");
+		exit(1);
+	}
+	
+	for(i=0;i<C->row;i++) {
+		for(j=0;j<C->col;j++) {
+			temp=0.0;
+			for(k=0;k<A->col;k++)
+				temp += A->val[i][k]*B->val[k][j];
+			C->val[i][j] = temp*alpha;
+		}
+	}
+}
+
+/**
+ * \fn void ABt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+ * \brief Matrix-vector multiplication C = alpha*A*B^T
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ */
+void ABt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+{
+	int i,j,k;	
+	double temp;
+	if(A->col!=B->col) {
+		printf("ABt_ddenmat: A->col!=B->col\n");
+		exit(1);
+	}
+	
+	for(i=0;i<C->row;i++) {
+		for(j=0;j<C->col;j++) {
+			temp=0.0;
+			for(k=0;k<A->col;k++)
+				temp += A->val[i][k]*B->val[j][k];
+			C->val[i][j] = temp*alpha;
+		}
+	}
+}
+
+/**
+ * \fn void AtB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+ * \brief Matrix-vector multiplication C = alpha*A^T*B
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ */
+void AtB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+{
+	int i,j,k;	
+	double temp;
+	if(A->row!=B->row) {
+		printf("AtB_ddenmat: A->row!=B->row\n");
+		exit(1);
+	}
+	
+	for(i=0;i<C->row;i++) {
+		for(j=0;j<C->col;j++) {
+			temp=0.0;
+			for(k=0;k<A->row;k++)
+				temp += A->val[k][i]*B->val[k][j];
+			C->val[i][j] = temp*alpha;
+		}
+	}
+}
+
+/**
+ * \fn void ABAt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C) 
+ * \brief Matrix-vector multiplication C = alpha*A*B*A^T
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ * \return 1 if succeed
+ */
+void ABAt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+{
+	int i,j,l,k;	
+	double temp;
+	ddenmat AB;
+	create_dden_matrix(A->row, B->col, &AB);
+	AB_ddenmat(alpha, A, B, &AB);
+	ABt_ddenmat(1.0, &AB, A, C);
+	free_dden_matrix(&AB);
 }
 
 /**

@@ -41,6 +41,7 @@ void getHuangZhangBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat 
 
 	create_dden_matrix(32, 32, &A);
 	create_dden_matrix(32, 32, &B);
+	
 	for(k=0;k<elements->row;k++)
 	{
 		eorien = elements->eorien[k];
@@ -55,7 +56,7 @@ void getHuangZhangBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat 
 				axy_array(3, -1.0, gradCross[i][j], gradCross[j][i]);
 			}
 		}
-
+		
 		init_dden_matrix(&A, 0.0);
 		// edge e01
 		A.val[0][0] = 1.0/3.0 * eorien[0]; A.val[0][1] = 1.0/6.0 * eorien[0];
@@ -498,7 +499,7 @@ void getHuangZhangBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat 
 			fclose(outputFile);			
 		}
 		********************************************************************************************/
-
+		
 		AxBrref(&A, &B);
 		C=basisCoeffs->val[k];
 		for(i=0;i<basisCoeffs->row;i++)

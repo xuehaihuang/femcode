@@ -2683,12 +2683,8 @@ void nedelec1st3d_basisCurl(double *lambda, double **grd_lambda, short *eorien, 
 			idx = index / dop;
 			edge2vv3d(idx, ei);
 			ii = index%dop; // ii=0 or 1 if dop=2
-			axpbyz_array(3, lambda[ei[ii]], grd_lambda[ei[0]], lambda[ei[0]], grd_lambda[ei[ii]], val0);
-			cross_array(val0, grd_lambda[ei[1]], val1);
-			axpbyz_array(3, lambda[ei[ii]], grd_lambda[ei[1]], lambda[ei[1]], grd_lambda[ei[ii]], val0);
-			cross_array(val0, grd_lambda[ei[0]], val2);
-			axpbyz_array(3, 1.0, val1, -1.0, val2, phi);
-			ax_array(3, eorien[idx], phi);
+			cross_array(grd_lambda[ei[0]], grd_lambda[ei[1]], phi);
+			ax_array(3, 3*lambda[ei[ii]]*eorien[idx], phi);
 		}
 		else if (index < 20)
 		{
@@ -2700,20 +2696,19 @@ void nedelec1st3d_basisCurl(double *lambda, double **grd_lambda, short *eorien, 
 			ii = index % 2; // ii=0 or 1 if dop=2
 			if (ii == 0)
 			{
-				axpbyz_array(3, lambda[fi[2]], grd_lambda[fi[0]], lambda[fi[0]], grd_lambda[fi[2]], val0);
-				cross_array(val0, grd_lambda[fi[1]], val1);
-				axpbyz_array(3, lambda[fi[2]], grd_lambda[fi[1]], lambda[fi[1]], grd_lambda[fi[2]], val0);
-				cross_array(val0, grd_lambda[fi[0]], val2);
-				axpbyz_array(3, 1.0, val1, -1.0, val2, phi);
+				cross_array(grd_lambda[fi[2]], grd_lambda[fi[1]], val0);
+				cross_array(grd_lambda[fi[0]], grd_lambda[fi[2]], val1);
+				cross_array(grd_lambda[fi[0]], grd_lambda[fi[1]], val2);
+				axpbyz_array(3, lambda[fi[0]], val0, lambda[fi[1]], val1, phi);
+				axpy_array(3, 2*lambda[fi[2]], val2, phi);
 			}
 			else
 			{
-				axpbyz_array(3, lambda[fi[1]], grd_lambda[fi[0]], lambda[fi[0]], grd_lambda[fi[1]], val0);
-				cross_array(val0, grd_lambda[fi[2]], val1);
-				axpbyz_array(3, lambda[fi[1]], grd_lambda[fi[2]], lambda[fi[2]], grd_lambda[fi[1]], val0);
-				cross_array(val0, grd_lambda[fi[0]], val2);
-				axpbyz_array(3, 1.0, val1, -1.0, val2, phi);
-				
+				cross_array(grd_lambda[fi[1]], grd_lambda[fi[2]], val0);
+				cross_array(grd_lambda[fi[0]], grd_lambda[fi[1]], val2);
+				cross_array(grd_lambda[fi[0]], grd_lambda[fi[2]], val1);
+				axpbyz_array(3, lambda[fi[0]], val0, lambda[fi[2]], val2, phi);
+				axpy_array(3, 2*lambda[fi[1]], val1, phi);	
 			}
 		}
 	}
@@ -3350,6 +3345,245 @@ void huangQuadcurl3d_basisGradCurl(double **grd_lambda, double *nvf[4], short *e
 		fi[0] = vi[permi[0]]; fi[1] = vi[permi[1]]; fi[2] = vi[permi[2]];
 		ii = index % 2; // ii=0 or 1
 		huangQuadcurl3d_facebasisGradCurl(grd_lambda, nvf, idx, fi[ii], phi);
+	}
+}
+
+/**
+* \fn void huangzhang03d_basis(double *lambda, double **grd_lambda, int index, double phi[3])
+* \brief basis function of Huang-Zhang element in three dimensions, but not dual to DoFs
+* \param *lambda pointer to the area coordiante
+* \param **grd_lambda pointer to the gradient of the volume coordiante lambda
+* \param index the indicator of the basis function
+* \param *phi basis function
+* \return void
+*/
+void huangzhang03d_basis(double *lambda, double **grd_lambda, int index, double phi[3])
+{
+	int fi[3], ei[2], vi[3];
+	int i, j, ii, idx;
+	int dofs = 32; // degrees of freedom
+	int dop = 2;
+	double c1, c2;
+	
+	init_array(3, phi, 0);
+
+	if (index >= dofs || index<0)
+		return;
+
+	double val;
+	
+	if (index < 12) // dop * 6
+	{
+		idx = index / dop;
+		edge2vv3d(idx, ei);
+		ii = index % dop; // ii=0 or 1
+		c1 = lambda[ei[ii]] * lambda[ei[0]];
+		c2 = -lambda[ei[ii]] * lambda[ei[1]];
+		axpbyz_array(3, c1, grd_lambda[ei[1]], c2, grd_lambda[ei[0]], phi);
+	}
+	else if (index < 20)
+	{
+		index -= 12;
+		idx = index / 2;
+		face2vertices3d(idx, fi);
+		ii = index % 2; // ii=0 or 1
+		if (ii == 0)
+		{
+			c1 = lambda[fi[2]] * lambda[fi[0]];
+			c2 = -lambda[fi[2]] * lambda[fi[1]];
+			axpbyz_array(3, c1, grd_lambda[fi[1]], c2, grd_lambda[fi[0]], phi);
+		}
+		else
+		{
+			c1 = lambda[fi[1]] * lambda[fi[0]];
+			c2 = -lambda[fi[1]] * lambda[fi[2]];
+			axpbyz_array(3, c1, grd_lambda[fi[2]], c2, grd_lambda[fi[0]], phi);
+		}
+	}
+	else // 20 <= index < 32
+	{
+		index -= 20;
+		i = index / 4;
+		j = index % 4;
+		// b_K * lambda[j] * e_i
+		phi[i] = lambda[0]*lambda[1]*lambda[2]*lambda[3]*lambda[j];
+	}
+}
+
+/**
+* \fn void huangzhang03d_basisCurl(double *lambda, double **grd_lambda, int index, double phi[3])
+* \brief basis function of Huang-Zhang element in three dimensions
+* \param *lambda pointer to the area coordiante
+* \param **grd_lambda pointer to the gradient of the volume coordiante lambda
+* \param index the indicator of the basis function
+* \param *phi basis function
+* \return void
+*/
+void huangzhang03d_basisCurl(double *lambda, double **grd_lambda, int index, double phi[3])
+{
+	int fi[3], ei[2], vi[3], i0, i1, i2;
+	int i, j, ii, idx;
+	int dofs = 32; // degrees of freedom
+	int dop = 2;
+	double val0[3], val1[3], val2[3];
+	
+	init_array(3, phi, 0);
+
+	if (index >= dofs || index<0)
+		return;
+
+	if (index < 12)
+	{
+		idx = index / dop;
+		edge2vv3d(idx, ei);
+		ii = index % dop; // ii=0 or 1 if dop=2
+		cross_array(grd_lambda[ei[0]], grd_lambda[ei[1]], phi);
+		ax_array(3, 3*lambda[ei[ii]], phi); 
+	}
+	else if (index < 20)
+	{
+		index -= 12;
+		idx = index / 2;
+		face2vertices3d(idx, fi);
+		ii = index % 2; // ii=0 or 1
+		if (ii == 0)
+		{
+			cross_array(grd_lambda[fi[2]], grd_lambda[fi[1]], val0);
+			cross_array(grd_lambda[fi[0]], grd_lambda[fi[2]], val1);
+			cross_array(grd_lambda[fi[0]], grd_lambda[fi[1]], val2);
+			axpbyz_array(3, lambda[fi[0]], val0, lambda[fi[1]], val1, phi);
+			axpy_array(3, 2*lambda[fi[2]], val2, phi);
+		}
+		else
+		{
+			cross_array(grd_lambda[fi[1]], grd_lambda[fi[2]], val0);
+			cross_array(grd_lambda[fi[0]], grd_lambda[fi[1]], val2);
+			cross_array(grd_lambda[fi[0]], grd_lambda[fi[2]], val1);
+			axpbyz_array(3, lambda[fi[0]], val0, lambda[fi[2]], val2, phi);
+			axpy_array(3, 2*lambda[fi[1]], val1, phi);
+		}
+	}
+	else // 20 <= index < 32
+	{
+		index -= 20;
+		i = index / 4;
+		j = index % 4;
+		// (lambda[j] * grad b_K + b_K * grad lambda[j]) cross e_i
+		axpbyz_array(3, lambda[1], grd_lambda[0], lambda[0], grd_lambda[1], val0);
+		axpbyz_array(3, lambda[3], grd_lambda[2], lambda[2], grd_lambda[3], val1);
+		axpbyz_array(3, lambda[2]*lambda[3], val0, lambda[0]*lambda[1], val1, val2);
+		axpbyz_array(3, lambda[j], val2, lambda[0]*lambda[1]*lambda[2]*lambda[3], grd_lambda[j], val0);
+		i1 = (i+1) % 3; i2 = (i+2) % 3;
+		phi[i1] = val0[i2];
+		phi[i2] = -val0[i1];
+	}
+}
+
+/**
+* \fn void huangzhang03d_basisGradCurl(double *lambda, double **grd_lambda, int index, double phi[9])
+* \brief basis function of Huang-Zhang element in three dimensions
+* \param *lambda pointer to the area coordiante
+* \param **grd_lambda pointer to the gradient of the volume coordiante lambda
+* \param index the indicator of the basis function
+* \param *phi basis function
+* \return void
+*/
+void huangzhang03d_basisGradCurl(double *lambda, double **grd_lambda, int index, double phi[9])
+{
+	int fi[3], ei[2], vi[3], i0, i1, i2;
+	int i, j, ii, idx;
+	int dofs = 32; // degrees of freedom
+	int dop = 2;
+	double val0[3], val1[3], val2[3];
+	double v0[3];
+	double gradlambdaXei[4][3], gradLambdaij[4][4][3];
+	
+	init_array(9, phi, 0);
+
+	if (index >= dofs || index<0)
+		return;
+
+	if (index < 12)
+	{
+		idx = index / dop;
+		edge2vv3d(idx, ei);
+		ii = index % dop; // ii=0 or 1 if dop=2
+		cross_array(grd_lambda[ei[0]], grd_lambda[ei[1]], v0);
+		for(i=0;i<3;i++)
+			axy_array(3, 3*v0[i], grd_lambda[ei[ii]], phi+3*i);
+	}
+	else if (index < 20)
+	{
+		index -= 12;
+		idx = index / 2;
+		face2vertices3d(idx, fi);
+		ii = index % 2; // ii=0 or 1
+		if (ii == 0)
+		{
+			cross_array(grd_lambda[fi[2]], grd_lambda[fi[1]], v0);
+			for(i=0;i<3;i++)
+				axy_array(3, v0[i], grd_lambda[fi[0]], phi+3*i);
+			cross_array(grd_lambda[fi[0]], grd_lambda[fi[2]], v0);
+			for(i=0;i<3;i++)
+				axpy_array(3, v0[i], grd_lambda[fi[1]], phi+3*i);
+			cross_array(grd_lambda[fi[0]], grd_lambda[fi[1]], v0);
+			for(i=0;i<3;i++)
+				axpy_array(3, 2*v0[i], grd_lambda[fi[2]], phi+3*i);
+		}
+		else
+		{
+			cross_array(grd_lambda[fi[1]], grd_lambda[fi[2]], v0);
+			for(i=0;i<3;i++)
+				axy_array(3, v0[i], grd_lambda[fi[0]], phi+3*i);
+			cross_array(grd_lambda[fi[0]], grd_lambda[fi[1]], v0);
+			for(i=0;i<3;i++)
+				axpy_array(3, v0[i], grd_lambda[fi[2]], phi+3*i);
+			cross_array(grd_lambda[fi[0]], grd_lambda[fi[2]], v0);
+			for(i=0;i<3;i++)
+				axpy_array(3, 2*v0[i], grd_lambda[fi[1]], phi+3*i);
+		}
+	}
+	else // 20 <= index < 32
+	{
+		for(i=0;i<4;i++)
+		{
+			for(j=i;j<4;j++)
+				axpbyz_array(3, lambda[i], grd_lambda[j], lambda[j], grd_lambda[i], gradLambdaij[i][j]);
+
+			for(j=0;j<i;j++)
+				copy_array(3, gradLambdaij[j][i], gradLambdaij[i][j]);
+		}
+
+		index -= 20;
+		i = index / 4;
+		i1 = (i+1) % 3; i2 = (i+2) % 3;
+		for(j=0;j<4;j++)
+		{
+			gradlambdaXei[j][i] = 0;
+			gradlambdaXei[j][i1] = grd_lambda[j][i2];
+			gradlambdaXei[j][i2] = -grd_lambda[j][i1];
+		}
+		j = index % 4;
+		// (grad lambda[j] cross e_i) otimes grad(lambda[0]lambda[1]lambda[2]lambda[3])
+		axpbyz_array(3, lambda[2]*lambda[3], gradLambdaij[0][1], lambda[0]*lambda[1], gradLambdaij[2][3], val2);
+		for(i=0;i<3;i++)
+			axy_array(3, gradlambdaXei[j][i], val2, phi+3*i);
+		// (grad lambda[0] cross e_i) otimes grad(lambda[j]lambda[1]lambda[2]lambda[3])
+		axpbyz_array(3, lambda[2]*lambda[3], gradLambdaij[j][1], lambda[j]*lambda[1], gradLambdaij[2][3], val2);
+		for(i=0;i<3;i++)
+			axpy_array(3, gradlambdaXei[0][i], val2, phi+3*i);
+		// (grad lambda[1] cross e_i) otimes grad(lambda[0]lambda[j]lambda[2]lambda[3])
+		axpbyz_array(3, lambda[2]*lambda[3], gradLambdaij[0][j], lambda[0]*lambda[j], gradLambdaij[2][3], val2);
+		for(i=0;i<3;i++)
+			axpy_array(3, gradlambdaXei[1][i], val2, phi+3*i);
+		// (grad lambda[2] cross e_i) otimes grad(lambda[0]lambda[1]lambda[j]lambda[3])
+		axpbyz_array(3, lambda[j]*lambda[3], gradLambdaij[0][1], lambda[0]*lambda[1], gradLambdaij[j][3], val2);
+		for(i=0;i<3;i++)
+			axpy_array(3, gradlambdaXei[2][i], val2, phi+3*i);
+		// (grad lambda[3] cross e_i) otimes grad(lambda[0]lambda[1]lambda[2]lambda[j])
+		axpbyz_array(3, lambda[2]*lambda[j], gradLambdaij[0][1], lambda[0]*lambda[1], gradLambdaij[2][j], val2);
+		for(i=0;i<3;i++)
+			axpy_array(3, gradlambdaXei[3][i], val2, phi+3*i);
 	}
 }
 

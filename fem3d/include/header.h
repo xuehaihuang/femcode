@@ -118,6 +118,7 @@ typedef struct {
 	int variationalform_type; /**< type of variational form */
 	int stress_fem_type; /**< type of fem space for stress */
 	int fem_num; /**< number of fem */
+	short nitsche; /**< Use the Nitsche’s technique or not. 1: Yes, 0: No */
 	
 } Input_data;
 
@@ -677,6 +678,7 @@ void geterrorsPoissonLagrange3d(double *errors, dvector *uh, ELEMENT *elements, 
 void maxwell3d_f(double *x, double *val);
 void maxwell3d_u(double *x, double *val);
 void maxwell3d_curlu(double *x, double *val);
+void maxwell3d_gradcurlu(double *x, double *val);
 void maxwell3d_gradu(double *x, double *val);
 void maxwell3d_gradu1(double *x, double *val);
 void maxwell3d_gradu2(double *x, double *val);
@@ -695,15 +697,18 @@ double maxwell3d_u3_z(double x, double y, double z);
 void maxwellfem(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void maxwellNedelec1st3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void maxwellNedelec2nd3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void maxwellHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void maxwellHuang3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void assemble_maxwellNedelec1st3d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assemble_maxwellNedelec2nd3d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
+void assemble_maxwellHuangZhang3d(dCSRmat *A, dvector *b, dvector *uh, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assemble_maxwellHuang3d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 
 /* maxwellerror.c */
 void geterrorsMaxwellNedelec1st3d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void geterrorsMaxwellNedelec2nd3d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void geterrorsMaxwellCHHcurlHermite3d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void geterrorsMaxwellHuangZhang3d(double *errors, dvector *uh, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void geterrorsMaxwellHuang3d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 
 /* quadcurl.c */
@@ -716,13 +721,24 @@ void quadcurl3d_gradcurlu(double *x, double *val);
 void quadcurlfem(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void quadcurlHuang3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void quadcurlHuang3d_msm(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void quadcurlHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void assemble_quadcurlHuang3d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assemble_quadcurl_StokesNcP1P03d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, dvector *wh, ELEMENT_DOF *elementDOFwh);
+void assemble_quadcurlHuangZhang3d(dCSRmat *A, dvector *b, dvector *uh, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assembleRHSCurlHuangNcP13d4Stokes(dvector *b1, dvector *b2, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, dvector *wh, ELEMENT_DOF *elementDOFwh);
 void assembleRHSCurlHuangNcP13d4Maxwell(dvector *rhs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, dvector *uhs, ELEMENT_DOF *elementDOFs);
 
 /* quadcurlerror.c */
 void geterrorsQuadcurlHuang3d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void geterrorsQuadcurlHuangZhang3d(double *errors, dvector *uh, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+
+/* quadcurlperturbfem.c */
+void quadcurlperturbfem(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void quadcurlperturbHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void assemble_quadcurlperturbHuangZhang3d(dCSRmat *A, dvector *b, dvector *uh, double paraeps, short nitsche, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
+
+/* quadcurlperturberror.c */
+void geterrorsQuadcurlperturbHuangZhang3d(double *errors, double paraeps, short nitsche, dvector *uh, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 
 /* assemble.c */
 int getmesh(int domain_num, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, int levelNum);
@@ -740,6 +756,7 @@ void getElementDOF_Nedelec1st3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, iden
 void getElementDOF_Nedelec2nd3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, int dop);
 void getElementDOF_CHHcurlHermite3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF_HuangGradcurl3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges);
+void getElementDOF_HuangZhang3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges);
 void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assembleMassmatrixP03d(dCSRmat *M, ELEMENT *elements, ELEMENT_DOF *elementDOF);
 void assembleBiGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
@@ -752,6 +769,11 @@ void assembleRHSNedelec1st3d(dvector *b, ELEMENT *elements, idenmat *elementFace
 void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assembleRHSNedelec2nd3d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, void (*f)(double *, double *));
+void assembleBiCurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
+void assembleBiGradcurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
+void assembleBiGradcurlperturbHuangZhang3d(dCSRmat *A, double paraeps, short nitsche, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
+void assembleHuangZhangGradLagrange3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
+void assembleRHSHuangZhang3d(dvector *b, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, void (*f)(double *, double *));
 void assembleBiCurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assembleBiGradcurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assembleHuangGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
@@ -769,6 +791,7 @@ void getFreenodesInfoNedelec1st3d(FACE *faces, EDGE *edges, dennode *nodes, ELEM
 void getFreenodesInfoNedelec2nd3d(FACE *faces, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void getFreenodesInfoCHHcurlHermite3d(FACE *faces, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void getFreenodesInfoHuangGradcurl3d(FACE *faces, EDGE *edges, dennode *nodes, int type, ELEMENT_DOF *elementDOF);
+void getFreenodesInfoHuangZhang3d(FACE *faces, EDGE *edges, dennode *nodes, int type, ELEMENT_DOF *elementDOF);
 void getFaceEdgeNTtensor(double **fnv, double **ft1v, double **ft2v, double **etv, double **en1v, double **en2v, double (*fnn)[6], double (*fnt1)[6], double (*fnt2)[6], double (*ft1t1)[6], double (*ft2t2)[6], double (*ft1t2)[6], double (*ett)[6], double (*etn1)[6], double (*etn2)[6], double (*en1n1)[6], double (*en2n2)[6], double (*en1n2)[6]);
 void getBoundaryInfoNormalTrace(EDGE *edges, ELEMENT_DOF *elementDOF, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index);
 void getBoundaryInfoEdge(EDGE *edges, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index);
@@ -849,6 +872,9 @@ void huangQuadcurl3d_facebasisGradCurl(double **grd_lambda, double *nvf[4], int 
 void huangQuadcurl3d_basis(double *x, double *xK, double *lambda, double **grd_lambda, double **vertices, double *nvf[4], short *eorien, int **fpermi, int index, double phi[3]);
 void huangQuadcurl3d_basisCurl(double *lambda, double **grd_lambda, double *nvf[4], short *eorien, int **fpermi, int index, double phi[3]);
 void huangQuadcurl3d_basisGradCurl(double **grd_lambda, double *nvf[4], short *eorien, int **fpermi, int index, double phi[9]);
+void huangzhang03d_basis(double *lambda, double **grd_lambda, int index, double phi[3]);
+void huangzhang03d_basisCurl(double *lambda, double **grd_lambda, int index, double phi[3]);
+void huangzhang03d_basisGradCurl(double *lambda, double **grd_lambda, int index, double phi[9]);
 double volume(double (*tet)[3]);
 
 /* quadrature.c */
@@ -868,8 +894,9 @@ int LU_Solve(double *A, double b[], int pivot[], double x[], int n);
 /* output.c */
 int writeElementsNodes(ELEMENT *elements, dennode *nodes, char *fname1, char *fname2);
 int write_IJ_dCSRmat(dCSRmat *A, char *fname);
-int write_IJ_dCSRmat4Matlab(dCSRmat *A, char *fname);
-int write_IJ_dvector4Matlab(dvector *vec, char *fname);
+void write_IJ_dCSRmat4Matlab(dCSRmat *A, char *fname);
+void write_dvector4Matlab(dvector *vec, char *fname);
+void read_dvector4Matlab(dvector *vec, char *fname);
 
 /* xuludmil.for (Xiangtan energy minimization code) */
 //void get_p_xuludmil_(int *ia,int *ja,double *a, int *n, int *nc,int *ip,int *jp,double *pn,int *ipt,int *jpt,int *mf);
