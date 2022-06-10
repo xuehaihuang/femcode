@@ -51,7 +51,7 @@ int mgvVectorP1AsElasDG(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	// setup preconditioner
 	for (i = 0; i < levelNum; i++)
 	{
-		getElementDOF_Lagrange(&elementDOFas[i], &elements[i], &elementEdge[i], &edges[i], nodes[i].row, 1);
+		getElementDOF_Lagrange2d(&elementDOFas[i], &elements[i], &elementEdge[i], &edges[i], nodes[i].row, 1);
 		getTransposeOfelementDoF(&elementDOFas[i], &elementdofTranas[i], 0);
 		getBoundaryInfoVector2d(&edges[i], &nodes[i], elementDOFas[i].dof, elementDOFas[i].dop, &isInNode[i], &dirichlet[i], &nondirichlet[i], &index[i]);
 

@@ -194,6 +194,8 @@ typedef struct ELEMENT{
 	/** the first 3 columns store the indexes of vertices,
 	    the last 3 columns store the indexes of edge's midpoints */
 	int **val;
+	/** parent element of current element, which will be the root if its parent = -1*/
+	int *parent;
 	/** coordinate of vertices of the element */
 	double ***vertices;
 	/** volume of the element*/
@@ -232,15 +234,22 @@ typedef struct EDGE{
 	/** sizes of the matrix entries*/
 	double *h;
 	/** x1-x2*/
-	double *xi;
+	// double *xi;
 	/** y1-y2*/
-	double *eta;
+	// double *eta;
 	/** unit normal vector of edge*/
 	double **nvector;
 	/** unit tangential vector of edge*/
 	double **tvector;
 	/** length of edge*/
 	double *length;
+	/** boundary type of edge
+	0 : non - boundary, i.e., an interior edge or face.
+	1 : first type, i.e., a Dirichlet boundary edge or face.
+	2 : second type, i.e., a Neumann boundary edge or face.
+	3 : third type, i.e., a Robin boundary edge or face.
+	**/
+	int *bdFlag;
 }EDGE;
 
 /** 
@@ -354,8 +363,15 @@ typedef struct dennode{
 	int col;	
 	/** actual matrix entries */
 	double **val;
-	/** status of the node */
-	int *isInNode;
+	/** boundary type of vetex
+	0 : non - boundary, i.e., an interior vertex.
+	1 : first type, i.e., a Dirichlet boundary vertex.
+	2 : second type, i.e., a Neumann boundary vertex.
+	3 : third type, i.e., a Robin boundary vertex.
+	12: a Dirichlet-Neumann boundary vertex.
+	22: a Neumann-Neumann boundary vertex.
+	**/
+	int *bdFlag;
 }dennode;
 
 /** 
@@ -372,6 +388,17 @@ typedef struct ELEMENT_DOF{
 	int col;	
 	/** actual matrix entries */
 	int **val;
+	/** non-free flag
+	1 : non-free node
+	0 : free node
+	**/
+	ivector nfFlag;
+	/** free nodes */
+	ivector freenodes;
+	/** non-free nodes */
+	ivector nfreenodes;
+	/** index of free and non-free nodes */
+	ivector index;
 }ELEMENT_DOF;
 
 /**
@@ -535,6 +562,7 @@ iCSRmat getCSRfromIntT(idenmat *T, int nNode);
 iCSRmat getTransposeOfA(iCSRmat *A);
 void getTransposeOfSparse(dCSRmat *A,dCSRmat *AT);
 void getTransposeOfiden(idenmat *A, iCSRmat *AT, int cols, int nNode);
+void getTransposeOfELEMENT(ELEMENT *A, iCSRmat *AT, int cols, int nNode);
 void getTransposeOfelementDoF(ELEMENT_DOF *A, iCSRmat *AT, int cols);
 int sparseAddition(dCSRmat *A, dCSRmat *B, dCSRmat *C);
 int sparseSubtraction(dCSRmat *A, dCSRmat *B, dCSRmat *C);
@@ -575,8 +603,9 @@ int getmesh(int domain_num, ELEMENT *ptr_elements, idenmat *ptr_elementEdge, EDG
 void getElementDOF1D(ELEMENT_DOF *elementDOF, int ne, int dop);
 void getElementDOF1D_Continue(ELEMENT_DOF *edgeDOF, ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop);
-void getElementDOF_Lagrange(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
+void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF_HuZhang(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
+void getFreenodesInfoLagrange2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu);
 void assembleweightedMassatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
 void assembleDivHuZhangL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
@@ -608,15 +637,24 @@ void getBoundaryInfoEdge(EDGE *edges, ivector *isInNode, ivector *dirichlet, ive
 
 
 /* assembleInfo.c */
-void getEdgeInfo(idenmat *elements, iCSRmat *elementsTran, idenmat *edges, iCSRmat *edgesTran);
-int getCoarseInfo(int domain_num, ddenmat *nodes, idenmat *elements, idenmat *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *isInNode, ivector *nodeCEdge);
-void refine(ddenmat *nodes, idenmat *Celements, idenmat *Cedges, iCSRmat *CelementsTran, idenmat *Felements, idenmat *Fedges, iCSRmat *FelementsTran, iCSRmat *FedgesTran, ivector *isInNode, ivector *nodeCEdge);
+void getEdgeInfo(ELEMENT *elements, iCSRmat *elementsTran, EDGE *edges, iCSRmat *edgesTran, dennode *nodes);
+void getEdgeBdflag(EDGE *edges, dennode *nodes);
+int getCoarseInfo(int domain_num, dennode *nodes, ELEMENT *elements, EDGE *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *nodeCEdge);
+void uniformrefine(dennode *Cnodes, ELEMENT *Celements, EDGE *Cedges, iCSRmat *CelementsTran, dennode *Fnodes, ELEMENT *Felements, EDGE *Fedges, iCSRmat *FelementsTran, iCSRmat *FedgesTran, ivector *nodeCEdge);
 void extractNondirichletMatrixVector(dCSRmat *A, dvector *b, dCSRmat *A11, dvector *b1, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index, dvector *uh);
 void extractNondirichletMatrix11(dCSRmat *A, dCSRmat *A11, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index);
 void extractNondirichletMatrix1r(dCSRmat *A, dCSRmat *A1, ivector *dirichlet, ivector *nondirichlet);
 void extractNondirichletMatrix1c(dCSRmat *A, dCSRmat *A1, ivector *isInNode, ivector *dirichlet, ivector *index);
 void extractNondirichletMatrix1cBlock(dCSRmat *A, dCSRmat *A1, ivector *isInNode, ivector *dirichlet, ivector *index);
 void extractNondirichletVector(dCSRmat *A, dvector *b, dvector *b1, ivector *dirichlet, ivector *nondirichlet, dvector *uh);
+void extractFreenodesVector2StokesDirichlet(dCSRmat *A, dCSRmat *B, dvector *b, dvector *b1, ELEMENT_DOF *elementDOF, dvector *uh);
+void extractFreenodesVector(dCSRmat *A, dvector *b, dvector *b1, ELEMENT_DOF *elementDOF, dvector *uh);
+void extractFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc);
+void extractFreenodesMatrix1r(dCSRmat *A, dCSRmat *A1, ELEMENT_DOF *elementDOF);
+void extractFreenodesMatrix1c(dCSRmat *A, dCSRmat *A1, ELEMENT_DOF *elementDOF);
+void extractFreenodesMatrix1cBlock(dCSRmat *A, dCSRmat *A1, ELEMENT_DOF *elementDOF);
+void extractFreenodesMatrix11cBlock(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc);
+void extractFreenodesMatrix11cBlock3d(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc);
 int getEdgeDOFsTensor(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart, int *row31, int *row32);
 int getEdgeDOFsScalarTensor(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int rowstart, int row31, int row32);
 int getEdgeDOFsVectorTensor(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart, int *row31, int *row32);

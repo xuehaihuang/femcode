@@ -46,11 +46,13 @@ FLFLAGS    = $(LINKOPTS) $(LIBS)
 CSRCDIR = ./csrc
 FSRCDIR = ./fsrc
 ELASDIR = ./elas
+ELIPDIR = ./ellipticeqn
 
 FSRC := $(foreach dir,$(FSRCDIR),$(wildcard $(FSRCDIR)/*.for))
 FSRC += $(foreach dir,$(FSRCDIR),$(wildcard $(FSRCDIR)/*.f))
 CSRC := $(foreach dir,$(CSRCDIR),$(wildcard $(CSRCDIR)/*.c))
 CSRC += $(foreach dir,$(ELASDIR),$(wildcard $(ELASDIR)/*.c))
+CSRC += $(foreach dir,$(ELIPDIR),$(wildcard $(ELIPDIR)/*.c))
 
 OBJSF := $(patsubst %.for,%.o,$(FSRC))
 OBJSF += $(patsubst %.f,%.o,$(FSRC))
@@ -99,9 +101,10 @@ testmat:
 
 clean:
 	rm -f main/*.o
-	rm -f $(ELASDIR)/*.o
 	rm -f $(CSRCDIR)/*.o
 	rm -f $(FSRCDIR)/*.o
+	rm -f $(ELASDIR)/*.o
+	rm -f $(ELIPDIR)/*.o
 	rm -f lib/*.a
 
 allclean:

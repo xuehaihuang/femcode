@@ -125,6 +125,7 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 	A->row=m;
 	A->col=n;
 	A->val=(int**)calloc(A->row, sizeof(int *));
+	A->parent = (int*)calloc(A->row, sizeof(int));
 	A->vertices=(double***)calloc(A->row, sizeof(double **));
 	A->barycenter=(double**)calloc(A->row, sizeof(double *));
 	A->xi=(double**)calloc(A->row, sizeof(double *));
@@ -195,6 +196,7 @@ int free_ELEMENT(ELEMENT *A)
 		free(A->eperm[i]);
 		free(A->eorien[i]);
 	}
+	free(A->parent);
 	free(A->val);
 	free(A->vol);
 	free(A->vertices);
@@ -234,10 +236,11 @@ int create_EDGE(int m, int n, EDGE *A)
 		A->nvector[i]=(double*)calloc(2, sizeof(double));
 		A->tvector[i]=(double*)calloc(2, sizeof(double));
 	}
-	A->xi=(double*)calloc(A->row, sizeof(double));
-	A->eta=(double*)calloc(A->row, sizeof(double));
+	// A->xi=(double*)calloc(A->row, sizeof(double));
+	// A->eta=(double*)calloc(A->row, sizeof(double));
 	A->length=(double*)calloc(A->row, sizeof(double));
 	A->h=(double*)calloc(A->row, sizeof(double));
+	A->bdFlag = (int*)calloc(A->row, sizeof(int));
 	return 1;
 }
 
@@ -259,10 +262,11 @@ int free_EDGE(EDGE *A)
 	free(A->val);
 	free(A->nvector);
 	free(A->tvector);
-	free(A->xi);
-	free(A->eta);
+	// free(A->xi);
+	// free(A->eta);
 	free(A->length);
 	free(A->h);
+	free(A->bdFlag);
 	A->row=0;
 	A->col=0;
 	return 1;
@@ -418,7 +422,7 @@ int create_dennode(int m, int n, dennode *A)
 {		
 	A->row=m;
 	A->col=n;
-	A->isInNode=(int*)calloc(A->row, sizeof(int));
+	A->bdFlag = (int*)calloc(A->row, sizeof(int));
 	A->val=(double**)calloc(A->row, sizeof(double *));
 	int i;
 	for(i=0;i<A->row;i++)
@@ -438,7 +442,7 @@ int free_dennode(dennode *A)
 	for(i=0;i<A->row;i++)
 		free(A->val[i]);
 	free(A->val);
-	free(A->isInNode);
+	free(A->bdFlag);
 	A->row=0;
 	A->col=0;
 	return 1;
@@ -464,6 +468,10 @@ int create_elementDOF(int dop, int dof, int row, int col, ELEMENT_DOF *A)
 	int i;
 	for(i=0;i<A->row;i++)
 		A->val[i]=(int*)calloc(A->col, sizeof(int));
+	A->nfFlag.row = 0; A->nfFlag.val = NULL;
+	A->freenodes.row = 0; A->freenodes.val = NULL;
+	A->nfreenodes.row = 0; A->nfreenodes.val = NULL;
+	A->index.row = 0; A->index.val = NULL;
 	return 1;
 }
 
@@ -483,6 +491,14 @@ int free_elementDOF(ELEMENT_DOF *A)
 	A->col=0;
 	A->dop=0;
 	A->dof=0;
+	if (A->nfFlag.row>0)
+		free_ivector(&A->nfFlag);
+	if (A->freenodes.row>0)
+		free_ivector(&A->freenodes);
+	if (A->nfreenodes.row>0)
+		free_ivector(&A->nfreenodes);
+	if (A->index.row>0)
+		free_ivector(&A->index);
 	return 1;
 }
 

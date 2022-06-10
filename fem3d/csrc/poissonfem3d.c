@@ -117,7 +117,6 @@ void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, ide
 	check_diagpos(&A);
 	check_diagdom(&A);
 
-
 	/** Step 4. Solve the system */
 
 	if (print_level>0) {
@@ -152,8 +151,14 @@ void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, ide
 
 	/* PCG+AMG */
 	if (itsolver_type == 1) {
+        if(A.row<5){
+			printf("Classical CG solver\n");
+			standard_CG(&A, &b, &_uh, itsolver_maxit, itsolver_tol, print_level);
+		}
+		else{
 		printf("AMG iterative solver\n");
 		classicAMG_PCG(&A, &b, &_uh, &amgparam, print_level);
+		}
 	}
 
 	/* AMG solver */

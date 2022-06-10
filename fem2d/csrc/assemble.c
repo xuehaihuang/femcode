@@ -34,15 +34,15 @@
  * \param levelNum total level number of grid
  * \return 1 if succeed 0 if fail
  */
-int getmesh(int domain_num, ELEMENT *ptr_elements, idenmat *ptr_elementEdge, EDGE *ptr_edges, dennode *ptr_nodes, iCSRmat *edgesTran, ivector *nodeCEdge, int levelNum)
+int getmesh(int domain_num, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, iCSRmat *edgesTran, ivector *nodeCEdge, int levelNum)
 {
-	ddenmat nodes; // the first column stores the x coordinate of points, the second column stores the y coordinate of points
-	idenmat elements[levelNum]; // triangulation: store 3 points corresponding to the element in each row
-	idenmat edges[levelNum]; // the first two columns store the two vertice, the third column stores the affiliated element
+	// ddenmat nodes; // the first column stores the x coordinate of points, the second column stores the y coordinate of points
+	// idenmat elements[levelNum]; // triangulation: store 3 points corresponding to the element in each row
+	// idenmat edges[levelNum]; // the first two columns store the two vertice, the third column stores the affiliated element
 	iCSRmat elementsTran[levelNum]; // the transpose of elements. 
-	ivector isInNode; // if the node is interior node, it will be 0; if the node is on the boundary, it will be -1
-	
-	int IsExist=getCoarseInfo(domain_num, &nodes, &elements[0], &edges[0], &elementsTran[0], &edgesTran[0], &isInNode, nodeCEdge);
+	// ivector isInNode; // if the node is interior node, it will be 0; if the node is on the boundary, it will be -1
+
+	int IsExist=getCoarseInfo(domain_num, &nodes[0], &elements[0], &edges[0], &elementsTran[0], &edgesTran[0], nodeCEdge);
 	if(IsExist==0)
 	{
 		printf("Constructing coarse grid fails!\n");
@@ -53,48 +53,21 @@ int getmesh(int domain_num, ELEMENT *ptr_elements, idenmat *ptr_elementEdge, EDG
 
 	for(l=0;l<levelNum-1;l++)
 	{
-		nvertices = nodes.row;
-		create_dennode(nvertices, 2, ptr_nodes+l);
-		for (i = 0; i < nvertices; i++)
-		{
-			ptr_nodes[l].val[i][0] = nodes.val[i][0];
-			ptr_nodes[l].val[i][1] = nodes.val[i][1];
-			ptr_nodes[l].isInNode[i] = isInNode.val[i];
-		}
+		uniformrefine(&nodes[l], &elements[l], &edges[l], &elementsTran[l], &nodes[l+1], &elements[l+1], &edges[l+1], &elementsTran[l+1], &edgesTran[l+1], nodeCEdge);
+	}
+
+	for(l=0;l<levelNum;l++)
+	{	
+		free(elementsTran[l].IA);
+		free(elementsTran[l].JA);
+	}
 		
-		refine(&nodes, &elements[l], &edges[l], &elementsTran[l], &elements[l+1], &edges[l+1], &elementsTran[l+1], &edgesTran[l+1], &isInNode, nodeCEdge);
-	}
-	
-	nvertices = nodes.row;
-	create_dennode(nvertices, 2, ptr_nodes + l);
-	for (i = 0; i < nvertices; i++)
-	{
-		ptr_nodes[l].val[i][0] = nodes.val[i][0];
-		ptr_nodes[l].val[i][1] = nodes.val[i][1];
-		ptr_nodes[l].isInNode[i] = isInNode.val[i];
-	}
-	
-	// generate ptr_elements, ptr_edges, ptr_elementEdge	
+	// generate elementEdge	
 	int point1, point2, element1, element2;
 	
 	for (l = 0; l < levelNum; l++)
 	{
-		create_ELEMENT(elements[l].row, 3, ptr_elements + l);
-		create_EDGE(edges[l].row, edges[l].col, ptr_edges + l);
-		create_iden_matrix(ptr_elements[l].row, 3, ptr_elementEdge + l);
-
-		for (i = 0; i<ptr_elements[l].row; i++)
-		{
-			ptr_elements[l].val[i][0] = elements[l].val[i][0];
-			ptr_elements[l].val[i][1] = elements[l].val[i][1];
-			ptr_elements[l].val[i][2] = elements[l].val[i][2];
-		}
-
-		for (i = 0; i<ptr_edges[l].row; i++)
-		{
-			for (j = 0; j<ptr_edges[l].col; j++)
-				ptr_edges[l].val[i][j] = edges[l].val[i][j];
-		}
+		create_iden_matrix(elements[l].row, 3, elementEdge + l);
 
 		for (i = 0; i<edges[l].row; i++)
 		{
@@ -105,54 +78,33 @@ int getmesh(int domain_num, ELEMENT *ptr_elements, idenmat *ptr_elementEdge, EDG
 
 			for (j = 0; j<3; j++)
 			{
-				if (ptr_elements[l].val[element1][j] == point1)
+				if (elements[l].val[element1][j] == point1)
 					break;
 			}
 			for (k = 0; k<3; k++)
 			{
-				if (ptr_elements[l].val[element1][k] == point2)
+				if (elements[l].val[element1][k] == point2)
 					break;
 			}
-			ptr_elementEdge[l].val[element1][3 - j - k] = i;
+			elementEdge[l].val[element1][3 - j - k] = i;
 
 			if (element2>-1)
 			{
 				for (j = 0; j<3; j++)
 				{
-					if (ptr_elements[l].val[element2][j] == point1)
+					if (elements[l].val[element2][j] == point1)
 						break;
 				}
 				for (k = 0; k<3; k++)
 				{
-					if (ptr_elements[l].val[element2][k] == point2)
+					if (elements[l].val[element2][k] == point2)
 						break;
 				}
-				ptr_elementEdge[l].val[element2][3 - j - k] = i;
+				elementEdge[l].val[element2][3 - j - k] = i;
 			}
 		}
 	}
-	// end generate ptr_elements, ptr_edges, ptr_elementEdge
-	
-	
-	for(i=0;i<nodes.row;i++)
-		free(nodes.val[i]);
-	free(nodes.val);
-	
-	for(l=0;l<levelNum;l++)
-	{
-		for(i=0;i<elements[l].row;i++)
-			free(elements[l].val[i]);
-		free(elements[l].val);
-		
-		for(i=0;i<edges[l].row;i++)
-			free(edges[l].val[i]);
-		free(edges[l].val);
-		
-		free(elementsTran[l].IA);
-		free(elementsTran[l].JA);
-	}
-	
-	free(isInNode.val);
+	// end generate ptr_elementEdge
 	
 	return 1;
 }
@@ -280,7 +232,7 @@ void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop)
 }
 
 /**
- * \fn void getElementDOF_Lagrange(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, int nedges, int nvertices, int dop)
+ * \fn void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, int nedges, int nvertices, int dop)
  * \brief get the degrees of freedom of Lagrange element
  * \param *elementDOF pointer to relation between elements and DOFs
  * \param *elements pointer to triangulation: the first 3 columns store the indexes of vertices
@@ -290,7 +242,7 @@ void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop)
  * \param nvertices number of vertices
  * \param dop degree of polynomial
  */
-void getElementDOF_Lagrange(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop)
+void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop)
 {
 	int i,j,k;
 	int nt=elements->row;
@@ -412,6 +364,76 @@ void getElementDOF_HuZhang(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *
 			elementDOF->val[k][9*dop+(dop-1)*(dop-2)+i] = nn*3 + ne*(dop-1)*2 + nt*((dop-1)*3 + (dop-1)*(dop-2)) + k*(dop-1)*(dop-2)/2 + i;
 		}*/
 	} // k
+}
+
+/**
+* \fn void getFreenodesInfoLagrange2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+* \brief get freenodes information of Lagrange element in t2o dimensions
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to nodes: the first column stores the x coordinate of points, the second column stores the y coordinate of points
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void getFreenodesInfoLagrange2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k, estride, fstride, nnf;
+
+	int nn = nodes->row;
+	int ne = edges->row;
+	int dof = elementDOF->dof;
+	int dop = elementDOF->dop;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	create_ivector(dof, nfFlag);
+	create_ivector(dof, index);
+
+	nnf = 0; // number of non-free nodes
+	estride = dop - 1;
+	for (i = 0; i < nn; i++)
+	{
+		if (nodes->bdFlag[i] == 1 || nodes->bdFlag[i] == 2 || nodes->bdFlag[i] == 3 || nodes->bdFlag[i] == 4)
+		{
+			nfFlag->val[i] = 1;
+			nnf++;
+		}
+	}
+
+	for (j = 0; j<ne; j++)
+	{
+		if (edges->bdFlag[j] == 1 || edges->bdFlag[j] == 2 || edges->bdFlag[j] == 3 || edges->bdFlag[j] == 4) // Dirichlet boundary
+		{
+			for (i = 0; i < estride; i++)
+			{
+				nfFlag->val[nn + j*estride + i] = 1;
+			}
+			nnf += estride;
+		}
+	}
+
+	create_ivector(nnf, nfreenodes);
+	create_ivector(dof - nnf, freenodes);
+
+	j = 0; k = 0;
+	for (i = 0; i<dof; i++)
+	{
+		if (nfFlag->val[i] == 1) //  non-free node
+		{
+			nfreenodes->val[k] = i;
+			index->val[i] = k;
+			k++;
+		}
+		else // free variable
+		{
+			freenodes->val[j] = i;
+			index->val[i] = j;
+			j++;
+		}
+	}
 }
 
 /**
@@ -3148,11 +3170,11 @@ void getElementEdgeGeoInfo(ELEMENT *elements, idenmat *elementEdge, EDGE *edges,
 		// vertex2=edges->val[i][1];
 		// edges->xi[i]=nodes->val[vertex1][0]-nodes->val[vertex2][0];
 		// edges->eta[i]=nodes->val[vertex1][1]-nodes->val[vertex2][1];
-		edges->xi[i] = tri[0][0] - tri[1][0];
-		edges->eta[i] = tri[0][1] - tri[1][1];
-		edges->length[i]=sqrt(edges->xi[i]*edges->xi[i]+edges->eta[i]*edges->eta[i]);
-		edges->nvector[i][0]=-edges->eta[i]/edges->length[i];
-	    edges->nvector[i][1]=edges->xi[i]/edges->length[i];
+		xi[0] = tri[0][0] - tri[1][0];
+		eta[0] = tri[0][1] - tri[1][1];
+		edges->length[i]=sqrt(xi[0]*xi[0]+eta[0]*eta[0]);
+		edges->nvector[i][0]=-eta[0]/edges->length[i];
+	    edges->nvector[i][1]=xi[0]/edges->length[i];
 		edges->tvector[i][0]=-edges->nvector[i][1];
 	    edges->tvector[i][1]=edges->nvector[i][0];
 
@@ -3188,7 +3210,8 @@ void getBoundaryInfo(EDGE *edges, dennode *nodes, int dof, int dop, ivector *isI
 	create_ivector(dof, index);
 	
 	for(i=0;i<nn;i++)
-		isInNode->val[i]=nodes->isInNode[i];
+		isInNode->val[i]=1-nodes->bdFlag[i]-1;
+		// isInNode->val[i]=nodes->isInNode[i];
 	for(j=0;j<edges->row;j++)
 	{
 		if(edges->val[j][3]==-1)
@@ -3247,11 +3270,11 @@ void getBoundaryInfoVector2d(EDGE *edges, dennode *nodes, int dof, int dop, ivec
 	create_ivector(dof * 2, isInNode);
 	create_ivector(dof * 2, index);
 
-	for (i = 0; i<nn; i++)
-	{
-		isInNode->val[i] = nodes->isInNode[i];
-		isInNode->val[i + dof] = nodes->isInNode[i];
-	}
+	// for (i = 0; i<nn; i++)
+	// {
+	// 	isInNode->val[i] = nodes->isInNode[i];
+	// 	isInNode->val[i + dof] = nodes->isInNode[i];
+	// }
 	for (j = 0; j<edges->row; j++)
 	{
 		if (edges->val[j][3] == -1)

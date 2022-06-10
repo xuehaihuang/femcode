@@ -244,7 +244,7 @@ int asP1ElasDG_PCG(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int pri
 	// setup preconditioner
 	for (i = 0; i < levelNum; i++)
 	{
-		getElementDOF_Lagrange(&elementDOFas[i], &elements[i], &elementEdge[i], &edges[i], nodes[i].row, 1);
+		getElementDOF_Lagrange2d(&elementDOFas[i], &elements[i], &elementEdge[i], &edges[i], nodes[i].row, 1);
 		getTransposeOfelementDoF(&elementDOFas[i], &elementdofTranas[i], 0);
 		getBoundaryInfo(&edges[i], &nodes[i], elementDOFas[i].dof, elementDOFas[i].dop, &isInNode[i], &dirichlet[i], &nondirichlet[i], &index[i]);
 		
@@ -346,7 +346,6 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	ELEMENT_DOF *elementDOFdg = &elementDOF[1];
 	ELEMENT_DOF elementDOFas;
 	iCSRmat elementdofTranas;
-	ivector isInNode, dirichlet, nondirichlet, index;
 
 	double lambda = param->lambda;
 	double mu = param->mu;
@@ -411,16 +410,16 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	free_csr_matrix(&tempA);
 	/************ form Shur complement end  *********/
 	
-	getElementDOF_Lagrange(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
+	getElementDOF_Lagrange2d(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
+	getFreenodesInfoLagrange2d(edges, nodes, &elementDOFas);
 	getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
-	getBoundaryInfo(edges, nodes, elementDOFas.dof, elementDOFas.dop, &isInNode, &dirichlet, &nondirichlet, &index);
 	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, &elementdofTranas, mu);
-	extractNondirichletMatrix11(&tempA, &As[0], &isInNode, &dirichlet, &nondirichlet, &index);
+	extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
 	free_csr_matrix(&tempA);
 	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
 	
 	interpVecP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
-	extractNondirichletMatrix1cBlock(&tempA, &P, &isInNode, &dirichlet, &index);
+	extractFreenodesMatrix1cBlock(&tempA, &P, &elementDOFas);
 	free_csr_matrix(&tempA);
 	getTransposeOfSparse(&P, &PT);
 
@@ -499,10 +498,6 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	}
 	free_elementDOF(&elementDOFas);
 	free_icsr_matrix(&elementdofTranas);
-	free_ivector(&isInNode);
-	free_ivector(&dirichlet);
-	free_ivector(&nondirichlet);
-	free_ivector(&index);
 
 //	free_elementDOF(&elementDOFdg);
 	free_csr_matrix(&M);
@@ -546,7 +541,6 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	ELEMENT_DOF *elementDOFdg = &elementDOF[1];
 	ELEMENT_DOF elementDOFas;
 	iCSRmat elementdofTranas;
-	ivector isInNode, dirichlet, nondirichlet, index;
 
 	double lambda = param->lambda;
 	double mu = param->mu;
@@ -611,16 +605,16 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	free_csr_matrix(&tempA);
 	/************ form Shur complement end  *********/
 
-	getElementDOF_Lagrange(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
+	getElementDOF_Lagrange2d(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
+	getFreenodesInfoLagrange2d(edges, nodes, &elementDOFas);
 	getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
-	getBoundaryInfo(edges, nodes, elementDOFas.dof, elementDOFas.dop, &isInNode, &dirichlet, &nondirichlet, &index);
 	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, &elementdofTranas, mu);
-	extractNondirichletMatrix11(&tempA, &As[0], &isInNode, &dirichlet, &nondirichlet, &index);
+	extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
 	free_csr_matrix(&tempA);
 	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
 
 	interpVecP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
-	extractNondirichletMatrix1cBlock(&tempA, &P, &isInNode, &dirichlet, &index);
+	extractFreenodesMatrix1cBlock(&tempA, &P, &elementDOFas);
 	free_csr_matrix(&tempA);
 	getTransposeOfSparse(&P, &PT);
 
@@ -700,10 +694,6 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	}
 	free_elementDOF(&elementDOFas);
 	free_icsr_matrix(&elementdofTranas);
-	free_ivector(&isInNode);
-	free_ivector(&dirichlet);
-	free_ivector(&nondirichlet);
-	free_ivector(&index);
 
 	//	free_elementDOF(&elementDOFdg);
 	free_csr_matrix(&M);

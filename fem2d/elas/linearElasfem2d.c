@@ -134,7 +134,7 @@ void linearElasHuZhang2d_mfem(ELEMENT *elements, idenmat *elementEdge, EDGE *edg
 	// print_dcsr_matrix(&A[1]);///////////
 	// print_dvector(0, &b[0]);///////
 	// print_dvector(0, &b[1]);///////
-	//print_darray(20, A.val);///
+	// print_darray(20, A[0].val);///
 	
 	/** Step 3. Check matrix properties */
 	for (i = 0; i<3; i++)

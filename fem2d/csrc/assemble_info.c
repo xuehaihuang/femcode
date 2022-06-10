@@ -18,7 +18,7 @@
 #include "matvec.h"
 
 /**
- * \fn void getEdgeInfo(idenmat *elements, iCSRmat *elementsTran, idenmat *edges, iCSRmat *edgesTran)
+ * \fn void getEdgeInfo(ELEMENT *elements, iCSRmat *elementsTran, EDGE *edges, iCSRmat *edgesTran, dennode *nodes)
  * \brief get edges information from elements
  *			 ALgorithm: node-->element-->edge
  * \param *elements store 3 nodes corresponding to the element, the 4th column store the relation with coarse grid elements( store -1 if itself is the coarset grid)
@@ -30,7 +30,7 @@
  * \param *edgesTran the relation between nodes and edges. JA stores edge index, A stores another vertex
  * \return void
  */
-void getEdgeInfo(idenmat *elements, iCSRmat *elementsTran, idenmat *edges, iCSRmat *edgesTran)
+void getEdgeInfo(ELEMENT *elements, iCSRmat *elementsTran, EDGE *edges, iCSRmat *edgesTran, dennode *nodes)
 {
 	int i,j,k,l;
 	int element, point1, point2, col;	
@@ -41,7 +41,7 @@ void getEdgeInfo(idenmat *elements, iCSRmat *elementsTran, idenmat *edges, iCSRm
 	edges->val=NULL;
 	edgesTran->row=elementsTran->row;
 	edgesTran->IA=(int*)calloc(edgesTran->row+1, sizeof(int));
-	col=elements->col-1;
+	col=elements->col;
 	for(i=0;i<elementsTran->row;i++)
 	{
 		for(j=elementsTran->IA[i];j<elementsTran->IA[i+1];j++)
@@ -116,6 +116,22 @@ void getEdgeInfo(idenmat *elements, iCSRmat *elementsTran, idenmat *edges, iCSRm
 		iSTART=edges->row;
 	} // i
 	
+	edges->nvector=(double**)calloc(edges->row, sizeof(double *));
+	edges->tvector=(double**)calloc(edges->row, sizeof(double *));
+	for(i=0;i<edges->row;i++)
+	{
+		// edges->val[i]=(int*)calloc(edges->col, sizeof(int));
+		edges->nvector[i]=(double*)calloc(2, sizeof(double));
+		edges->tvector[i]=(double*)calloc(2, sizeof(double));
+	}
+	// edges->xi=(double*)calloc(edges->row, sizeof(double));
+	// edges->eta=(double*)calloc(edges->row, sizeof(double));
+	edges->length=(double*)calloc(edges->row, sizeof(double));
+	edges->h=(double*)calloc(edges->row, sizeof(double));
+	edges->bdFlag = (int*)calloc(edges->row, sizeof(int));
+
+	getEdgeBdflag(edges, nodes);
+
 	// generate egdesTran
 	edgesTran->col=edges->row;
 	for(i=0;i<edgesTran->row;i++)
@@ -142,6 +158,49 @@ void getEdgeInfo(idenmat *elements, iCSRmat *elementsTran, idenmat *edges, iCSRm
 }
 
 /**
+* \fn void getEdgeBdflag(EDGE *edges, dennode *nodes)
+* \brief get edges boundary information from vertices boundary information
+* \param *edges the first two columns store the two vertice corresponding to the edge;
+*				 the 3rd and 4th columns store the triangles which the edge belongs to;
+*				 if the edge is a boundary, the 4th column will stores -1;
+*				 the first column is in ascend order.
+* \param *nodes pointer to the nodes location of the triangulation
+* \return void
+************* boundary type of vertex *************
+0 : non-boundary, i.e., an interior vertex.
+1 : first type, i.e., a Dirichlet boundary vertex.
+2 : second type, i.e., a Neumann boundary vertex.
+3 : third type, i.e., a Robin boundary vertex.
+12: a Dirichlet-Neumann boundary vertex.
+22: a Neumann-Neumann boundary vertex.
+************* boundary type of face *************
+* 0 : non - boundary, i.e., an interior edge or face.
+* 1 : first type, i.e., a Dirichlet boundary edge or face.
+* 2 : second type, i.e., a Neumann boundary edge or face.
+* 3 : third type, i.e., a Robin boundary edge or face.
+*/
+void getEdgeBdflag(EDGE *edges, dennode *nodes)
+{
+	int *vbdflag = nodes->bdFlag;
+	int *ebdflag = edges->bdFlag;
+	int i, j, k, temp;
+	int ev[2];
+	int lflag[2], rflag[2];
+
+	for (i = 0; i < edges->row; i++)
+	{
+		if (edges->val[i][3] == -1)
+		{
+			ebdflag[i] = 1;
+			// will be discussed further for complicated boundary condition
+		}
+		else
+			ebdflag[i] = 0;
+	}
+
+}
+
+/**
  * \fn int getCoarseInfo(int domain_num, ddenmat *nodes, idenmat *elements, idenmat *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *isInNode, ivector *nodeCEdge)
  * \brief generate the coarse grid information and store it into point, element, edge respectively
  * \param domain_num number of domain
@@ -154,7 +213,7 @@ void getEdgeInfo(idenmat *elements, iCSRmat *elementsTran, idenmat *edges, iCSRm
  * \param *nodeCEdge record the index of coarse edge which the node belong to; if the node is located in the coarset grid, it will be set -1
  * \return 1 if succeed 0 if fail
  */
-int getCoarseInfo(int domain_num, ddenmat *nodes, idenmat *elements, idenmat *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *isInNode, ivector *nodeCEdge)
+int getCoarseInfo(int domain_num, dennode *nodes, ELEMENT *elements, EDGE *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *nodeCEdge)
 {
 	// get data from inputFile
 	char *str1 = "data/unitsquare.dat";
@@ -183,54 +242,35 @@ int getCoarseInfo(int domain_num, ddenmat *nodes, idenmat *elements, idenmat *ed
 	
 	// get the nodes' coordinates
 	fscanf(inputFile, "%d %d", &NumNode, &Ncoor);
-	nodes->row=NumNode;
-	nodes->col=Ncoor;
-	nodes->val =calloc(nodes->row, sizeof(double*));  
-	
+	create_dennode(NumNode, Ncoor, nodes);
 	for(i=0;i<nodes->row;i++)
 	{
-		nodes->val[i]=(double*)calloc(nodes->col, sizeof(double));
 		for(j=0;j<nodes->col;j++)
 			fscanf(inputFile, "%lf", &nodes->val[i][j]);
+		fscanf(inputFile, "%d", &nodes->bdFlag[i]);
 	}
 	
 	// get triangular grid
 	idenmat T;
 	fscanf(inputFile, "%d %d", &NumElem, &Nnode);
-	elements->row=NumElem;
-	elements->col=Nnode+1;
-	
-	elements->val = (int **)calloc(elements->row, sizeof(int*));  
+	create_ELEMENT(NumElem, Nnode, elements);
 	
 	for(i=0;i<elements->row;i++)
 	{
-		elements->val[i]=(int*)calloc(elements->col, sizeof(int)); 
-		for(j=0;j<elements->col-1;j++)
+		for(j=0;j<elements->col;j++)
 		{
 			fscanf(inputFile, "%d", &elements->val[i][j]);
 			elements->val[i][j]--; // the data from matlab start with 1 while from c start with 0
 		}
-		elements->val[i][elements->col-1]=-1;
+		elements->parent[i] = -1;
 	}	
 	
 	fclose(inputFile);
 	
-	getTransposeOfiden(elements, elementsTran, elements->col-1, nodes->row);
-	
+	getTransposeOfELEMENT(elements, elementsTran, elements->col, nodes->row);
+
 	// get edge information
-	getEdgeInfo(elements, elementsTran, edges, edgesTran);
-	
-	// generate isInNode
-	isInNode->row=nodes->row;
-	isInNode->val=(int*)calloc(isInNode->row, sizeof(int));
-	for(i=0;i<edges->row;i++)
-	{
-		if(edges->val[i][3]==-1) // case the edge is on boundary
-		{
-			isInNode->val[edges->val[i][0]]=-1;
-			isInNode->val[edges->val[i][1]]=-1;
-		}
-	}
+	getEdgeInfo(elements, elementsTran, edges, edgesTran, nodes);
 	
 	// get nodeCEdge
 	nodeCEdge->row=nodes->row;
@@ -242,7 +282,7 @@ int getCoarseInfo(int domain_num, ddenmat *nodes, idenmat *elements, idenmat *ed
 }
 
 /**
- * \fn void refine(ddenmat *nodes, idenmat *Celements, idenmat *Cedges, iCSRmat *CelementsTran, idenmat *Felements, idenmat *Fedges, iCSRmat *FelementsTran, iCSRmat *FedgesTran, ivector *isInNode, ivector *nodeCEdge)
+ * \fn void uniformrefine(ddenmat *nodes, idenmat *Celements, idenmat *Cedges, iCSRmat *CelementsTran, idenmat *Felements, idenmat *Fedges, iCSRmat *FelementsTran, iCSRmat *FedgesTran, ivector *isInNode, ivector *nodeCEdge)
  * \brief generate fine grid using regular section
  * \param *nodes pointer to the nodes location of the triangulation
  * \param *Celements pointer to the structure of the triangulation on coasre grid
@@ -256,29 +296,36 @@ int getCoarseInfo(int domain_num, ddenmat *nodes, idenmat *elements, idenmat *ed
  * \param *nodeCEdge record the index of coarse edge which the node belong to; if the node is located in the coarset grid, it will be set -1
  * \return void
  */
-void refine(ddenmat *nodes, idenmat *Celements, idenmat *Cedges, iCSRmat *CelementsTran, idenmat *Felements, idenmat *Fedges, iCSRmat *FelementsTran, iCSRmat *FedgesTran, ivector *isInNode, ivector *nodeCEdge)
+void uniformrefine(dennode *Cnodes, ELEMENT *Celements, EDGE *Cedges, iCSRmat *CelementsTran, dennode *Fnodes, ELEMENT *Felements, EDGE *Fedges, iCSRmat *FelementsTran, iCSRmat *FedgesTran, ivector *nodeCEdge)
 {
 	int i,j,k,l;
 	int NumCNodes;
-	NumCNodes=nodes->row;
+	NumCNodes=Cnodes->row;
 	
 	// generate fine gird's nodes information
 	int midElements[Celements->row][3]; // store the 3 middle point of each tirangle
-	nodes->row=nodes->row+Cedges->row;
-	nodes->val=(double**)realloc(nodes->val, sizeof(double *)*(nodes->row));
-	for(i=NumCNodes;i<nodes->row;i++)
-		nodes->val[i]=(double*)calloc(nodes->col, sizeof(double));
-	nodeCEdge->row=nodes->row;
+
+	create_dennode(Cnodes->row + Cedges->row, Cnodes->col, Fnodes);
+	// copy Cnodes into Fnodes
+	for (i = 0; i < Cnodes->row; i++)
+	{
+		for (j = 0; j < Cnodes->col; j++)
+			Fnodes->val[i][j] = Cnodes->val[i][j];
+		Fnodes->bdFlag[i] = Cnodes->bdFlag[i];
+	}
+
+	nodeCEdge->row=Fnodes->row;
 	nodeCEdge->val=(int*)realloc(nodeCEdge->val, sizeof(int)*(nodeCEdge->row));
 	
-	int col=Celements->col-1;
+	int col=Celements->col;
 	int point1, point2,location;
 	for(i=0;i<Cedges->row;i++)
 	{
 		point1=Cedges->val[i][0];
 		point2=Cedges->val[i][1];
-		nodes->val[NumCNodes+i][0]=(nodes->val[point1][0]+nodes->val[point2][0])/2;
-		nodes->val[NumCNodes+i][1]=(nodes->val[point1][1]+nodes->val[point2][1])/2;
+		Fnodes->val[NumCNodes+i][0]=(Fnodes->val[point1][0]+Fnodes->val[point2][0])/2;
+		Fnodes->val[NumCNodes+i][1]=(Fnodes->val[point1][1]+Fnodes->val[point2][1])/2;
+		Fnodes->bdFlag[NumCNodes + i] = Cedges->bdFlag[i];
 		nodeCEdge->val[NumCNodes+i]=i;
 		
 		// get the relation between triangle and edge
@@ -320,20 +367,9 @@ void refine(ddenmat *nodes, idenmat *Celements, idenmat *Cedges, iCSRmat *Celeme
 			midElements[l][location]=i;
 		}
 	}
-	
+
 	// generate fine grid trianglues information
-//	Felements->val=NULL;
-//	Felements->JA=NULL;
-	Felements->row=Celements->row*4;
-	Felements->col=Celements->col;
-//	Felements->IA=(int*)calloc(Felements->row+1, sizeof(int));
-	Felements->val = (int **)calloc(Felements->row, sizeof(int*));  
-	
-	for(i=0;i<Felements->row;i++)
-	{
-		Felements->val[i]=(int*)calloc(Felements->col, sizeof(int)); 
-	}	
-	
+	create_ELEMENT(Celements->row * 4, Celements->col, Felements);
 	for(i=0;i<Celements->row;i++)
 	{
 		// bisection
@@ -373,20 +409,8 @@ void refine(ddenmat *nodes, idenmat *Celements, idenmat *Cedges, iCSRmat *Celeme
 		Felements->val[i*4+3][3] = i;
 		// regular section end
 	}
-	
-	getTransposeOfiden(Felements, FelementsTran, Felements->col-1, nodes->row);
-	
-	getEdgeInfo(Felements, FelementsTran, Fedges, FedgesTran);
-	isInNode->row=nodes->row;
-	isInNode->val=(int*)calloc(isInNode->row, sizeof(int));
-	for(i=0;i<Fedges->row;i++)
-	{
-		if(Fedges->val[i][3]==-1) // case the edge is on boundary
-		{
-			isInNode->val[Fedges->val[i][0]]=-1;
-			isInNode->val[Fedges->val[i][1]]=-1;
-		}
-	}
+	getTransposeOfELEMENT(Felements, FelementsTran, Felements->col, Fnodes->row);
+	getEdgeInfo(Felements, FelementsTran, Fedges, FedgesTran, Fnodes);
 }
 
 /**
@@ -678,6 +702,484 @@ void extractNondirichletVector(dCSRmat *A, dvector *b, dvector *b1, ivector *dir
 	}
 }
 
+/**
+* \fn void extractFreenodesVector2StokesDirichlet(dCSRmat *A, dCSRmat *B, dvector *b, dvector *b1, ELEMENT_DOF *elementDOF, dvector *uh)
+* \brief extract vector according to freenodes
+* \param *A pointer to left-top stiffness submatrix
+* \param *B pointer to left-bottom stiffness submatrix
+* \param *b pointer to the orginal vector
+* \param *b1 pointer to the vector related to freenodes
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *uh pointer to the initial solution
+* \return void
+*/
+void extractFreenodesVector2StokesDirichlet(dCSRmat *A, dCSRmat *B, dvector *b, dvector *b1, ELEMENT_DOF *elementDOF, dvector *uh)
+{
+	int i, j, k, i1, j1;
+
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *nfFlag = &elementDOF->nfFlag;
+
+	create_dvector(freenodes->row, &b1[0]);
+
+	if (uh == NULL)
+		return;
+
+	// achieve b1[0] due to freenodes
+	for (i1 = 0; i1<b1[0].row; i1++)
+	{
+		i = freenodes->val[i1];
+		b1[0].val[i1] = b->val[i];
+
+		for (j1 = A->IA[i]; j1 < A->IA[i + 1]; j1++)
+		{
+			j = A->JA[j1];
+			if (nfFlag->val[j] == 1)
+			{
+				b1[0].val[i1] -= A->val[j1] * uh->val[j];
+			}
+		}
+	}
+
+	// achieve b1[1] due to freenodes
+	for (i = 0; i<b1[1].row; i++)
+	{
+		for (j1 = B->IA[i]; j1 < B->IA[i + 1]; j1++)
+		{
+			j = B->JA[j1];
+			if (nfFlag->val[j] == 1)
+			{
+				b1[1].val[i] -= B->val[j1] * uh->val[j];
+			}
+		}
+	}
+}
+
+/**
+* \fn void extractFreenodesVector(dCSRmat *A, dvector *b, dvector *b1, ELEMENT_DOF *elementDOF, dvector *uh)
+* \brief extract vector according to freenodes
+* \param *A pointer to left-top stiffness submatrix
+* \param *b pointer to the orginal vector
+* \param *b1 pointer to the vector related to freenodes
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *uh pointer to the initial solution
+* \return void
+*/
+void extractFreenodesVector(dCSRmat *A, dvector *b, dvector *b1, ELEMENT_DOF *elementDOF, dvector *uh)
+{
+	int i, j, k, i1, j1;
+
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+
+	create_dvector(freenodes->row, b1);
+
+	// achieve b1 due to freenodes
+	for (i1 = 0; i1<b1->row; i1++)
+	{
+		i = freenodes->val[i1];
+		b1->val[i1] = b->val[i];
+
+		if (uh != NULL)
+		{
+			for (j1 = 0; j1 < nfreenodes->row; j1++)
+			{
+				j = nfreenodes->val[j1];
+				for (k = A->IA[i]; k < A->IA[i + 1]; k++)
+				{
+					if (A->JA[k] == j)
+					{
+						b1->val[i1] -= A->val[k] * uh->val[j];
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+
+/**
+* \fn void extractFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
+* \brief extract stiffness matrix A11 according to freenodes
+* \param *A pointer to the original matrix
+* \param *A11 pointer to the extracted matrix according to freenodes
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void extractFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
+{
+	// achiveve A11 due to dirichlet boundary condition
+	int i, j, k, l;
+	int count;
+
+	//	ivector *nfFlagr = &elementDOFr->nfFlag;
+	ivector *freenodesr = &elementDOFr->freenodes;
+	//	ivector *nfreenodesr = &elementDOFr->nfreenodes;
+	//	ivector *indexr = &elementDOFr->index;
+
+	ivector *nfFlagc = &elementDOFc->nfFlag;
+	ivector *freenodesc = &elementDOFc->freenodes;
+	//	ivector *nfreenodesc = &elementDOFc->nfreenodes;
+	ivector *indexc = &elementDOFc->index;
+
+	A11->row = freenodesr->row;
+	A11->col = freenodesc->row;
+	A11->IA = (int*)calloc(A11->row + 1, sizeof(int));
+	A11->JA = NULL;
+	A11->val = NULL;
+
+	// form A11->IA
+	for (i = 0; i<A11->row; i++)
+	{
+		l = freenodesr->val[i];
+		for (k = A->IA[l]; k<A->IA[l + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlagc->val[j] == 0)
+				A11->IA[i + 1]++;
+		}
+	}
+
+	for (i = 0; i<A11->row; i++)
+		A11->IA[i + 1] += A11->IA[i];
+
+	A11->nnz = A11->IA[A11->row];
+
+	// form A11->JA, A11->val
+	A11->JA = (int*)calloc(A11->nnz, sizeof(int));
+	A11->val = (double*)calloc(A11->nnz, sizeof(double));
+	count = 0;
+	for (i = 0; i<A11->row; i++)
+	{
+		l = freenodesr->val[i];
+		for (k = A->IA[l]; k<A->IA[l + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlagc->val[j] == 0)
+			{
+				A11->JA[count] = indexc->val[j];
+				A11->val[count] = A->val[k];
+				count++;
+			}
+		}
+	}
+}
+
+/**
+* \fn void extractFreenodesMatrix1r(dCSRmat *A, dCSRmat *A1, ELEMENT_DOF *elementDOF)
+* \brief extract stiffness matrix A1 according to freenodes
+* \param *A pointer to the original matrix
+* \param *A1 pointer to the extracted matrix according to freenodes
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void extractFreenodesMatrix1r(dCSRmat *A, dCSRmat *A1, ELEMENT_DOF *elementDOF)
+{
+	// achiveve A1 due to dirichlet boundary condition
+	int i, j, k, l;
+	int count;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	A1->row = freenodes->row;
+	A1->col = A->col;
+	A1->IA = (int*)calloc(A1->row + 1, sizeof(int));
+	A1->JA = NULL;
+	A1->val = NULL;
+
+	// form A1->IA
+	for (i = 0; i<A1->row; i++)
+	{
+		l = freenodes->val[i];
+		A1->IA[i + 1] = A->IA[l + 1] - A->IA[l];
+	}
+
+	for (i = 0; i<A1->row; i++)
+		A1->IA[i + 1] += A1->IA[i];
+
+	A1->nnz = A1->IA[A1->row];
+
+	// form A1->JA, A1->val
+	A1->JA = (int*)calloc(A1->nnz, sizeof(int));
+	A1->val = (double*)calloc(A1->nnz, sizeof(double));
+	count = 0;
+	for (i = 0; i<A1->row; i++)
+	{
+		l = freenodes->val[i];
+		for (k = A->IA[l]; k<A->IA[l + 1]; k++)
+		{
+			A1->JA[count] = A->JA[k];
+			A1->val[count] = A->val[k];
+			count++;
+		}
+	}
+}
+
+/**
+* \fn void extractFreenodesMatrix1c(dCSRmat *A, dCSRmat *A1, ELEMENT_DOF *elementDOF)
+* \brief extract stiffness matrix A1 according to freenodes
+* \param *A pointer to the original matrix
+* \param *A1 pointer to the extracted matrix according to freenodes
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void extractFreenodesMatrix1c(dCSRmat *A, dCSRmat *A1, ELEMENT_DOF *elementDOF)
+{
+	// achiveve A1 due to dirichlet boundary condition
+	int i, j, k;
+	int count;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	A1->row = A->row;
+	A1->col = freenodes->row;
+	A1->IA = (int*)calloc(A1->row + 1, sizeof(int));
+	A1->JA = NULL;
+	A1->val = NULL;
+
+	// form A1->IA
+	for (i = 0; i<A1->row; i++)
+	{
+		for (k = A->IA[i]; k<A->IA[i + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlag->val[j] == 0)
+				A1->IA[i + 1]++;
+		}
+	}
+
+	for (i = 0; i<A1->row; i++)
+		A1->IA[i + 1] += A1->IA[i];
+
+	A1->nnz = A1->IA[A1->row];
+
+	// form A1->JA, A1->val
+	A1->JA = (int*)calloc(A1->nnz, sizeof(int));
+	A1->val = (double*)calloc(A1->nnz, sizeof(double));
+	count = 0;
+	for (i = 0; i<A1->row; i++)
+	{
+		for (k = A->IA[i]; k<A->IA[i + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlag->val[j] == 0)
+			{
+				A1->JA[count] = index->val[j];
+				A1->val[count] = A->val[k];
+				count++;
+			}
+		}
+	}
+}
+
+/**
+* \fn void extractFreenodesMatrix1cBlock(dCSRmat *A, dCSRmat *A1, ELEMENT_DOF *elementDOF)
+* \brief extract stiffness matrix A1 according to freenodes
+* \param *A pointer to the original matrix
+* \param *A1 pointer to the extracted matrix according to freenodes
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void extractFreenodesMatrix1cBlock(dCSRmat *A, dCSRmat *A1, ELEMENT_DOF *elementDOF)
+{
+	// achiveve A1 according to freenodes
+	int i, j, k;
+	int count;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	A1->row = A->row;
+	A1->col = freenodes->row * 2;
+	A1->IA = (int*)calloc(A1->row + 1, sizeof(int));
+	A1->JA = NULL;
+	A1->val = NULL;
+
+	int col = A->col / 2;
+
+	// form A1->IA
+	for (i = 0; i<A1->row; i++)
+	{
+		for (k = A->IA[i]; k<A->IA[i + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlag->val[j%col] == 0)
+				A1->IA[i + 1]++;
+		}
+	}
+
+	for (i = 0; i<A1->row; i++)
+		A1->IA[i + 1] += A1->IA[i];
+
+	A1->nnz = A1->IA[A1->row];
+
+	// form A1->JA, A1->val
+	A1->JA = (int*)calloc(A1->nnz, sizeof(int));
+	A1->val = (double*)calloc(A1->nnz, sizeof(double));
+	count = 0;
+	for (i = 0; i<A1->row; i++)
+	{
+		for (k = A->IA[i]; k<A->IA[i + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlag->val[j%col] == 0)
+			{
+				A1->JA[count] = index->val[j%col] + freenodes->row*(j / col);
+				A1->val[count] = A->val[k];
+				count++;
+			}
+		}
+	}
+}
+
+/**
+* \fn void extractFreenodesMatrix11cBlock(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
+* \brief extract stiffness matrix A11 according to freenodes
+* \param *A pointer to the original matrix
+* \param *A1 pointer to the extracted matrix according to freenodes
+* \param *elementDOFr pointer to relation between elements and DOFs in rows
+* \param *elementDOFc pointer to relation between elements and DOFs in columns, blockwise
+* \return void
+*/
+void extractFreenodesMatrix11cBlock(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
+{
+	// achiveve A1 according to freenodes
+	int i, j, k, l;
+	int count;
+
+	//	ivector *nfFlagr = &elementDOFr->nfFlag;
+	ivector *freenodesr = &elementDOFr->freenodes;
+	//	ivector *nfreenodesr = &elementDOFr->nfreenodes;
+	//	ivector *indexr = &elementDOFr->index;
+
+	ivector *nfFlagc = &elementDOFc->nfFlag;
+	ivector *freenodesc = &elementDOFc->freenodes;
+	//	ivector *nfreenodesc = &elementDOFc->nfreenodes;
+	ivector *indexc = &elementDOFc->index;
+
+	A11->row = freenodesr->row;
+	A11->col = freenodesc->row * 2;
+	A11->IA = (int*)calloc(A11->row + 1, sizeof(int));
+	A11->JA = NULL;
+	A11->val = NULL;
+
+	int col = A->col / 2;
+
+	// form A11->IA
+	for (i = 0; i<A11->row; i++)
+	{
+		l = freenodesr->val[i];
+		for (k = A->IA[l]; k<A->IA[l + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlagc->val[j%col] == 0)
+				A11->IA[i + 1]++;
+		}
+	}
+
+	for (i = 0; i<A11->row; i++)
+		A11->IA[i + 1] += A11->IA[i];
+
+	A11->nnz = A11->IA[A11->row];
+
+	// form A11->JA, A11->val
+	A11->JA = (int*)calloc(A11->nnz, sizeof(int));
+	A11->val = (double*)calloc(A11->nnz, sizeof(double));
+	count = 0;
+	for (i = 0; i<A11->row; i++)
+	{
+		l = freenodesr->val[i];
+		for (k = A->IA[l]; k<A->IA[l + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlagc->val[j%col] == 0)
+			{
+				A11->JA[count] = indexc->val[j%col] + freenodesc->row*(j / col);
+				A11->val[count] = A->val[k];
+				count++;
+			}
+		}
+	}
+}
+
+/**
+* \fn void extractFreenodesMatrix11cBlock3d(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
+* \brief extract stiffness matrix A11 according to freenodes
+* \param *A pointer to the original matrix
+* \param *A1 pointer to the extracted matrix according to freenodes
+* \param *elementDOFr pointer to relation between elements and DOFs in rows
+* \param *elementDOFc pointer to relation between elements and DOFs in columns, blockwise
+* \return void
+*/
+void extractFreenodesMatrix11cBlock3d(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
+{
+	// achiveve A1 according to freenodes
+	int i, j, k, l;
+	int count;
+
+	//	ivector *nfFlagr = &elementDOFr->nfFlag;
+	ivector *freenodesr = &elementDOFr->freenodes;
+	//	ivector *nfreenodesr = &elementDOFr->nfreenodes;
+	//	ivector *indexr = &elementDOFr->index;
+
+	ivector *nfFlagc = &elementDOFc->nfFlag;
+	ivector *freenodesc = &elementDOFc->freenodes;
+	//	ivector *nfreenodesc = &elementDOFc->nfreenodes;
+	ivector *indexc = &elementDOFc->index;
+
+	A11->row = freenodesr->row;
+	A11->col = freenodesc->row * 3;
+	A11->IA = (int*)calloc(A11->row + 1, sizeof(int));
+	A11->JA = NULL;
+	A11->val = NULL;
+
+	int col = A->col / 3;
+
+	// form A11->IA
+	for (i = 0; i<A11->row; i++)
+	{
+		l = freenodesr->val[i];
+		for (k = A->IA[l]; k<A->IA[l + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlagc->val[j%col] == 0)
+				A11->IA[i + 1]++;
+		}
+	}
+
+	for (i = 0; i<A11->row; i++)
+		A11->IA[i + 1] += A11->IA[i];
+
+	A11->nnz = A11->IA[A11->row];
+
+	// form A11->JA, A11->val
+	A11->JA = (int*)calloc(A11->nnz, sizeof(int));
+	A11->val = (double*)calloc(A11->nnz, sizeof(double));
+	count = 0;
+	for (i = 0; i<A11->row; i++)
+	{
+		l = freenodesr->val[i];
+		for (k = A->IA[l]; k<A->IA[l + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlagc->val[j%col] == 0)
+			{
+				A11->JA[count] = indexc->val[j%col] + freenodesc->row*(j / col);
+				A11->val[count] = A->val[k];
+				count++;
+			}
+		}
+	}
+}
 
 /**
  * \fn int getEdgeDOFsTensor(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart, int *row31, int *row32)

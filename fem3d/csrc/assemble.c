@@ -69,17 +69,17 @@ int getmesh(int domain_num, ELEMENT *elements, idenmat *elementFace, FACE *faces
 			element1 = faces[m].val[i][3];
 			element2 = faces[m].val[i][4];
 
-			for (j = 0; j < 3; j++)
+			for (j = 0; j < 4; j++)
 			{
 				if (elements[m].val[element1][j] == point[0])
 					break;
 			}
-			for (k = 0; k < 3; k++)
+			for (k = 0; k < 4; k++)
 			{
 				if (elements[m].val[element1][k] == point[1])
 					break;
 			}
-			for (l = 0; l < 3; l++)
+			for (l = 0; l < 4; l++)
 			{
 				if (elements[m].val[element1][l] == point[2])
 					break;
@@ -88,17 +88,17 @@ int getmesh(int domain_num, ELEMENT *elements, idenmat *elementFace, FACE *faces
 
 			if (element2 > -1)
 			{
-				for (j = 0; j < 3; j++)
+				for (j = 0; j < 4; j++)
 				{
 					if (elements[m].val[element2][j] == point[0])
 						break;
 				}
-				for (k = 0; k < 3; k++)
+				for (k = 0; k < 4; k++)
 				{
 					if (elements[m].val[element2][k] == point[1])
 						break;
 				}
-				for (l = 0; l < 3; l++)
+				for (l = 0; l < 4; l++)
 				{
 					if (elements[m].val[element2][l] == point[2])
 						break;

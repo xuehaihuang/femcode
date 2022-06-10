@@ -272,6 +272,62 @@ void getTransposeOfiden(idenmat *A, iCSRmat *AT, int cols, int nNode)
 }
 
 /**
+* \fn void getTransposeOfELEMENT(ELEMENT *A, iCSRmat *AT, int cols, int nNode)
+* \brief find A^T from given idenmat matrix A
+* \param *A pointer to the ELEMENT matrix
+* \param *AT pointer to the transpose of idenmat matrix A
+* \param cols the number of columns which will be transposed in A
+* \param nNode the number of nodes
+* \return void
+*/
+void getTransposeOfELEMENT(ELEMENT *A, iCSRmat *AT, int cols, int nNode)
+{
+	int n, m;
+	n = A->row;
+	m = nNode;
+	AT->row = m;
+	AT->col = n;
+	AT->nnz = n*cols;
+	AT->IA = (int*)calloc(m + 1, sizeof(int));
+	AT->JA = (int*)calloc(AT->nnz, sizeof(int));
+	AT->val = NULL;
+
+// printf("AT: %d, %d, nnz=%d\n",AT->row, AT->col,AT->nnz);////////////////////
+
+	int i, j, k, p;
+	// find the number of nonzeros in the first m-1 columns of A 
+	// and store these numbers in the array AT.IA in positions from 1 to m-1
+	for (i = 0; i<n; i++)
+	{
+		for (k = 0; k<cols; k++)
+		{
+			j = A->val[i][k];
+			if (j<m - 1)
+			{
+				AT->IA[j + 2] = AT->IA[j + 2] + 1;
+			}
+		}
+	}
+
+	for (i = 2; i <= m; i++)
+	{
+		AT->IA[i] = AT->IA[i] + AT->IA[i - 1];
+	}
+
+	//	int l;
+	for (i = 0; i<n; i++)
+	{
+		for (p = 0; p<cols; p++)
+		{
+			j = A->val[i][p] + 1;
+			k = AT->IA[j];
+			AT->JA[k] = i;
+			AT->IA[j] = k + 1;
+		}
+	}
+}
+
+/**
  * \fn void getTransposeOfelementDoF(ELEMENT_DOF *A, iCSRmat *AT, int cols)
  * \brief find A^T from given ELEMENT_DOF matrix A
  * \param *A pointer to the ELEMENT_DOF matrix
