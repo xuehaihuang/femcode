@@ -19,7 +19,7 @@
 #include "matvec.h"
 
  /**
- * \fn void geterrors(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu)
+ * \fn void geterrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu)
  * \brief compute error between numerical solution and exact solution: L2 norm, Energy norm
  * \param *errors pointer to error between numerical solution and exact solution: L2 norm, H1 norm, Energy norm
  * \param *sigmah pointer to numerical solution
@@ -35,7 +35,7 @@
  * \param lambda Lame constant
  * \param mu Lame constant or Poisson ratio of plate
  */
-void geterrors(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu)
+void geterrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu)
 {
 	int Nt = elements->row;
 
@@ -44,148 +44,122 @@ void geterrors(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvect
 	for (i = 0; i < 10; i++)
 		errors[i] = 0;
 
-	double phi0, phi1[3], phi2[3];
+	double phi0, phi1[3], phi2[3], val[4], paras[2];
 	int k1, i1, j1, l1, l2;
-	double x, y, xs[3], ys[3], lambdas[3], s, *eta, *xi;
+	double x[2], s, **vertices, **gradLambda;
 	double value[4];
 
-	int num_qp0 = 49; // the number of numerical intergation points
-	double gauss0[num_qp0][3];
-	init_Gauss(num_qp0, 2, gauss0); // gauss intergation initial
+	paras[0] = lambda;
+	paras[1] = mu;
 
-	int num_qp1 = 49; // the number of numerical intergation points
-	double gauss1[num_qp1][3];
-	init_Gauss(num_qp1, 2, gauss1); // gauss intergation initial
+	int num_qp[5], num_qp1;
+	double lambdas[5][100][3], weight[5][100];
+	double lambdas1[100][2], weight1[100];
 
-	int num_qp2 = 49; // the number of numerical intergation points
-	double gauss2[num_qp2][3];
-	init_Gauss(num_qp2, 2, gauss2); // gauss intergation initial
+	num_qp[0]=49;
+	num_qp[1]=49;
+	num_qp[2]=49;
+	num_qp[3]=getNumQuadPoints(elementDOF[1].dop * 2 - 2, 2);
+	num_qp[4]=getNumQuadPoints(elementDOF[1].dop * 2, 2);
+	for(i=0;i<5;i++)
+		init_Gauss2d(num_qp[i], lambdas[i], weight[i]);
 
-	int num_qp3 = getNumQuadPoints(elementDOF[1].dop * 2 - 2, 2); // the number of numerical intergation points
-	double gauss3[num_qp3][3];
-	init_Gauss(num_qp3, 2, gauss3); // gauss intergation initial
-
-	int num_qp4 = getNumQuadPoints(elementDOF[1].dop * 2, 2); // the number of numerical intergation points
-	double gauss4[num_qp4][3];
-	init_Gauss(num_qp4, 2, gauss4); // gauss intergation initial
-
-	int num_qp11 = getNumQuadPoints(elementDOF[1].dop * 2, 1); // the number of numerical intergation points
-	if (num_qp11>5)
-		num_qp11 = 5;
-	double gauss11[num_qp11][2];
-	init_Gauss1D(num_qp11, 1, gauss11); // gauss intergation initial
+	num_qp1=getNumQuadPoints(elementDOF[1].dop * 2, 1);
+	if (num_qp1>5) num_qp1 = 5;
+	init_Gauss1d(num_qp1, lambdas1, weight1);
 
 	for (k = 0; k<Nt; k++)
 	{
-		for (i = 0; i<3; i++)
-		{
-			j = elements->val[k][i];
-			xs[i] = nodes->val[j][0];
-			ys[i] = nodes->val[j][1];
-		}
 		// set parameters
 		s = elements->vol[k];
-		xi = elements->xi[k];
-		eta = elements->eta[k];
+		vertices = elements->vertices[k];
+		gradLambda = elements->gradLambda[k];
 		// end set parameters
 
 		// Energy norm and L2 norm of sigma-sigma_h
-		for (i1 = 0; i1<num_qp0; i1++)
+		for (i1 = 0; i1<num_qp[0]; i1++)
 		{
-			lambdas[0] = gauss0[i1][0];
-			lambdas[1] = gauss0[i1][1];
-			lambdas[2] = 1 - lambdas[0] - lambdas[1];
 			value[0] = 0;
 			value[1] = 0;
 			value[2] = 0;
 			for (k1 = 0; k1<elementDOF[0].col; k1++)
 			{
-				huzhang_basis(lambdas, elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, phi1);
+				huzhang_basis(lambdas[0][i1], elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, phi1);
 				j1 = elementDOF[0].val[k][k1];
 				value[0] += phi1[0] * sigmah->val[j1];
 				value[1] += phi1[1] * sigmah->val[j1];
 				value[2] += phi1[2] * sigmah->val[j1];
 			}
-			x = xs[0] * lambdas[0] + xs[1] * lambdas[1] + xs[2] * lambdas[2];
-			y = ys[0] * lambdas[0] + ys[1] * lambdas[1] + ys[2] * lambdas[2];
-			value[0] -= sigma11(x, y, lambda, mu);
-			value[1] -= sigma22(x, y, lambda, mu);
-			value[2] -= sigma12(x, y, lambda, mu);
+			axpbyz_array(2, lambdas[0][i1][0], vertices[0], lambdas[0][i1][1], vertices[1], x);
+			axpy_array(2, lambdas[0][i1][2], vertices[2], x);
+			linearElas2d_sigma(x, val, paras);
+			value[0] -= val[0];
+			value[1] -= val[1];
+			value[2] -= val[2];
 			value[3] = value[0] + value[1];
 			value[0] = value[0] * value[0];
 			value[1] = value[1] * value[1];
 			value[2] = value[2] * value[2];
 			value[3] = value[3] * value[3];
 			if (lambda>-0.5)
-				errors[0] += 2 * s*gauss0[i1][2] * (value[0] + value[1] + 2 * value[2] - value[3] * lambda / (2 * lambda + 2 * mu)) / (2 * mu);
+				errors[0] += s*weight[0][i1] * (value[0] + value[1] + 2 * value[2] - value[3] * lambda / (2 * lambda + 2 * mu)) / (2 * mu);
 			else
-				errors[0] += 2 * s*gauss0[i1][2] * (value[0] + value[1] + 2 * value[2] - value[3] * 1.0 / 2.0) / (2 * mu);
+				errors[0] += s*weight[0][i1] * (value[0] + value[1] + 2 * value[2] - value[3] * 1.0 / 2.0) / (2 * mu);
 
-			errors[9] += 2 * s*gauss0[i1][2] * (value[0] + value[1] + 2 * value[2]);
+			errors[9] += s*weight[0][i1] * (value[0] + value[1] + 2 * value[2]);
 		}
 
 		// L2 norm of divergence of sigma-sigma_h
-		for (i1 = 0; i1<num_qp1; i1++)
+		for (i1 = 0; i1<num_qp[1]; i1++)
 		{
-			lambdas[0] = gauss1[i1][0];
-			lambdas[1] = gauss1[i1][1];
-			lambdas[2] = 1 - lambdas[0] - lambdas[1];
 			value[0] = 0;
 			value[1] = 0;
 			for (k1 = 0; k1<elementDOF[0].col; k1++)
 			{
-				huzhang_basisDIV(lambdas, s, eta, xi, elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, phi1);
+				huzhang_basisDIV(lambdas[1][i1], gradLambda, elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, phi1);
 				j1 = elementDOF[0].val[k][k1];
 				value[0] += phi1[0] * sigmah->val[j1];
 				value[1] += phi1[1] * sigmah->val[j1];
 			}
-			x = xs[0] * lambdas[0] + xs[1] * lambdas[1] + xs[2] * lambdas[2];
-			y = ys[0] * lambdas[0] + ys[1] * lambdas[1] + ys[2] * lambdas[2];
-			value[0] += f1(x, y, lambda, mu);
-			value[1] += f2(x, y, lambda, mu);
-			value[0] = value[0] * value[0];
-			value[1] = value[1] * value[1];
-			errors[1] += 2 * s*gauss1[i1][2] * (value[0] + value[1]);
+			axpbyz_array(2, lambdas[1][i1][0], vertices[0], lambdas[1][i1][1], vertices[1], x);
+			axpy_array(2, lambdas[1][i1][2], vertices[2], x);
+			linearElas2d_f(x, val, paras);
+			value[0] += val[0];
+			value[1] += val[1];
+			errors[1] += s*weight[1][i1] * lpnormp_array(2, value, 2);
 		}
 
 		// L2 norm of u-u_h
-		for (i1 = 0; i1<num_qp2; i1++)
+		for (i1 = 0; i1<num_qp[2]; i1++)
 		{
-			lambdas[0] = gauss2[i1][0];
-			lambdas[1] = gauss2[i1][1];
-			lambdas[2] = 1 - lambdas[0] - lambdas[1];
 			value[0] = 0;
 			value[1] = 0;
 			for (k1 = 0; k1<elementDOF[1].col; k1++)
 			{
-				lagrange_basis(lambdas, k1, elementDOF[1].dop, &phi0);
+				lagrange_basis(lambdas[2][i1], k1, elementDOF[1].dop, &phi0);
 				j1 = elementDOF[1].val[k][k1];
 				value[0] += phi0*uh->val[j1];
 				j1 += elementDOF[1].dof;
 				value[1] += phi0*uh->val[j1];
 			}
-			x = xs[0] * lambdas[0] + xs[1] * lambdas[1] + xs[2] * lambdas[2];
-			y = ys[0] * lambdas[0] + ys[1] * lambdas[1] + ys[2] * lambdas[2];
-			value[0] -= u1(x, y, lambda, mu);
-			value[1] -= u2(x, y, lambda, mu);
-			value[0] = value[0] * value[0];
-			value[1] = value[1] * value[1];
-			errors[3] += 2 * s*gauss2[i1][2] * (value[0] + value[1]);
+			axpbyz_array(2, lambdas[2][i1][0], vertices[0], lambdas[2][i1][1], vertices[1], x);
+			axpy_array(2, lambdas[2][i1][2], vertices[2], x);
+			linearElas2d_u(x, val, paras);
+			value[0] -= val[0];
+			value[1] -= val[1];
+			errors[3] += s*weight[2][i1] * lpnormp_array(2, value, 2);
 		}
 
 		// H1 semi-norm of Qhu-u_h
-		for (i1 = 0; i1<num_qp3; i1++)
+		for (i1 = 0; i1<num_qp[3]; i1++)
 		{
-			lambdas[0] = gauss3[i1][0];
-			lambdas[1] = gauss3[i1][1];
-			lambdas[2] = 1 - lambdas[0] - lambdas[1];
 			value[0] = 0;
 			value[1] = 0;
 			value[2] = 0;
 			value[3] = 0;
 			for (k1 = 0; k1<elementDOF[1].col; k1++)
 			{
-				lagrange_basis1(lambdas, s, eta, xi, k1, elementDOF[1].dop, phi1);
+				lagrange_basis1(lambdas[3][i1], gradLambda, k1, elementDOF[1].dop, phi1);
 				j1 = elementDOF[1].val[k][k1];
 				value[0] += phi1[0] * (Qhu->val[j1] - uh->val[j1]);
 				value[1] += phi1[1] * (Qhu->val[j1] - uh->val[j1]);
@@ -193,47 +167,35 @@ void geterrors(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvect
 				value[2] += phi1[0] * (Qhu->val[j1] - uh->val[j1]);
 				value[3] += phi1[1] * (Qhu->val[j1] - uh->val[j1]);
 			}
-			value[0] = value[0] * value[0];
-			value[1] = value[1] * value[1];
-			value[2] = value[2] * value[2];
-			value[3] = value[3] * value[3];
-			errors[5] += 2 * s*gauss3[i1][2] * (value[0] + value[1] + value[2] + value[3]);
+			errors[5] += s*weight[3][i1] * lpnormp_array(4, value, 2);
 		}
 
 		// L2 norm of Qhu-u_h
-		for (i1 = 0; i1<num_qp4; i1++)
+		for (i1 = 0; i1<num_qp[4]; i1++)
 		{
-			lambdas[0] = gauss4[i1][0];
-			lambdas[1] = gauss4[i1][1];
-			lambdas[2] = 1 - lambdas[0] - lambdas[1];
 			value[0] = 0;
 			value[1] = 0;
 			for (k1 = 0; k1<elementDOF[1].col; k1++)
 			{
-				lagrange_basis(lambdas, k1, elementDOF[1].dop, &phi0);
+				lagrange_basis(lambdas[4][i1], k1, elementDOF[1].dop, &phi0);
 				j1 = elementDOF[1].val[k][k1];
 				value[0] += phi0*(Qhu->val[j1]- uh->val[j1]);
 				j1 += elementDOF[1].dof;
 				value[1] += phi0*(Qhu->val[j1] - uh->val[j1]);
 			}
-			value[0] = value[0] * value[0];
-			value[1] = value[1] * value[1];
-			errors[6] += 2 * s*gauss4[i1][2] * (value[0] + value[1]);
+			errors[6] += s*weight[4][i1] * lpnormp_array(2, value, 2);
 		}
 
 		// H1 semi-norm of u-uhstar
-		for (i1 = 0; i1<num_qp2; i1++)
+		for (i1 = 0; i1<num_qp[2]; i1++)
 		{
-			lambdas[0] = gauss2[i1][0];
-			lambdas[1] = gauss2[i1][1];
-			lambdas[2] = 1 - lambdas[0] - lambdas[1];
 			value[0] = 0;
 			value[1] = 0;
 			value[2] = 0;
 			value[3] = 0;
 			for (k1 = 0; k1<elementDOF[2].col; k1++)
 			{
-				lagrange_basis1(lambdas, s, eta, xi, k1, elementDOF[2].dop, phi1);
+				lagrange_basis1(lambdas[2][i1], gradLambda, k1, elementDOF[2].dop, phi1);
 				j1 = elementDOF[2].val[k][k1];
 				value[0] += phi1[0] * uhstar->val[j1];
 				value[1] += phi1[1] * uhstar->val[j1];
@@ -241,42 +203,35 @@ void geterrors(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvect
 				value[2] += phi1[0] * uhstar->val[j1];
 				value[3] += phi1[1] * uhstar->val[j1];
 			}
-			x = xs[0] * lambdas[0] + xs[1] * lambdas[1] + xs[2] * lambdas[2];
-			y = ys[0] * lambdas[0] + ys[1] * lambdas[1] + ys[2] * lambdas[2];
-			value[0] -= u1_x(x, y, lambda, mu);
-			value[1] -= u1_y(x, y, lambda, mu);
-			value[2] -= u2_x(x, y, lambda, mu);
-			value[3] -= u2_y(x, y, lambda, mu);
-			value[0] = value[0] * value[0];
-			value[1] = value[1] * value[1];
-			value[2] = value[2] * value[2];
-			value[3] = value[3] * value[3];
-			errors[7] += 2 * s*gauss2[i1][2] * (value[0] + value[1] + value[2] + value[3]);
+			axpbyz_array(2, lambdas[2][i1][0], vertices[0], lambdas[2][i1][1], vertices[1], x);
+			axpy_array(2, lambdas[2][i1][2], vertices[2], x);
+			linearElas2d_gradu(x, val, paras);
+			value[0] -= val[0];
+			value[1] -= val[1];
+			value[2] -= val[2];
+			value[3] -= val[3];
+			errors[7] += s*weight[2][i1] * lpnormp_array(4, value, 2);
 		}
 
 		// L2 norm of u-uhstar
-		for (i1 = 0; i1<num_qp2; i1++)
+		for (i1 = 0; i1<num_qp[2]; i1++)
 		{
-			lambdas[0] = gauss2[i1][0];
-			lambdas[1] = gauss2[i1][1];
-			lambdas[2] = 1 - lambdas[0] - lambdas[1];
 			value[0] = 0;
 			value[1] = 0;
 			for (k1 = 0; k1<elementDOF[2].col; k1++)
 			{
-				lagrange_basis(lambdas, k1, elementDOF[2].dop, &phi0);
+				lagrange_basis(lambdas[2][i1], k1, elementDOF[2].dop, &phi0);
 				j1 = elementDOF[2].val[k][k1];
 				value[0] += phi0*uhstar->val[j1];
 				j1 += elementDOF[2].dof;
 				value[1] += phi0*uhstar->val[j1];
 			}
-			x = xs[0] * lambdas[0] + xs[1] * lambdas[1] + xs[2] * lambdas[2];
-			y = ys[0] * lambdas[0] + ys[1] * lambdas[1] + ys[2] * lambdas[2];
-			value[0] -= u1(x, y, lambda, mu);
-			value[1] -= u2(x, y, lambda, mu);
-			value[0] = value[0] * value[0];
-			value[1] = value[1] * value[1];
-			errors[8] += 2 * s*gauss2[i1][2] * (value[0] + value[1]);
+			axpbyz_array(2, lambdas[2][i1][0], vertices[0], lambdas[2][i1][1], vertices[1], x);
+			axpy_array(2, lambdas[2][i1][2], vertices[2], x);
+			linearElas2d_u(x, val, paras);
+			value[0] -= val[0];
+			value[1] -= val[1];
+			errors[8] += s*weight[2][i1] * lpnormp_array(2, value, 2);
 		}
 	}
 
@@ -342,27 +297,25 @@ void geterrors(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvect
 			}
 		} // if(elementDOF[1].dop==0) else
 
-		for (i1 = 0; i1<num_qp11; i1++)
+		for (i1 = 0; i1<num_qp1; i1++)
 		{
 			for (i = 0; i<3; i++)
 				phi2[i] = 0;
 
-			lambdas[0] = gauss11[i1][0];
-			lambdas[1] = 1 - lambdas[0];
 			for (k1 = 0; k1<count; k1++)
 			{
 				i = patchnodes[k1];
-				jumpOperatorVector(lambdas[0], lambdas[1], edge, elements, elementEdge, edges, &elementDOF[1], i, phi1);
+				jumpOperatorVector(lambdas1[i1][0], lambdas1[i1][1], edge, elements, elementEdge, edges, &elementDOF[1], i, phi1);
 
 				for (j = 0; j<2; j++)
 					phi2[j] += uh->val[i] * phi1[j];
 
-				jumpOperatorVector(lambdas[0], lambdas[1], edge, elements, elementEdge, edges, &elementDOF[1], i + elementDOF[1].dof, phi1);
+				jumpOperatorVector(lambdas1[i1][0], lambdas1[i1][1], edge, elements, elementEdge, edges, &elementDOF[1], i + elementDOF[1].dof, phi1);
 				for (j = 0; j<2; j++)
 					phi2[j] += uh->val[i + elementDOF[1].dof] * phi1[j];
 			}
 
-			errors[2] += elen*gauss11[i1][1] * C11*(phi2[0] * phi2[0] + phi2[1] * phi2[1]);
+			errors[2] += elen*weight1[i1] * C11* lpnormp_array(2, phi2, 2);
 		}
 	} // e
 
@@ -374,7 +327,7 @@ void geterrors(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvect
 
 
 /**
-* \fn void getposteriorierrors(double *errors, dvector *sigmah, dvector *uh, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu)
+* \fn void getposteriorierrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu)
 * \brief compute error between numerical solution and exact solution: L2 norm, Energy norm
 * \param *errors pointer to error between numerical solution and exact solution: L2 norm, H1 norm, Energy norm
 * \param *sigmah pointer to numerical solution
@@ -387,11 +340,14 @@ the fourth column stores -1 if the edge is on boundary
 * \param *elementDOF pointer to relation between elements and DOFs
 * \param nu Poisson ratio of plate
 */
-void getposteriorierrors(double *errors, dvector *sigmah, dvector *uh, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu)
+void getposteriorierrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu)
 {
+	double paras[2];
+	paras[0] = lambda;
+	paras[1] = mu;
 	dvector Qhf;
 	create_dvector(uh->row, &Qhf);
-	projPiecewiseLagrangeRHS(&Qhf, elements, nodes, &elementDOF[1], lambda, mu);
+	projL2PkVec2d(&Qhf, elements, nodes, &elementDOF[1], linearElas2d_f, paras);
 
 	int Nt = elements->row;
 
@@ -400,55 +356,39 @@ void getposteriorierrors(double *errors, dvector *sigmah, dvector *uh, dvector *
 	for (i = 0; i<7; i++)
 		errors[i] = 0;
 
-	double phi0, phi1[3], phi2[3];
+	double phi0, phi1[3], phi2[3], val[4];
 	int k1, i1, j1, l1, l2;
-	double x, y, xs[3], ys[3], lambdas[3], s, *eta, *xi;
+	double x[2], s, **vertices, **gradLambda;
 	double value[4];
 
-	int num_qp0 = getNumQuadPoints((elementDOF[0].dop - 2) * 2, 2); // the number of numerical intergation points
-	double gauss0[num_qp0][3];
-	init_Gauss(num_qp0, 2, gauss0); // gauss intergation initial
+	int num_qp[3], num_qp1[2];
+	double lambdas[3][100][3], weight[3][100];
+	double lambdas1[2][100][2], weight1[2][100];
 
-	int num_qp1 = getNumQuadPoints(elementDOF[0].dop * 2, 2); // the number of numerical intergation points
-	double gauss1[num_qp1][3];
-	init_Gauss(num_qp1, 2, gauss1); // gauss intergation initial
+	num_qp[0]=getNumQuadPoints((elementDOF[0].dop - 2) * 2, 2);
+	num_qp[1]=getNumQuadPoints(elementDOF[0].dop * 2, 2);
+	num_qp[2]=49;
+	for(i=0;i<3;i++)
+		init_Gauss2d(num_qp[i], lambdas[i], weight[i]);
 
-	int num_qp = 49; // the number of numerical intergation points
-	double gauss[num_qp][3];
-	init_Gauss(num_qp, 2, gauss); // gauss intergation initial
-
-	int num_qp11 = getNumQuadPoints(elementDOF[0].dop * 2, 1); // the number of numerical intergation points
-	if (num_qp11>5)
-		num_qp11 = 5;
-	double gauss11[num_qp11][2];
-	init_Gauss1D(num_qp11, 1, gauss11); // gauss intergation initial
-
-	int num_qp12 = getNumQuadPoints((elementDOF[0].dop - 1) * 2, 1); // the number of numerical intergation points
-	if (num_qp12>5)
-		num_qp12 = 5;
-	double gauss12[num_qp12][2];
-	init_Gauss1D(num_qp12, 1, gauss12); // gauss intergation initial
+	num_qp1[0]=getNumQuadPoints(elementDOF[0].dop * 2, 1);
+	if (num_qp1[0]>5) num_qp1[0] = 5;
+	num_qp1[1]=getNumQuadPoints((elementDOF[0].dop - 1) * 2, 1);
+	if (num_qp1[1]>5) num_qp1[1] = 5;
+	init_Gauss1d(num_qp1[0], lambdas1[0], weight1[0]);
+	init_Gauss1d(num_qp1[1], lambdas1[1], weight1[1]);
 
 	for (k = 0; k<Nt; k++)
 	{
-		for (i = 0; i<3; i++)
-		{
-			j = elements->val[k][i];
-			xs[i] = nodes->val[j][0];
-			ys[i] = nodes->val[j][1];
-		}
 		// set parameters
 		s = elements->vol[k];
-		xi = elements->xi[k];
-		eta = elements->eta[k];
+		vertices = elements->vertices[k];
+		gradLambda = elements->gradLambda[k];
 		// end set parameters
 
 		// rotrot(Asigmah)
-		for (i1 = 0; i1<num_qp0; i1++)
+		for (i1 = 0; i1<num_qp[0]; i1++)
 		{
-			lambdas[0] = gauss0[i1][0];
-			lambdas[1] = gauss0[i1][1];
-			lambdas[2] = 1 - lambdas[0] - lambdas[1];
 			value[0] = 0;
 			value[1] = 0;
 			if (elementDOF[0].dop>1)
@@ -456,30 +396,27 @@ void getposteriorierrors(double *errors, dvector *sigmah, dvector *uh, dvector *
 				for (k1 = 0; k1<elementDOF[0].col; k1++)
 				{
 					j1 = elementDOF[0].val[k][k1];
-					huzhang_basisROTROT(lambdas, s, eta, xi, elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, &phi0);
+					huzhang_basisROTROT(lambdas[0][i1], gradLambda, elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, &phi0);
 					value[0] += phi0 * sigmah->val[j1];
-					huzhang_basisLaplaceTrace(lambdas, s, eta, xi, elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, &phi0);
+					huzhang_basisLaplaceTrace(lambdas[0][i1], gradLambda, elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, &phi0);
 					value[1] += phi0 * sigmah->val[j1];
 				}
 			}
 			value[2] = (value[0] - value[1] * lambda / (2 * lambda + 2 * mu)) / (2 * mu);
 			value[2] = value[2] * value[2];
-			errors[0] += 2 * s*gauss0[i1][2] * value[2] * s*s;
+			errors[0] += s*weight[0][i1] * value[2] * s*s;
 		}
 
 		// Asigmah - \varepsilon_h(uhstar)
-		for (i1 = 0; i1<num_qp1; i1++)
+		for (i1 = 0; i1<num_qp[1]; i1++)
 		{
-			lambdas[0] = gauss1[i1][0];
-			lambdas[1] = gauss1[i1][1];
-			lambdas[2] = 1 - lambdas[0] - lambdas[1];
 			value[0] = 0;
 			value[1] = 0;
 			value[2] = 0;
 			// sigmah
 			for (k1 = 0; k1<elementDOF[0].col; k1++)
 			{
-				huzhang_basis(lambdas, elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, phi1);
+				huzhang_basis(lambdas[1][i1], elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, phi1);
 				j1 = elementDOF[0].val[k][k1];
 				value[0] += phi1[0] * sigmah->val[j1];
 				value[1] += phi1[1] * sigmah->val[j1];
@@ -493,7 +430,7 @@ void getposteriorierrors(double *errors, dvector *sigmah, dvector *uh, dvector *
 			// Asigmah - \varepsilon_h(uhstar)
 			for (k1 = 0; k1<elementDOF[2].col; k1++)
 			{
-				lagrange_basis1(lambdas, s, eta, xi, k1, elementDOF[2].dop, phi1);
+				lagrange_basis1(lambdas[1][i1], gradLambda, k1, elementDOF[2].dop, phi1);
 				j1 = elementDOF[2].val[k][k1];
 				value[0] -= phi1[0] * uhstar->val[j1];
 				value[2] -= phi1[1] * uhstar->val[j1] / 2;
@@ -504,32 +441,28 @@ void getposteriorierrors(double *errors, dvector *sigmah, dvector *uh, dvector *
 			value[0] = value[0] * value[0];
 			value[1] = value[1] * value[1];
 			value[2] = value[2] * value[2];
-			errors[1] += 2 * s*gauss1[i1][2] * (value[0] + value[1] + 2 * value[2]);
+			errors[1] += s*weight[1][i1] * (value[0] + value[1] + 2 * value[2]);
 		}
 
 		// oscillation: f-Qhf
-		for (i1 = 0; i1<num_qp; i1++)
+		for (i1 = 0; i1<num_qp[2]; i1++)
 		{
-			lambdas[0] = gauss[i1][0];
-			lambdas[1] = gauss[i1][1];
-			lambdas[2] = 1 - lambdas[0] - lambdas[1];
 			value[0] = 0;
 			value[1] = 0;
 			for (k1 = 0; k1<elementDOF[1].col; k1++)
 			{
-				lagrange_basis(lambdas, k1, elementDOF[1].dop, &phi0);
+				lagrange_basis(lambdas[2][i1], k1, elementDOF[1].dop, &phi0);
 				j1 = elementDOF[1].val[k][k1];
 				value[0] += phi0*Qhf.val[j1];
 				j1 += elementDOF[1].dof;
 				value[1] += phi0*Qhf.val[j1];
 			}
-			x = xs[0] * lambdas[0] + xs[1] * lambdas[1] + xs[2] * lambdas[2];
-			y = ys[0] * lambdas[0] + ys[1] * lambdas[1] + ys[2] * lambdas[2];
-			value[0] -= f1(x, y, lambda, mu);
-			value[1] -= f2(x, y, lambda, mu);
-			value[0] = value[0] * value[0];
-			value[1] = value[1] * value[1];
-			errors[2] += 2 * s*gauss[i1][2] * (value[0] + value[1])*s;
+			axpbyz_array(2, lambdas[2][i1][0], vertices[0], lambdas[2][i1][1], vertices[1], x);
+			axpy_array(2, lambdas[2][i1][2], vertices[2], x);
+			linearElas2d_f(x, val, paras);
+			value[0] -= val[0];
+			value[1] -= val[1];
+			errors[2] += s*weight[2][i1] * lpnormp_array(2, value, 2)*s;
 		}
 	} // k
 
@@ -585,37 +518,33 @@ void getposteriorierrors(double *errors, dvector *sigmah, dvector *uh, dvector *
 		}
 
 		// M_{tt}(Asigmah)
-		for (i1 = 0; i1<num_qp11; i1++)
+		for (i1 = 0; i1<num_qp1[0]; i1++)
 		{
 			value[0] = 0;
 
-			lambdas[0] = gauss11[i1][0];
-			lambdas[1] = 1 - lambdas[0];
 			for (k1 = 0; k1<count; k1++)
 			{
 				i = patchnodes[k1];
-				jumpOperatorATensorTangent2(lambdas[0], lambdas[1], edge, elements, elementEdge, edges, &elementDOF[0], i, lambda, mu, &phi0);
+				jumpOperatorATensorTangent2(lambdas1[0][i1][0], lambdas1[0][i1][1], edge, elements, elementEdge, edges, &elementDOF[0], i, lambda, mu, &phi0);
 				value[0] += sigmah->val[i] * phi0;
 			}
 
-			errors[3] += elen*gauss11[i1][1] * value[0] * value[0] * elen;
+			errors[3] += elen*weight1[0][i1] * value[0] * value[0] * elen;
 		}
 
 		// rot(Asigmah) t - \partial_t(M_{nt}(Asigmah))
-		for (i1 = 0; i1<num_qp12; i1++)
+		for (i1 = 0; i1<num_qp1[1]; i1++)
 		{
 			value[0] = 0;
 
-			lambdas[0] = gauss12[i1][0];
-			lambdas[1] = 1 - lambdas[0];
 			for (k1 = 0; k1<count; k1++)
 			{
 				i = patchnodes[k1];
-				jumpOperatorRotATensorTangentPt(lambdas[0], lambdas[1], edge, elements, elementEdge, edges, &elementDOF[0], i, lambda, mu, &phi0);
+				jumpOperatorRotATensorTangentPt(lambdas1[1][i1][0], lambdas1[1][i1][1], edge, elements, elementEdge, edges, &elementDOF[0], i, lambda, mu, &phi0);
 				value[0] += sigmah->val[i] * phi0;
 			}
 			
-			errors[4] += elen*gauss12[i1][1] * value[0] * value[0] * elen * elen * elen;
+			errors[4] += elen*weight1[1][i1] * value[0] * value[0] * elen * elen * elen;
 		}
 	} // edge
 	free(index);

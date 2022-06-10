@@ -194,16 +194,26 @@ typedef struct ELEMENT{
 	/** the first 3 columns store the indexes of vertices,
 	    the last 3 columns store the indexes of edge's midpoints */
 	int **val;
+	/** coordinate of vertices of the element */
+	double ***vertices;
 	/** volume of the element*/
 	double *vol;
+	/** barycenter of the element*/
+	double **barycenter;
 	double **eta; 
 	double **xi;
+	/** gradient of the barycentric coordinates lambda */
+	double ***gradLambda;
 	/** unit normal vector of three edges*/
 	double ***nvector;
 	/** unit tangential vector of three edges*/
 	double ***tvector;
 	/** length of three edges*/
 	double **edgeslength;
+	/** permutation of six edges*/
+	int ***eperm;
+	/** orientation of six edges*/
+	short **eorien;
 }ELEMENT;
 
 /** 
@@ -544,22 +554,37 @@ void sparseTripleMultiplication3(dCSRmat *R, dCSRmat *A, dCSRmat *P, dCSRmat *B)
 int dIJtoCSR(dIJmat *A, dCSRmat *B);
 int dCSRtoIJ(dCSRmat *A, dIJmat *B);
 
+/* linearElas.c */
+void linearElas2d_f(double *x, double *val, double *paras);
+void linearElas2d_u(double *x, double *val, double *paras);
+void linearElas2d_gradu(double *x, double *val, double *paras);
+void linearElas2d_sigma(double *x, double *val, double *paras);
+
+/* linearElasfem2d.c */
+void linearElas2dfem(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, iCSRmat *edgesTran, ivector *nodeCEdge, Input_data *Input);
+void linearElasHuZhang2d_mfem(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, iCSRmat *edgesTran, ivector *nodeCEdge, Input_data *Input);
+void assemble_linearElasHuZhang2d(dCSRmat *ptr_A, dvector *ptr_b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
+
+/* linearElaserror.c */
+void geterrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
+void getposteriorierrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
+
+
 /* assemble.c */
-int getmesh(ELEMENT *ptr_elements, idenmat *ptr_elementEdge, EDGE *ptr_edges, dennode *ptr_nodes, iCSRmat *edgesTran, ivector *nodeCEdge, int levelNum);
+int getmesh(int domain_num, ELEMENT *ptr_elements, idenmat *ptr_elementEdge, EDGE *ptr_edges, dennode *ptr_nodes, iCSRmat *edgesTran, ivector *nodeCEdge, int levelNum);
 void getElementDOF1D(ELEMENT_DOF *elementDOF, int ne, int dop);
 void getElementDOF1D_Continue(ELEMENT_DOF *edgeDOF, ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop);
 void getElementDOF_Lagrange(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF_HuZhang(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
-void assemble(dCSRmat *ptr_A, dvector *ptr_b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
-void assembleStiffmatrixHuZhang2d(dCSRmat *A, dCSRmat *BT, dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
-void assembleStiffmatrixHuZhangA11_2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
-void assembleStiffmatrixHuZhangIP2d(dCSRmat *A, dCSRmat *BT, dCSRmat *C, dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
+void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu);
+void assembleweightedMassatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
+void assembleDivHuZhangL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
+void assembleRHSHuZhang2d(dvector *b, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, void (*f)(double *, double *, double *), double *paras);
+void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double penaltypara);
+// void assembleStiffmatrixHuZhangIP2d(dCSRmat *A, dCSRmat *BT, dCSRmat *C, dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
 void assembleStiffmatrixElasLagrange(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu);
 void assembleStiffmatrixVecLagrange(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu);
-void assembleStiffmatrixLagrange(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu);
-void assembleStiffmatrixElasIPDG0(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
-void assembleStiffmatrixVecIPDG0(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void sumNormalDerivativeEta(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, ddenmat *etas, double *sum);
 void jumpOperatorVectorTensor(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump);
 void jumpOperatorVector(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump);
@@ -575,7 +600,7 @@ void jumpOperatorTensorDIVPt(double lambda1, double lambda2, int edge, ELEMENT *
 void jumpOperatorTensorDIV(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump);
 void jumpOperatorATensorTangent2(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double lambda, double mu, double *jump);
 void jumpOperatorRotATensorTangentPt(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double lambda, double mu, double *jump);
-void getElementEdgeGeoInfo(ELEMENT *elements, EDGE *edges, dennode *nodes);
+void getElementEdgeGeoInfo(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes);
 void getBoundaryInfo(EDGE *edges, dennode *nodes, int dof, int dop, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index);
 void getBoundaryInfoVector2d(EDGE *edges, dennode *nodes, int dof, int dop, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index);
 void getBoundaryInfoNormalTrace(EDGE *edges, ELEMENT_DOF *elementDOF, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index);
@@ -584,7 +609,7 @@ void getBoundaryInfoEdge(EDGE *edges, ivector *isInNode, ivector *dirichlet, ive
 
 /* assembleInfo.c */
 void getEdgeInfo(idenmat *elements, iCSRmat *elementsTran, idenmat *edges, iCSRmat *edgesTran);
-int getCoarseInfo(ddenmat *nodes, idenmat *elements, idenmat *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *isInNode, ivector *nodeCEdge);
+int getCoarseInfo(int domain_num, ddenmat *nodes, idenmat *elements, idenmat *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *isInNode, ivector *nodeCEdge);
 void refine(ddenmat *nodes, idenmat *Celements, idenmat *Cedges, iCSRmat *CelementsTran, idenmat *Felements, idenmat *Fedges, iCSRmat *FelementsTran, iCSRmat *FedgesTran, ivector *isInNode, ivector *nodeCEdge);
 void extractNondirichletMatrixVector(dCSRmat *A, dvector *b, dCSRmat *A11, dvector *b1, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index, dvector *uh);
 void extractNondirichletMatrix11(dCSRmat *A, dCSRmat *A11, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index);
@@ -595,46 +620,33 @@ void extractNondirichletVector(dCSRmat *A, dvector *b, dvector *b1, ivector *dir
 int getEdgeDOFsTensor(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart, int *row31, int *row32);
 int getEdgeDOFsScalarTensor(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int rowstart, int row31, int row32);
 int getEdgeDOFsVectorTensor(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart, int *row31, int *row32);
-int getEdgeDOFsVector(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart, int *row21);
+int getEdgeDOFsVector(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart);
 void patchtogether22(dCSRmat *A11, dCSRmat *A12, dCSRmat *A21, dCSRmat *A22, dCSRmat *A);
 void patchtogether33(dCSRmat *A11, dCSRmat *A12, dCSRmat *A13, dCSRmat *A21, dCSRmat *A22, dCSRmat *A23, dCSRmat *A31, dCSRmat *A32, dCSRmat *A33, dCSRmat *A);
 void getPenaltyParameters(ddenmat *etas, idenmat *elementEdge, EDGE *edges, double *alpha, double *beta);
 
 /* basicData.c */
-double f1(double x, double y, double lambda, double mu);
-double f2(double x, double y, double lambda, double mu);
-double u1(double x, double y, double lambda, double mu);
-double u2(double x, double y, double lambda, double mu);
-double u1_x(double x, double y, double lambda, double mu);
-double u1_y(double x, double y, double lambda, double mu);
-double u2_x(double x, double y, double lambda, double mu);
-double u2_y(double x, double y, double lambda, double mu);
-double sigma11(double x, double y, double lambda, double mu);
-double sigma22(double x, double y, double lambda, double mu);
-double sigma12(double x, double y, double lambda, double mu);
-double sigma21(double x, double y, double lambda, double mu);
 void morley_basis(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double *phi);
 void morley_basis1(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double phi[2]);
 void morley_basis2(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double phi[3]);
 void lagrange1D_basis(double lambda, int index, int dop, double *phi);
 void lagrange1D_basis1(double lambda, int index, int dop, double h, double *phi);
 void lagrange_basis(double *lambda, int index, int dop, double *phi);
-void lagrange_basis1(double *lambda, double s, double eta[3], double xi[3], int index, int dop, double phi[2]);
-void lagrange_basis2(double *lambda, double s, double eta[3], double xi[3], int index, int dop, double phi[3]);
+void lagrange_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[2]);
+void lagrange_basis2(double *lambda, double **gradLambda, int index, int dop, double phi[3]);
 void rt_basis(double x, double y, double (*T)[2], double s, double elen[3], double eta[3], double xi[3], double orient[3], int index, int dop, double phi[2]);
 void rt_basis1(double x, double y, double (*T)[2], double s, double elen[3], double eta[3], double xi[3], double orient[3], int index, int dop, double phi[4]);
 void arnoldwinther_basis(double *lambda, double *x, double *y, ddenmat3 *basisCoeffs, int element, int index, double *phi);
 void arnoldwinther_basisDIV(double *lambda, ddenmat3 *basisCoeffs, int element, double s, double eta[3], double xi[3], int index, double *phi);
 void arnoldwinther_basisDIV2(ddenmat3 *basisCoeffs, int element, double s, double eta[3], double xi[3], int index, double *phi);
 void huzhang_basis(double *lambda, double **nv, double **tv, int index, int dop, double phi[3]);
-void huzhang_basis1(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double(*phi)[2]);
-void huzhang_basisDIV(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double phi[2]);
-void huzhang_basisROT(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double phi[2]);
-void huzhang_basisCurlTrace(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double phi[2]);
-void huzhang_basisROTROT(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double *phi);
-void huzhang_basisLaplaceTrace(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double *phi);
-double area(double x1,double x2,double x3,double y1,double y2,double y3);
-void localb(double (*nodes)[2],double *b);
+void huzhang_basis1(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double(*phi)[2]);
+void huzhang_basisDIV(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double phi[2]);
+void huzhang_basisROT(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double phi[2]);
+void huzhang_basisCurlTrace(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double phi[2]);
+void huzhang_basisROTROT(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double *phi);
+void huzhang_basisLaplaceTrace(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double *phi);
+double area(double (*tri)[2]);
 
 /* basiscoeff.c */
 void generateBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes);
@@ -642,23 +654,28 @@ void generateBasisCoeffsEdgeProj(dBDmat *B, dBDmat *bC, EDGE *edges, int dopl, i
 
 /* quadrature.c */
 int getNumQuadPoints(int dop, int dim);
+int getNumQuadPoints_ShunnWilliams(int dop, int dim);
 void init_quadrature(int num_qp, int ncoor, double (*gauss)[3]);
 void init_Gauss(int num_qp, int ncoor, double (*gauss)[3]);
+void init_Gauss2d(int num_qp, double (*gauss)[3], double *weight);
 void init_Gauss1D(int num_qp, int ncoor, double (*gauss)[2]);
+void init_Gauss1d(int num_qp, double (*gauss)[2], double *weight);
 void init_NewtonCotes1D(int num_qp, int ncoor, double (*newtoncotes)[2]);
+void init_ShunnWilliams2d(int num_qp, double (*lambdas)[3], double *weight);
+void init_ShunnWilliams3d(int num_qp, double (*lambdas)[4], double *weight);
 
 /* lu.c */
 int LU_Decomp(double *A, int pivot[], int n);
 int LU_Solve(double *A, double b[], int pivot[], double x[], int n);
 
 /* post_processing.c */
-void projPiecewiseLagrangeDisplacement(dvector *Qhu, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
-void projPiecewiseLagrangeRHS(dvector *Qhf, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
+void projL2PkVec2d(dvector *Qhu, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, void (*u)(double *, double *, double *), double *paras);
+void projPiecewiseLagrangeRHS(dvector *Qhf, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, double *paras);
 void postprocess2newDisplacement(dvector *uhstar, dvector *sigmah, dvector *uh, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
 
-/* error.c */
-void geterrors(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
-void getposteriorierrors(double *errors, dvector *sigmah, dvector *uh, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
+
+/* output.c */
+int getElementsNodes4Matlab(ELEMENT *elements, dennode *nodes, dvector *uh);
 
 /* xuludmil.for (Xiangtan energy minimization code) */
 //void get_p_xuludmil_(int *ia,int *ja,double *a, int *n, int *nc,int *ip,int *jp,double *pn,int *ipt,int *jpt,int *mf);

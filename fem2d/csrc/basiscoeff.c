@@ -55,9 +55,9 @@ void generateBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elem
 	double x[3], y[3], nv[3][2], nve[3][2];
 	double lambdas[3], xx, yy;
 
-	int num_qp=9; // the number of numerical intergation points
-	double gauss[num_qp][3];
-	init_Gauss(num_qp, 2, gauss); // gauss intergation initial
+	int num_qp=9;
+	double gauss[100][3], weight[100];
+	init_Gauss2d(num_qp, gauss, weight);
 
 	int num_qp1=4; // the number of numerical intergation points
 	double gauss1[num_qp1][2];
@@ -426,13 +426,13 @@ void generateBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elem
 		{
 			lambdas[0]=gauss[i][0];
 			lambdas[1]=gauss[i][1];
-			lambdas[2]=1-lambdas[0]-lambdas[1];
+			lambdas[2]=gauss[i][2];
 			xx=x[0]*lambdas[0]+x[1]*lambdas[1]+x[2]*lambdas[2];
 			yy=y[0]*lambdas[0]+y[1]*lambdas[1]+y[2]*lambdas[2];
-			A.val[171] += 2*gauss[i][2]*pow(yy,3);
-			A.val[172] += 2*gauss[i][2]*(-3*xx*yy*yy);
-			A.val[173] += 2*gauss[i][2]*(-pow(xx,3)/3.0);
-			A.val[174] += 2*gauss[i][2]*(-xx*xx*yy);
+			A.val[171] += weight[i]*pow(yy,3);
+			A.val[172] += weight[i]*(-3*xx*yy*yy);
+			A.val[173] += weight[i]*(-pow(xx,3)/3.0);
+			A.val[174] += weight[i]*(-xx*xx*yy);
 		}
 		// row 23
 		A.JA[175] = 1; A.val[175] = 1.0/3.0;
@@ -449,13 +449,13 @@ void generateBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elem
 		{
 			lambdas[0]=gauss[i][0];
 			lambdas[1]=gauss[i][1];
-			lambdas[2]=1-lambdas[0]-lambdas[1];
+			lambdas[2]=gauss[i][2];
 			xx=x[0]*lambdas[0]+x[1]*lambdas[1]+x[2]*lambdas[2];
 			yy=y[0]*lambdas[0]+y[1]*lambdas[1]+y[2]*lambdas[2];
-			A.val[181] += 2*gauss[i][2]*pow(xx,3);
-			A.val[182] += 2*gauss[i][2]*(-3*xx*xx*yy);
-			A.val[183] += 2*gauss[i][2]*(-xx*yy*yy);
-			A.val[184] += 2*gauss[i][2]*(-pow(yy,3)/3.0);
+			A.val[181] += weight[i]*pow(xx,3);
+			A.val[182] += weight[i]*(-3*xx*xx*yy);
+			A.val[183] += weight[i]*(-xx*yy*yy);
+			A.val[184] += weight[i]*(-pow(yy,3)/3.0);
 		}
 		// row 24
 		A.JA[185] = 2; A.val[185] = 1.0/3.0;
@@ -472,13 +472,13 @@ void generateBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elem
 		{
 			lambdas[0]=gauss[i][0];
 			lambdas[1]=gauss[i][1];
-			lambdas[2]=1-lambdas[0]-lambdas[1];
+			lambdas[2]=gauss[i][2];
 			xx=x[0]*lambdas[0]+x[1]*lambdas[1]+x[2]*lambdas[2];
 			yy=y[0]*lambdas[0]+y[1]*lambdas[1]+y[2]*lambdas[2];
-			A.val[191] += 2*gauss[i][2]*pow(xx,3);
-			A.val[192] += 2*gauss[i][2]*pow(yy,3);
-			A.val[193] += 2*gauss[i][2]*(xx*xx*yy);
-			A.val[194] += 2*gauss[i][2]*(xx*yy*yy);
+			A.val[191] += weight[i]*pow(xx,3);
+			A.val[192] += weight[i]*pow(yy,3);
+			A.val[193] += weight[i]*(xx*xx*yy);
+			A.val[194] += weight[i]*(xx*yy*yy);
 		}
 		/********************************form A End************************************/
 

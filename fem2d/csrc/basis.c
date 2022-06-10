@@ -12,172 +12,7 @@
  
 #include <math.h>
 #include "header.h"
-
- /**
- * \fn double f(double x, double y)
- * \brief load f, i.e. right hand side when the true solution u is x*x*(x-1)*(x-1)*y*y*(y-1)*(y-1)
- *		  \Delta^2 u = f
- * \param x the x-axis value of the point
- * \param y the y-axis value of the point
- * \return function value
- */
-double f(double x, double y)
-{
-	double lambda = 0.3;
-	double nu = 0.35;
-
-	return 0;
-}
-
-double f1(double x, double y, double lambda, double mu)
-{
-	return -mu*pi*pi*pi * sin(2 * pi*y)*(2 * cos(2 * pi*x) - 1);
-}
-
-double f2(double x, double y, double lambda, double mu)
-{
-	return mu*pi*pi*pi * sin(2 * pi*x)*(2 * cos(2 * pi*y) - 1);
-}
-
-/**
-* \fn double u1(double x, double y, double lambda, double mu)
-* \brief true solution u1
-* \param x the x-axis value of the point
-* \param y the y-axis value of the point
-* \param lambda Lame constant
-* \param nu Lame constant or Poisson ratio of plate
-* \return function value
-*/
-double u1(double x, double y, double lambda, double mu)
-{
-	return pi*cos(pi*y)*sin(pi*x)*sin(pi*x) * sin(pi*y);
-}
-
-/**
-* \fn double u2(double x, double y, double lambda, double mu)
-* \brief true solution u2
-* \param x the x-axis value of the point
-* \param y the y-axis value of the point
-* \param lambda Lame constant
-* \param mu Lame constant or Poisson ratio of plate
-* \return function value
-*/
-double u2(double x, double y, double lambda, double mu)
-{
-	return -pi*cos(pi*x)*sin(pi*x)*sin(pi*y)*sin(pi*y);
-}
-
-/**
-* \fn double u1_x(double x, double y, double lambda, double mu)
-* \brief the x-directional partial derivative of true solution u1
-* \param x the x-axis value of the point
-* \param y the y-axis value of the point
-* \param lambda Lame constant
-* \param mu Lame constant or Poisson ratio of plate
-* \return x-directional partial derivative of true solution u
-*/
-double u1_x(double x, double y, double lambda, double mu)
-{
-	return 2 * pi * pi * cos(pi*x)*cos(pi*y)*sin(pi*x)*sin(pi*y);
-}
-
-/**
-* \fn double u1_y(double x, double y, double lambda, double mu)
-* \brief the y-directional partial derivative of true solution u
-* \param x the x-axis value of the point
-* \param y the y-axis value of the point
-* \param lambda Lame constant
-* \param mu Lame constant or Poisson ratio of plate
-* \return y-directional partial derivative of true solution u
-*/
-double u1_y(double x, double y, double lambda, double mu)
-{
-	return pi * pi * cos(2 * pi*y)*sin(pi*x)*sin(pi*x);
-}
-
-/**
-* \fn double u2_x(double x, double y, double lambda, double mu)
-* \brief the x-directional partial derivative of true solution u1
-* \param x the x-axis value of the point
-* \param y the y-axis value of the point
-* \param lambda Lame constant
-* \param mu Lame constant or Poisson ratio of plate
-* \return x-directional partial derivative of true solution u
-*/
-double u2_x(double x, double y, double lambda, double mu)
-{
-	return -pi * pi * cos(2 * pi*x)*sin(pi*y)*sin(pi*y);
-}
-
-/**
-* \fn double u2_y(double x, double y, double lambda, double mu)
-* \brief the y-directional partial derivative of true solution u
-* \param x the x-axis value of the point
-* \param y the y-axis value of the point
-* \param lambda Lame constant
-* \param mu Lame constant or Poisson ratio of plate
-* \return y-directional partial derivative of true solution u
-*/
-double u2_y(double x, double y, double lambda, double mu)
-{
-	return -2 * pi * pi * cos(pi*x)*cos(pi*y)*sin(pi*x)*sin(pi*y);
-}
-
-/**
-* \fn double sigma11(double x, double y, double lambda, double mu)
-* \brief sigma11
-* \param x the x-axis value of the point
-* \param y the y-axis value of the point
-* \param lambda Lame constant
-* \param mu Lame constant or Poisson ratio of plate
-* \return sigma11
-*/
-double sigma11(double x, double y, double lambda, double mu)
-{
-	return 4 * mu*pi*pi * cos(pi*x)*cos(pi*y)*sin(pi*x)*sin(pi*y);
-}
-
-/**
-* \fn double sigma22(double x, double y, double lambda, double mu)
-* \brief sigma22
-* \param x the x-axis value of the point
-* \param y the y-axis value of the point
-* \param lambda Lame constant
-* \param mu Lame constant or Poisson ratio of plate
-* \return sigma22
-*/
-double sigma22(double x, double y, double lambda, double mu)
-{
-	return -4 * mu*pi*pi * cos(pi*x)*cos(pi*y)*sin(pi*x)*sin(pi*y);
-}
-
-/**
-* \fn double sigma12(double x, double y, double lambda, double mu)
-* \brief sigma12
-* \param x the x-axis value of the point
-* \param y the y-axis value of the point
-* \param lambda Lame constant
-* \param mu Lame constant or Poisson ratio of plate
-* \return sigma12
-*/
-double sigma12(double x, double y, double lambda, double mu)
-{
-	return -(mu*pi*pi * (cos(2 * pi*x) - cos(2 * pi*y))) / 2;
-}
-
-/**
-* \fn double sigma21(double x, double y, double lambda, double mu)
-* \brief sigma21
-* \param x the x-axis value of the point
-* \param y the y-axis value of the point
-* \param lambda Lame constant
-* \param mu Lame constant or Poisson ratio of plate
-* \return sigma21
-*/
-double sigma21(double x, double y, double lambda, double mu)
-{
-	return -(mu*pi*pi * (cos(2 * pi*x) - cos(2 * pi*y))) / 2;
-}
+#include "matvec.h"
 
 /** 
  * \fn void morley_basis(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double *phi)
@@ -528,7 +363,7 @@ void lagrange1D_basis1(double lambda, int index, int dop, double h, double *phi)
  */
 void lagrange_basis(double *lambda, int index, int dop, double *phi)
 {
-	int in, ie, ii;
+	int in, ie, ii, i1, i2, l, i;
 	int dofs = (dop+1)*(dop+2)/2; // degrees of freedom
 	if(index>= dofs || index<0)
 	{
@@ -650,23 +485,57 @@ void lagrange_basis(double *lambda, int index, int dop, double *phi)
 			*phi = lambda[0]*lambda[1]*lambda[2]*(5*lambda[(in+1)%3]-1)*(5*lambda[(in+2)%3]-1)*125.0/4.0;
 		}
 	} // dop=5
+
+	/********* Bernstein basis ***********/
+	else if(dop>=6)  // it works for any dop >= 2
+	{
+		if(index<3)
+		{
+			*phi =  pow(lambda[index], dop);
+		}
+		else if(index < 3*dop) 
+		{
+			in = index-3;
+			ie = in/(dop-1);
+			ii = in%(dop-1); // ii=0, 1 or 2 if dop=4
+			i1 = (ie+1)%3;
+			i2 = (ie+2)%3;
+			*phi =  4.0 *pow(lambda[i1], ii+1)*pow(lambda[i2], dop-1-ii);
+		}
+		else
+		{
+			ii = index-3*dop;
+			for(l=0;l<dop-2;l++)
+			{
+				if(ii<(l+1)*(l+2)/2) 
+					break;
+			}
+			i=ii-(l+1)*l/2;
+			*phi =  27.0*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i+1);
+		}
+	}
 }
 
 /** 
- * \fn void lagrange_basis1(double *lambda, double s, double eta[3], double xi[3], int index, int dop, double phi[2])
+ * \fn void lagrange_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[2])
  * \brief the first order derivative of Lagrange element basis function: (\partial_{x}phi, \partial_{y}phi)
  * \param *lambda pointer to the area coordiante
- * \param s the area of the triangule
- * \param eta[3] some auxiliary parameter
- * \param xi[3] some auxiliary parameter
+ * \param **gradLambda pointer to the gradient of the barycentric coordinate
  * \param index the indicator of the basis function
  * \param dop degree of polynomial
  * \param phi[2] the first order derivative of Morley element basis function: (\partial_{x}phi, \partial_{y}phi)
  * \return void
  */
-void lagrange_basis1(double *lambda, double s, double eta[3], double xi[3], int index, int dop, double phi[2])
+void lagrange_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[2])
 {
-	int in, ie, ii, i1, i2, i3;
+	double s, eta[3], xi[3], c0, c1, c2;	
+	int in, ie, ii, i1, i2, i3, l, i;
+	s = 0.5 / (gradLambda[0][0]*gradLambda[1][1] - gradLambda[0][1]*gradLambda[1][0]);
+	for(int i=0;i<3;i++){
+		eta[i] = gradLambda[i][0]*2*s;
+		xi[i] = -gradLambda[i][1]*2*s;
+	}
+
 	int dofs = (dop+1)*(dop+2)/2; // degrees of freedom
 	if(index>= dofs || index<0)
 	{
@@ -682,24 +551,17 @@ void lagrange_basis1(double *lambda, double s, double eta[3], double xi[3], int 
 	} // dop=0
 
 	else if(dop==1)
-	{
-		phi[0]=eta[index]/(2.0*s);
-		phi[1]=-xi[index]/(2.0*s);
-	} // dop=1
+		copy_array(2, gradLambda[index], phi);
 
 	else if(dop==2)
 	{
 		if(index<3)
-		{
-			phi[0]=(4*lambda[index]-1)*eta[index]/(2.0*s);
-			phi[1]=-(4*lambda[index]-1)*xi[index]/(2.0*s);
-		}
+			axy_array(2, 4*lambda[index]-1, gradLambda[index], phi);
 		else
 		{
 			i1=(index+1)%3;
 			i2=(index+2)%3;
-			phi[0]=4*(lambda[i1]*eta[i2]+lambda[i2]*eta[i1])/(2.0*s);
-			phi[1]=-4*(lambda[i1]*xi[i2]+lambda[i2]*xi[i1])/(2.0*s);
+			axpbyz_array(3, 4*lambda[i2], gradLambda[i1], 4*lambda[i1], gradLambda[i2], phi);
 		}
 	} // dop=2
 
@@ -821,23 +683,66 @@ void lagrange_basis1(double *lambda, double s, double eta[3], double xi[3], int 
 			phi[1]=-(xi[0]*lambda[1]*lambda[2]*(5*lambda[i1]-1)*(5*lambda[i2]-1) + lambda[0]*xi[1]*lambda[2]*(5*lambda[i1]-1)*(5*lambda[i2]-1) + lambda[0]*lambda[1]*xi[2]*(5*lambda[i1]-1)*(5*lambda[i2]-1) + lambda[0]*lambda[1]*lambda[2]*5*xi[i1]*(5*lambda[i2]-1) + lambda[0]*lambda[1]*lambda[2]*(5*lambda[i1]-1)*5*xi[i2])*125.0/(8.0*s);
 		}
 	} // dop=5
+
+	/********* Bernstein basis ***********/
+	else if(dop>=6)  // it works for any dop >= 2
+	{
+		if(index<3)
+		{
+			// *phi =  pow(lambda[index], dop);
+			axy_array(2, dop*pow(lambda[index], dop-1), gradLambda[index], phi);
+		}
+		else if(index < 3*dop) 
+		{
+			in = index-3;
+			ie = in/(dop-1);
+			ii = in%(dop-1); // ii=0, 1 or 2 if dop=4
+			i1 = (ie+1)%3;
+			i2 = (ie+2)%3;
+			// *phi =  4.0 *pow(lambda[i1], ii+1)*pow(lambda[i2], dop-1-ii);
+			c1 =  4.0 *(ii+1)*pow(lambda[i1], ii)*pow(lambda[i2], dop-1-ii);
+			c2 =  4.0 *(dop-1-ii)*pow(lambda[i1], ii+1)*pow(lambda[i2], dop-2-ii);
+			axpbyz_array(2, c1, gradLambda[i1], c2, gradLambda[i2], phi);
+		}
+		else
+		{
+			ii = index-3*dop;
+			for(l=0;l<dop-2;l++)
+			{
+				if(ii<(l+1)*(l+2)/2) 
+					break;
+			}
+			i=ii-(l+1)*l/2;
+			// *phi =  27.0*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i+1);
+			c0 =  27.0*(dop-2-l)*pow(lambda[0], dop-3-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i+1);
+			c1 =  27.0*(l-i+1)*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i)*pow(lambda[2], i+1);
+			axpbyz_array(2, c0, gradLambda[0], c1, gradLambda[1], phi);
+	        c2 =  27.0*(i+1)*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i);
+			axpy_array(2, c2, gradLambda[2], phi);
+		}
+	}
 }
 
 /** 
- * \fn void lagrange_basis2(double *lambda, double s, double eta[3], double xi[3], int index, int dop, double phi[3])
+ * \fn void lagrange_basis2(double *lambda, double **gradLambda, int index, int dop, double phi[3])
  * \brief the second order derivative of Lagrange element basis function: (\partial_{xx}phi, \partial_{yy}phi, \partial_{xy}phi)
  * \param *lambda pointer to the area coordiante
- * \param s the area of the triangule
- * \param eta[3] some auxiliary parameter
- * \param xi[3] some auxiliary parameter
+ * \param **gradLambda pointer to the gradient of the barycentric coordinate
  * \param index the indicator of the basis function
  * \param dop degree of polynomial
  * \param phi[2] the first order derivative of Morley element basis function: (\partial_{xx}phi, \partial_{yy}phi, \partial_{xy}phi)
  * \return void
  */
-void lagrange_basis2(double *lambda, double s, double eta[3], double xi[3], int index, int dop, double phi[3])
+void lagrange_basis2(double *lambda, double **gradLambda, int index, int dop, double phi[3])
 {
-	int in, ie, ii, i1, i2, i3;
+	double s, eta[3], xi[3], c0, c1, c2;	
+	int in, ie, ii, i1, i2, i3, l, i;
+	s = 0.5 / (gradLambda[0][0]*gradLambda[1][1] - gradLambda[0][1]*gradLambda[1][0]);
+	for(int i=0;i<3;i++){
+		eta[i] = gradLambda[i][0]*2*s;
+		xi[i] = -gradLambda[i][1]*2*s;
+	}
+
 	int dofs = (dop+1)*(dop+2)/2; // degrees of freedom
 	if(index>= dofs || index<0)
 	{
@@ -865,17 +770,17 @@ void lagrange_basis2(double *lambda, double s, double eta[3], double xi[3], int 
 	{
 		if(index<3)
 		{
-			phi[0]=eta[index]*eta[index]/(s*s);
-			phi[1]=xi[index]*xi[index]/(s*s);
-			phi[2]=-eta[index]*xi[index]/(s*s);
+			phi[0]=4*gradLambda[index][0]*gradLambda[index][0];
+			phi[1]=4*gradLambda[index][1]*gradLambda[index][1];
+			phi[2]=4*gradLambda[index][0]*gradLambda[index][1];
 		}
 		else
 		{
 			i1=(index+1)%3;
 			i2=(index+2)%3;
-			phi[0]=2*eta[i1]*eta[i2]/(s*s);
-			phi[1]=2*xi[i1]*xi[i2]/(s*s);
-			phi[2]=-(eta[i1]*xi[i2]+eta[i2]*xi[i1])/(s*s);
+			phi[0]=8*gradLambda[i1][0]*gradLambda[i2][0];
+			phi[1]=8*gradLambda[i1][1]*gradLambda[i2][1];
+			phi[2]=4*(gradLambda[i1][0]*gradLambda[i2][1]+gradLambda[i1][1]*gradLambda[i2][0]);
 		}
 	} // dop=2
 
@@ -1014,6 +919,75 @@ void lagrange_basis2(double *lambda, double s, double eta[3], double xi[3], int 
 			phi[2]= -125.0/4.0*(((eta[0]*xi[1]+eta[1]*xi[0])*lambda[2]+(eta[1]*xi[2]+eta[2]*xi[1])*lambda[0]+(eta[2]*xi[0]+eta[0]*xi[2])*lambda[1])*(5*lambda[i1]-1)*(5*lambda[i2]-1) + (xi[0]*lambda[1]*lambda[2]+xi[1]*lambda[2]*lambda[0]+xi[2]*lambda[0]*lambda[1])*((25*lambda[i2]-5)*eta[i1]+(25*lambda[i1]-5)*eta[i2]) + (eta[0]*lambda[1]*lambda[2]+eta[1]*lambda[2]*lambda[0]+eta[2]*lambda[0]*lambda[1])*((25*lambda[i2]-5)*xi[i1]+(25*lambda[i1]-5)*xi[i2]) + lambda[0]*lambda[1]*lambda[2]*25*(eta[i1]*xi[i2]+eta[i2]*xi[i1]))/(4*s*s);
 		}
 	} // dop=5
+
+	/********* Bernstein basis ***********/
+	else if(dop>=6)  // it works for any dop >= 2
+	{
+		if(index<3)
+		{
+			// *phi =  pow(lambda[index], dop);
+			c0 = dop*(dop-1)*pow(lambda[index], dop-2);
+			phi[0] = c0*gradLambda[index][0]*gradLambda[index][0];
+			phi[1] = c0*gradLambda[index][1]*gradLambda[index][1];
+			phi[2] = c0*gradLambda[index][0]*gradLambda[index][1];
+		}
+		else if(index < 3*dop) 
+		{
+			in = index-3;
+			ie = in/(dop-1);
+			ii = in%(dop-1); // ii=0, 1 or 2 if dop=4
+			i1 = (ie+1)%3;
+			i2 = (ie+2)%3;
+			// *phi =  4.0 *pow(lambda[i1], ii+1)*pow(lambda[i2], dop-1-ii);
+			c0 = 4.0*(ii+1)*ii*pow(lambda[i1], ii-1)*pow(lambda[i2], dop-1-ii);
+			phi[0] = c0*gradLambda[i1][0]*gradLambda[i1][0];
+			phi[1] = c0*gradLambda[i1][1]*gradLambda[i1][1];
+			phi[2] = c0*gradLambda[i1][0]*gradLambda[i1][1];
+			c0 = 4.0*(dop-1-ii)*(dop-2-ii)*pow(lambda[i1], ii+1)*pow(lambda[i2], dop-3-ii);
+			phi[0] += c0*gradLambda[i2][0]*gradLambda[i2][0];
+			phi[1] += c0*gradLambda[i2][1]*gradLambda[i2][1];
+			phi[2] += c0*gradLambda[i2][0]*gradLambda[i2][1];
+			c0 = 4.0*(ii+1)*(dop-1-ii)*pow(lambda[i1], ii)*pow(lambda[i2], dop-2-ii);
+			phi[0] += c0*2*gradLambda[i1][0]*gradLambda[i2][0];
+			phi[1] += c0*2*gradLambda[i1][1]*gradLambda[i2][1];
+			phi[2] += c0*(gradLambda[i1][0]*gradLambda[i2][1]+gradLambda[i1][1]*gradLambda[i2][0]);
+		}
+		else
+		{
+			ii = index-3*dop;
+			for(l=0;l<dop-2;l++)
+			{
+				if(ii<(l+1)*(l+2)/2) 
+					break;
+			}
+			i=ii-(l+1)*l/2;
+			// *phi =  27.0*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i+1);
+			c0 = 27.0*(dop-2-l)*(dop-3-l)*pow(lambda[0], dop-4-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i+1);
+			phi[0] = c0*gradLambda[0][0]*gradLambda[0][0];
+			phi[1] = c0*gradLambda[0][1]*gradLambda[0][1];
+			phi[2] = c0*gradLambda[0][0]*gradLambda[0][1];
+			c0 = 27.0*(l-i+1)*(l-i)*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i-1)*pow(lambda[2], i+1);
+			phi[0] += c0*gradLambda[1][0]*gradLambda[1][0];
+			phi[1] += c0*gradLambda[1][1]*gradLambda[1][1];
+			phi[2] += c0*gradLambda[1][0]*gradLambda[1][1];
+			c0 = 27.0*(i+1)*i*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i-1);
+			phi[0] += c0*gradLambda[2][0]*gradLambda[2][0];
+			phi[1] += c0*gradLambda[2][1]*gradLambda[2][1];
+			phi[2] += c0*gradLambda[2][0]*gradLambda[2][1];
+			c0 = 27.0*(l-i+1)*(i+1)*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i)*pow(lambda[2], i);
+			phi[0] += c0*2*gradLambda[1][0]*gradLambda[2][0];
+			phi[1] += c0*2*gradLambda[1][1]*gradLambda[2][1];
+			phi[2] += c0*(gradLambda[1][0]*gradLambda[2][1]+gradLambda[1][1]*gradLambda[2][0]);
+			c0 = 27.0*(dop-2-l)*(i+1)*pow(lambda[0], dop-3-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i);
+			phi[0] += c0*2*gradLambda[2][0]*gradLambda[0][0];
+			phi[1] += c0*2*gradLambda[2][1]*gradLambda[0][1];
+			phi[2] += c0*(gradLambda[2][0]*gradLambda[0][1]+gradLambda[2][1]*gradLambda[0][0]);
+			c0 = 27.0*(dop-2-l)*(l-i+1)*pow(lambda[0], dop-3-l)*pow(lambda[1], l-i)*pow(lambda[2], i+1);
+			phi[0] += c0*2*gradLambda[0][0]*gradLambda[1][0];
+			phi[1] += c0*2*gradLambda[0][1]*gradLambda[1][1];
+			phi[2] += c0*(gradLambda[0][0]*gradLambda[1][1]+gradLambda[0][1]*gradLambda[1][0]);
+		}
+	}
 }
 
 
@@ -1676,9 +1650,7 @@ void huzhang_basis(double *lambda, double **nv, double **tv, int index, int dop,
 * \fn void huzhang_basis1(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double(*phi)[2])
 * \brief the first order derivative of basis function of Hu-Zhang element
 * \param *lambda pointer to the area coordiante
-* \param s the area of the triangule
-* \param eta[3] some auxiliary parameter
-* \param xi[3] some auxiliary parameter
+ * \param gradLambda gradient of the barycentric coordinate
 * \param **nv the unit normal vectors of the three edges
 * \param **tv the unit tangential vectors of the three edges
 * \param index the indicator of the basis function
@@ -1686,7 +1658,7 @@ void huzhang_basis(double *lambda, double **nv, double **tv, int index, int dop,
 * \param double(*phi)[2] the first order derivative of basis function of Hu-Zhang element
 * \return void
 */
-void huzhang_basis1(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double(*phi)[2])
+void huzhang_basis1(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double(*phi)[2])
 {
 	int dofs = (dop + 1)*(dop + 2) / 2; // degrees of freedom
 
@@ -1715,14 +1687,14 @@ void huzhang_basis1(double *lambda, double s, double eta[3], double xi[3], doubl
 	{
 		if (index<9)
 		{
-			lagrange_basis1(lambda, s, eta, xi, index % 3, dop, val);
+			lagrange_basis1(lambda, gradLambda, index % 3, dop, val);
 			phi[index / 3][0] = val[0]; 
 			phi[index / 3][1] = val[1];
 		}
 		else if (index<9 + (dop - 1) * 3)
 		{
 			i = index - 9;
-			lagrange_basis1(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3 + i, dop, val);
 			phi[0][0] = val[0] * nn[i / (dop - 1)][0];
 			phi[0][1] = val[1] * nn[i / (dop - 1)][0];
 			phi[1][0] = val[0] * nn[i / (dop - 1)][1];
@@ -1733,7 +1705,7 @@ void huzhang_basis1(double *lambda, double s, double eta[3], double xi[3], doubl
 		else if (index<9 + (dop - 1) * 6)
 		{
 			i = index - 9 - (dop - 1) * 3;
-			lagrange_basis1(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3 + i, dop, val);
 			phi[0][0] = val[0] * nt[i / (dop - 1)][0];
 			phi[0][1] = val[1] * nt[i / (dop - 1)][0];
 			phi[1][0] = val[0] * nt[i / (dop - 1)][1];
@@ -1744,7 +1716,7 @@ void huzhang_basis1(double *lambda, double s, double eta[3], double xi[3], doubl
 		else if (index<9 + (dop - 1) * 9)
 		{
 			i = index - 9 - (dop - 1) * 6;
-			lagrange_basis1(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3 + i, dop, val);
 			phi[0][0] = val[0] * tt[i / (dop - 1)][0];
 			phi[0][1] = val[1] * tt[i / (dop - 1)][0];
 			phi[1][0] = val[0] * tt[i / (dop - 1)][1];
@@ -1755,7 +1727,7 @@ void huzhang_basis1(double *lambda, double s, double eta[3], double xi[3], doubl
 		else
 		{
 			i = index - dop * 9;
-			lagrange_basis1(lambda, s, eta, xi, dop * 3 + i % (dofs - dop * 3), dop, val);
+			lagrange_basis1(lambda, gradLambda, dop * 3 + i % (dofs - dop * 3), dop, val);
 			phi[i / (dofs - dop * 3)][0] = val[0];
 			phi[i / (dofs - dop * 3)][1] = val[1];
 		}
@@ -1767,9 +1739,7 @@ void huzhang_basis1(double *lambda, double s, double eta[3], double xi[3], doubl
  * \fn void huzhang_basisDIV(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double phi[2])
  * \brief divergence of basis function of Hu-Zhang element
  * \param *lambda pointer to the area coordiante
- * \param s the area of the triangule
- * \param eta[3] some auxiliary parameter
- * \param xi[3] some auxiliary parameter
+ * \param gradLambda gradient of the barycentric coordinate
  * \param **nv the unit normal vectors of the three edges
  * \param **tv the unit tangential vectors of the three edges
  * \param index the indicator of the basis function
@@ -1777,7 +1747,7 @@ void huzhang_basis1(double *lambda, double s, double eta[3], double xi[3], doubl
  * \param *phi divergence of basis function
  * \return void
  */
-void huzhang_basisDIV(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double phi[2])
+void huzhang_basisDIV(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double phi[2])
 {
 	int dofs = (dop+1)*(dop+2)/2; // degrees of freedom
 
@@ -1805,61 +1775,61 @@ void huzhang_basisDIV(double *lambda, double s, double eta[3], double xi[3], dou
 	{
 		if(index<3)
 		{
-			lagrange_basis1(lambda, s, eta, xi, index, dop, val);
+			lagrange_basis1(lambda, gradLambda, index, dop, val);
 			phi[0] = val[0];
 			phi[1] = 0;
 		}
 		else if(index<6)
 		{
-			lagrange_basis1(lambda, s, eta, xi, index%3, dop, val);
+			lagrange_basis1(lambda, gradLambda, index%3, dop, val);
 			phi[0] = 0;
 			phi[1] = val[1];
 		}
 		else if(index<9)
 		{
-			lagrange_basis1(lambda, s, eta, xi, index%3, dop, val);
+			lagrange_basis1(lambda, gradLambda, index%3, dop, val);
 			phi[0] = val[1];
 			phi[1] = val[0];
 		}
 		else if(index<9+(dop-1)*3)
 		{
 			i=index-9;
-			lagrange_basis1(lambda, s, eta, xi, 3+i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3+i, dop, val);
 			phi[0]=val[0]*nn[i/(dop-1)][0]+val[1]*nn[i/(dop-1)][2];
 			phi[1]=val[0]*nn[i/(dop-1)][2]+val[1]*nn[i/(dop-1)][1];
 		}
 		else if(index<9+(dop-1)*6)
 		{
 			i=index-9-(dop-1)*3;
-			lagrange_basis1(lambda, s, eta, xi, 3+i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3+i, dop, val);
 			phi[0]=val[0]*nt[i/(dop-1)][0]+val[1]*nt[i/(dop-1)][2];
 			phi[1]=val[0]*nt[i/(dop-1)][2]+val[1]*nt[i/(dop-1)][1];
 		}
 		else if(index<9+(dop-1)*9)
 		{
 			i=index-9-(dop-1)*6;
-			lagrange_basis1(lambda, s, eta, xi, 3+i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3+i, dop, val);
 			phi[0]=val[0]*tt[i/(dop-1)][0]+val[1]*tt[i/(dop-1)][2];
 			phi[1]=val[0]*tt[i/(dop-1)][2]+val[1]*tt[i/(dop-1)][1];
 		}
 		else if(index<dop*9+(dofs-dop*3))
 		{
 			i=index-dop*9;
-			lagrange_basis1(lambda, s, eta, xi, dop*3+i, dop, val);
+			lagrange_basis1(lambda, gradLambda, dop*3+i, dop, val);
 			phi[0] = val[0];
 			phi[1] = 0;
 		}
 		else if(index<dop*9+(dofs-dop*3)*2)
 		{
 			i=index-dop*9-(dofs-dop*3);
-			lagrange_basis1(lambda, s, eta, xi, dop*3+i, dop, val);
+			lagrange_basis1(lambda, gradLambda, dop*3+i, dop, val);
 			phi[0] = 0;
 			phi[1] = val[1];
 		}
 		else
 		{
 			i=index-dop*9-(dofs-dop*3)*2;
-			lagrange_basis1(lambda, s, eta, xi, dop*3+i, dop, val);
+			lagrange_basis1(lambda, gradLambda, dop*3+i, dop, val);
 			phi[0] = val[1];
 			phi[1] = val[0];
 		}
@@ -1867,12 +1837,10 @@ void huzhang_basisDIV(double *lambda, double s, double eta[3], double xi[3], dou
 }
 
 /**
-* \fn void huzhang_basisROT(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double phi[2])
+* \fn void huzhang_basisROT(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double phi[2])
 * \brief rotation of basis function of Hu-Zhang element
 * \param *lambda pointer to the area coordiante
-* \param s the area of the triangule
-* \param eta[3] some auxiliary parameter
-* \param xi[3] some auxiliary parameter
+* \param gradLambda gradient of the barycentric coordinate
 * \param **nv the unit normal vectors of the three edges
 * \param **tv the unit tangential vectors of the three edges
 * \param index the indicator of the basis function
@@ -1880,7 +1848,7 @@ void huzhang_basisDIV(double *lambda, double s, double eta[3], double xi[3], dou
 * \param *phi divergence of basis function
 * \return void
 */
-void huzhang_basisROT(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double phi[2])
+void huzhang_basisROT(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double phi[2])
 {
 	int dofs = (dop + 1)*(dop + 2) / 2; // degrees of freedom
 
@@ -1908,61 +1876,61 @@ void huzhang_basisROT(double *lambda, double s, double eta[3], double xi[3], dou
 	{
 		if (index<3)
 		{
-			lagrange_basis1(lambda, s, eta, xi, index, dop, val);
+			lagrange_basis1(lambda, gradLambda, index, dop, val);
 			phi[0] = -val[1];
 			phi[1] = 0;
 		}
 		else if (index<6)
 		{
-			lagrange_basis1(lambda, s, eta, xi, index % 3, dop, val);
+			lagrange_basis1(lambda, gradLambda, index % 3, dop, val);
 			phi[0] = 0;
 			phi[1] = val[0];
 		}
 		else if (index<9)
 		{
-			lagrange_basis1(lambda, s, eta, xi, index % 3, dop, val);
+			lagrange_basis1(lambda, gradLambda, index % 3, dop, val);
 			phi[0] = val[0];
 			phi[1] = -val[1];
 		}
 		else if (index<9 + (dop - 1) * 3)
 		{
 			i = index - 9;
-			lagrange_basis1(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3 + i, dop, val);
 			phi[0] = -val[1] * nn[i / (dop - 1)][0] + val[0] * nn[i / (dop - 1)][2];
 			phi[1] = -val[1] * nn[i / (dop - 1)][2] + val[0] * nn[i / (dop - 1)][1];
 		}
 		else if (index<9 + (dop - 1) * 6)
 		{
 			i = index - 9 - (dop - 1) * 3;
-			lagrange_basis1(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3 + i, dop, val);
 			phi[0] = -val[1] * nt[i / (dop - 1)][0] + val[0] * nt[i / (dop - 1)][2];
 			phi[1] = -val[1] * nt[i / (dop - 1)][2] + val[0] * nt[i / (dop - 1)][1];
 		}
 		else if (index<9 + (dop - 1) * 9)
 		{
 			i = index - 9 - (dop - 1) * 6;
-			lagrange_basis1(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3 + i, dop, val);
 			phi[0] = -val[1] * tt[i / (dop - 1)][0] + val[0] * tt[i / (dop - 1)][2];
 			phi[1] = -val[1] * tt[i / (dop - 1)][2] + val[0] * tt[i / (dop - 1)][1];
 		}
 		else if (index<dop * 9 + (dofs - dop * 3))
 		{
 			i = index - dop * 9;
-			lagrange_basis1(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, dop * 3 + i, dop, val);
 			phi[0] = -val[1];
 			phi[1] = 0;
 		}
 		else if (index<dop * 9 + (dofs - dop * 3) * 2)
 		{
 			i = index - dop * 9 - (dofs - dop * 3);
-			lagrange_basis1(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, dop * 3 + i, dop, val);
 			phi[0] = 0;
 			phi[1] = val[0];
 		}
 		else
 		{
 			i = index - dop * 9 - (dofs - dop * 3) * 2;
-			lagrange_basis1(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, dop * 3 + i, dop, val);
 			phi[0] = val[0];
 			phi[1] = -val[1];
 		}
@@ -1973,9 +1941,7 @@ void huzhang_basisROT(double *lambda, double s, double eta[3], double xi[3], dou
 * \fn void huzhang_basisCurlTrace(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double phi[2])
 * \brief curl of the trace of basis function of Hu-Zhang element
 * \param *lambda pointer to the area coordiante
-* \param s the area of the triangule
-* \param eta[3] some auxiliary parameter
-* \param xi[3] some auxiliary parameter
+* \param gradLambda gradient of the barycentric coordinate
 * \param **nv the unit normal vectors of the three edges
 * \param **tv the unit tangential vectors of the three edges
 * \param index the indicator of the basis function
@@ -1983,7 +1949,7 @@ void huzhang_basisROT(double *lambda, double s, double eta[3], double xi[3], dou
 * \param *phi divergence of basis function
 * \return void
 */
-void huzhang_basisCurlTrace(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double phi[2])
+void huzhang_basisCurlTrace(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double phi[2])
 {
 	int dofs = (dop + 1)*(dop + 2) / 2; // degrees of freedom
 
@@ -2011,61 +1977,61 @@ void huzhang_basisCurlTrace(double *lambda, double s, double eta[3], double xi[3
 	{
 		if (index<3)
 		{
-			lagrange_basis1(lambda, s, eta, xi, index, dop, val);
+			lagrange_basis1(lambda, gradLambda, index, dop, val);
 			phi[0] = -val[1];
 			phi[1] = val[0];
 		}
 		else if (index<6)
 		{
-			lagrange_basis1(lambda, s, eta, xi, index % 3, dop, val);
+			lagrange_basis1(lambda, gradLambda, index % 3, dop, val);
 			phi[0] = -val[1];
 			phi[1] = val[0];
 		}
 		else if (index<9)
 		{
-			lagrange_basis1(lambda, s, eta, xi, index % 3, dop, val);
+			lagrange_basis1(lambda, gradLambda, index % 3, dop, val);
 			phi[0] = 0;
 			phi[1] = 0;
 		}
 		else if (index<9 + (dop - 1) * 3)
 		{
 			i = index - 9;
-			lagrange_basis1(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3 + i, dop, val);
 			phi[0] = -val[1] * (nn[i / (dop - 1)][0] + nn[i / (dop - 1)][1]);
 			phi[1] = val[0] * (nn[i / (dop - 1)][0] + nn[i / (dop - 1)][1]);
 		}
 		else if (index<9 + (dop - 1) * 6)
 		{
 			i = index - 9 - (dop - 1) * 3;
-			lagrange_basis1(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3 + i, dop, val);
 			phi[0] = -val[1] * (nt[i / (dop - 1)][0] + nt[i / (dop - 1)][1]);
 			phi[1] = val[0] * (nt[i / (dop - 1)][0] + nt[i / (dop - 1)][1]);
 		}
 		else if (index<9 + (dop - 1) * 9)
 		{
 			i = index - 9 - (dop - 1) * 6;
-			lagrange_basis1(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, 3 + i, dop, val);
 			phi[0] = -val[1] * (tt[i / (dop - 1)][0] + tt[i / (dop - 1)][1]);
 			phi[1] = val[0] * (tt[i / (dop - 1)][0] + tt[i / (dop - 1)][1]);
 		}
 		else if (index<dop * 9 + (dofs - dop * 3))
 		{
 			i = index - dop * 9;
-			lagrange_basis1(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, dop * 3 + i, dop, val);
 			phi[0] = -val[1];
 			phi[1] = val[0];
 		}
 		else if (index<dop * 9 + (dofs - dop * 3) * 2)
 		{
 			i = index - dop * 9 - (dofs - dop * 3);
-			lagrange_basis1(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, dop * 3 + i, dop, val);
 			phi[0] = -val[1];
 			phi[1] = val[0];
 		}
 		else
 		{
 			i = index - dop * 9 - (dofs - dop * 3) * 2;
-			lagrange_basis1(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis1(lambda, gradLambda, dop * 3 + i, dop, val);
 			phi[0] = 0;
 			phi[1] = 0;
 		}
@@ -2076,9 +2042,7 @@ void huzhang_basisCurlTrace(double *lambda, double s, double eta[3], double xi[3
 * \fn void huzhang_basisROTROT(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double *phi)
 * \brief rotrot of basis function of Hu-Zhang element
 * \param *lambda pointer to the area coordiante
-* \param s the area of the triangule
-* \param eta[3] some auxiliary parameter
-* \param xi[3] some auxiliary parameter
+* \param gradLambda gradient of the barycentric coordinate
 * \param **nv the unit normal vectors of the three edges
 * \param **tv the unit tangential vectors of the three edges
 * \param index the indicator of the basis function
@@ -2086,7 +2050,7 @@ void huzhang_basisCurlTrace(double *lambda, double s, double eta[3], double xi[3
 * \param *phi divergence of basis function
 * \return void
 */
-void huzhang_basisROTROT(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double *phi)
+void huzhang_basisROTROT(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double *phi)
 {
 	int dofs = (dop + 1)*(dop + 2) / 2; // degrees of freedom
 
@@ -2113,53 +2077,53 @@ void huzhang_basisROTROT(double *lambda, double s, double eta[3], double xi[3], 
 	{
 		if (index<3)
 		{
-			lagrange_basis2(lambda, s, eta, xi, index, dop, val);
+			lagrange_basis2(lambda, gradLambda, index, dop, val);
 			*phi = val[1];
 		}
 		else if (index<6)
 		{
-			lagrange_basis2(lambda, s, eta, xi, index % 3, dop, val);
+			lagrange_basis2(lambda, gradLambda, index % 3, dop, val);
 			*phi = val[0];
 		}
 		else if (index<9)
 		{
-			lagrange_basis2(lambda, s, eta, xi, index % 3, dop, val);
+			lagrange_basis2(lambda, gradLambda, index % 3, dop, val);
 			*phi = -2 * val[2];
 		}
 		else if (index<9 + (dop - 1) * 3)
 		{
 			i = index - 9;
-			lagrange_basis2(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, 3 + i, dop, val);
 			*phi = val[1] * nn[i / (dop - 1)][0] + val[0] * nn[i / (dop - 1)][1] - 2 * val[2] * nn[i / (dop - 1)][2];
 		}
 		else if (index<9 + (dop - 1) * 6)
 		{
 			i = index - 9 - (dop - 1) * 3;
-			lagrange_basis2(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, 3 + i, dop, val);
 			*phi = val[1] * nt[i / (dop - 1)][0] + val[0] * nt[i / (dop - 1)][1] - 2 * val[2] * nt[i / (dop - 1)][2];
 		}
 		else if (index<9 + (dop - 1) * 9)
 		{
 			i = index - 9 - (dop - 1) * 6;
-			lagrange_basis2(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, 3 + i, dop, val);
 			*phi = val[1] * tt[i / (dop - 1)][0] + val[0] * tt[i / (dop - 1)][1] - 2 * val[2] * tt[i / (dop - 1)][2];
 		}
 		else if (index<dop * 9 + (dofs - dop * 3))
 		{
 			i = index - dop * 9;
-			lagrange_basis2(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, dop * 3 + i, dop, val);
 			*phi = val[1];
 		}
 		else if (index<dop * 9 + (dofs - dop * 3) * 2)
 		{
 			i = index - dop * 9 - (dofs - dop * 3);
-			lagrange_basis2(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, dop * 3 + i, dop, val);
 			*phi = val[0];
 		}
 		else
 		{
 			i = index - dop * 9 - (dofs - dop * 3) * 2;
-			lagrange_basis2(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, dop * 3 + i, dop, val);
 			*phi = -2 * val[2];
 		}
 	}
@@ -2169,9 +2133,7 @@ void huzhang_basisROTROT(double *lambda, double s, double eta[3], double xi[3], 
 * \fn void huzhang_basisLaplaceTrace(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double *phi)
 * \brief Laplace of the trace of basis function of Hu-Zhang element
 * \param *lambda pointer to the area coordiante
-* \param s the area of the triangule
-* \param eta[3] some auxiliary parameter
-* \param xi[3] some auxiliary parameter
+* \param gradLambda gradient of the barycentric coordinate
 * \param **nv the unit normal vectors of the three edges
 * \param **tv the unit tangential vectors of the three edges
 * \param index the indicator of the basis function
@@ -2179,7 +2141,7 @@ void huzhang_basisROTROT(double *lambda, double s, double eta[3], double xi[3], 
 * \param *phi divergence of basis function
 * \return void
 */
-void huzhang_basisLaplaceTrace(double *lambda, double s, double eta[3], double xi[3], double **nv, double **tv, int index, int dop, double *phi)
+void huzhang_basisLaplaceTrace(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double *phi)
 {
 	int dofs = (dop + 1)*(dop + 2) / 2; // degrees of freedom
 
@@ -2206,103 +2168,73 @@ void huzhang_basisLaplaceTrace(double *lambda, double s, double eta[3], double x
 	{
 		if (index<3)
 		{
-			lagrange_basis2(lambda, s, eta, xi, index, dop, val);
+			lagrange_basis2(lambda, gradLambda, index, dop, val);
 			*phi = val[0] + val[1];
 		}
 		else if (index<6)
 		{
-			lagrange_basis2(lambda, s, eta, xi, index % 3, dop, val);
+			lagrange_basis2(lambda, gradLambda, index % 3, dop, val);
 			*phi = val[0] + val[1];
 		}
 		else if (index<9)
 		{
-			lagrange_basis2(lambda, s, eta, xi, index % 3, dop, val);
+			lagrange_basis2(lambda, gradLambda, index % 3, dop, val);
 			*phi = 0;
 		}
 		else if (index<9 + (dop - 1) * 3)
 		{
 			i = index - 9;
-			lagrange_basis2(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, 3 + i, dop, val);
 			*phi = (val[0] + val[1]) * (nn[i / (dop - 1)][0] + nn[i / (dop - 1)][1]);
 		}
 		else if (index<9 + (dop - 1) * 6)
 		{
 			i = index - 9 - (dop - 1) * 3;
-			lagrange_basis2(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, 3 + i, dop, val);
 			*phi = (val[0] + val[1]) * (nt[i / (dop - 1)][0] + nt[i / (dop - 1)][1]);
 		}
 		else if (index<9 + (dop - 1) * 9)
 		{
 			i = index - 9 - (dop - 1) * 6;
-			lagrange_basis2(lambda, s, eta, xi, 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, 3 + i, dop, val);
 			*phi = (val[0] + val[1]) * (tt[i / (dop - 1)][0] + tt[i / (dop - 1)][1]);
 		}
 		else if (index<dop * 9 + (dofs - dop * 3))
 		{
 			i = index - dop * 9;
-			lagrange_basis2(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, dop * 3 + i, dop, val);
 			*phi = val[0] + val[1];
 		}
 		else if (index<dop * 9 + (dofs - dop * 3) * 2)
 		{
 			i = index - dop * 9 - (dofs - dop * 3);
-			lagrange_basis2(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, dop * 3 + i, dop, val);
 			*phi = val[0] + val[1];
 		}
 		else
 		{
 			i = index - dop * 9 - (dofs - dop * 3) * 2;
-			lagrange_basis2(lambda, s, eta, xi, dop * 3 + i, dop, val);
+			lagrange_basis2(lambda, gradLambda, dop * 3 + i, dop, val);
 			*phi = 0;
 		}
 	}
 }
 
 /**
- * \fn double area(double x1,double x2,double x3,double y1,double y2,double y3)
+ * \fn double area(double (*tri)[2])
  * \brief get area for triangle p1(x1,y1),p2(x2,y2),p3(x3,y3)
- * \param x1 the x-axis value of the point p1
- * \param x2 the x-axis value of the point p2
- * \param x3 the x-axis value of the point p3
- * \param y1 the y-axis value of the point p1
- * \param y2 the y-axis value of the point p2
- * \param y3 the y-axis value of the point p3
+ * area = det([1 x1 y1;
+               1 x2 y2;
+			   1 x3 y3])
+ * \param (*tru)[3] the axis value of the three vertices
  * \return area of the trianle
  */
-double area(double x1,double x2,double x3,double y1,double y2,double y3)
+double area(double (*tri)[2])
 {
-	return ((x2-x1)*(y3-y1)-(y2-y1)*(x3-x1))/2;
-}
+	double val;
+	val = ((tri[1][0]-tri[0][0])*(tri[2][1]-tri[0][1])-(tri[1][1]-tri[0][1])*(tri[2][0]-tri[0][0]))/2;
+	
+	if(val<0) val *= -1;
 
-/** 
- * \fn void localb(double (*nodes)[2],double *b)
- * \brief get local right-hand side b from triangle nodes
- * \param (*nodes)[2] the vertice of the triangule
- * \param *b local right-hand side
- * \return void
- */
-void localb(double (*nodes)[2],double *b)
-{
-	int i;
-	double x,y,a;
-	double s=area(nodes[0][0],nodes[1][0],nodes[2][0],nodes[0][1],nodes[1][1],nodes[2][1]);
-	
-	int num_qp=49; // the number of numerical intergation points
-	double gauss[num_qp][3];
-	init_Gauss(num_qp, 2, gauss); // gauss intergation initial	
-	
-	for(i=0;i<3;i++)
-		b[i]=0;
-	
-	for(i=0;i<num_qp;i++)
-	{
-		x=nodes[0][0]*gauss[i][0]+nodes[1][0]*gauss[i][1]+nodes[2][0]*(1-gauss[i][0]-gauss[i][1]);
-		y=nodes[0][1]*gauss[i][0]+nodes[1][1]*gauss[i][1]+nodes[2][1]*(1-gauss[i][0]-gauss[i][1]);
-		a=f(x,y);
-		
-		b[0]+=2*s*gauss[i][2]*a*gauss[i][0];
-		b[1]+=2*s*gauss[i][2]*a*gauss[i][1];
-		b[2]+=2*s*gauss[i][2]*a*(1-gauss[i][0]-gauss[i][1]);
-		
-	}
+	return val;
 }

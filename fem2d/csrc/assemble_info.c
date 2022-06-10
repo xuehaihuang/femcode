@@ -142,8 +142,9 @@ void getEdgeInfo(idenmat *elements, iCSRmat *elementsTran, idenmat *edges, iCSRm
 }
 
 /**
- * \fn int getCoarseInfo(ddenmat *nodes, idenmat *elements, idenmat *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *isInNode, ivector *nodeCEdge)
+ * \fn int getCoarseInfo(int domain_num, ddenmat *nodes, idenmat *elements, idenmat *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *isInNode, ivector *nodeCEdge)
  * \brief generate the coarse grid information and store it into point, element, edge respectively
+ * \param domain_num number of domain
  * \param *nodes the first column stores the x coordinate of points, the second column stores the y coordinate of points
  * \param *elements store 3 nodes corresponding to the element, the 4th column store the relation with coarse grid elements( store -1 if itself is the coarset grid)
  * \param *edges the first two columns store the two vertice, the third column stores the affiliated element
@@ -153,10 +154,20 @@ void getEdgeInfo(idenmat *elements, iCSRmat *elementsTran, idenmat *edges, iCSRm
  * \param *nodeCEdge record the index of coarse edge which the node belong to; if the node is located in the coarset grid, it will be set -1
  * \return 1 if succeed 0 if fail
  */
-int getCoarseInfo(ddenmat *nodes, idenmat *elements, idenmat *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *isInNode, ivector *nodeCEdge)
+int getCoarseInfo(int domain_num, ddenmat *nodes, idenmat *elements, idenmat *edges, iCSRmat *elementsTran, iCSRmat *edgesTran, ivector *isInNode, ivector *nodeCEdge)
 {
 	// get data from inputFile
-	char *filename="data/testdata.dat";
+	char *str1 = "data/unitsquare.dat";
+	char *str2 = "data/testdata.dat";
+	char *str3 = "data/testdata.dat";
+	char *filename;
+	switch (domain_num) {
+	case 1:filename = str1; break;
+	case 2:filename = str2; break;
+	case 3:filename = str3; break;
+	default:filename = str1;
+	}
+
 	FILE *inputFile;
 	inputFile=fopen(filename, "r");
 	if(inputFile==NULL)
@@ -164,6 +175,8 @@ int getCoarseInfo(ddenmat *nodes, idenmat *elements, idenmat *edges, iCSRmat *el
 		printf("Opening file %s fails!\n", filename);
 		return 0;
 	}
+	else
+		printf("Initial mesh: %s \n", filename);
 	
 	int NumNode, Ncoor, NumElem, Nnode;
 	int i,j;
@@ -856,7 +869,7 @@ int getEdgeDOFsVectorTensor(dCSRmat *A, int count, int element, int edge, idenma
 }
 
 /**
- * \fn int getEdgeDOFsVector(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart, int *row21)
+ * \fn int getEdgeDOFsVector(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart)
  * \brief generate JA of A from the DOFs of edge in element 
  * \param *A pointer to stiffness matrix
  * \param count current index of A->JA
@@ -868,7 +881,7 @@ int getEdgeDOFsVectorTensor(dCSRmat *A, int count, int element, int edge, idenma
  * \param *row21 1/2 of A->IA[i+1] - A->IA[i] 
  * \return count, the current index of A->JA
  */
-int getEdgeDOFsVector(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart, int *row21)
+int getEdgeDOFsVector(dCSRmat *A, int count, int element, int edge, idenmat *elementEdge, ELEMENT_DOF *elementDOF, int *rowstart)
 {
 	int i,j,l;
 	int node;
@@ -880,29 +893,35 @@ int getEdgeDOFsVector(dCSRmat *A, int count, int element, int edge, idenmat *ele
 	}
 	
 	node = elementDOF->val[element][(l + 1) % 3];
-	for(j=0;j<2;j++)
-	{
-		A->JA[rowstart[j]+count]=node;
-		A->JA[rowstart[j]+count+row21[j]]=node+elementDOF->dof;
-	}
+	// for(j=0;j<2;j++)
+	// {
+	// 	A->JA[rowstart[j]+count]=node;
+	// 	A->JA[rowstart[j]+count+row21[j]]=node+elementDOF->dof;
+	// }
+	A->JA[rowstart[0] + count] = node;
+	A->JA[rowstart[1] + count] = node + elementDOF->dof;
 	count++;
 	
 	node = elementDOF->val[element][(l + 2) % 3];
-	for(j=0;j<2;j++)
-	{
-		A->JA[rowstart[j]+count]=node;
-		A->JA[rowstart[j]+count+row21[j]]=node+elementDOF->dof;
-	}
+	// for(j=0;j<2;j++)
+	// {
+	// 	A->JA[rowstart[j]+count]=node;
+	// 	A->JA[rowstart[j]+count+row21[j]]=node+elementDOF->dof;
+	// }
+	A->JA[rowstart[0] + count] = node;
+	A->JA[rowstart[1] + count] = node + elementDOF->dof;
 	count++;
 	
 	for(i=0;i<elementDOF->dop-1;i++)
 	{
 		node = elementDOF->val[element][3 + l*(elementDOF->dop - 1) + i];
-		for(j=0;j<2;j++)
-		{
-			A->JA[rowstart[j]+count]=node;
-			A->JA[rowstart[j]+count+row21[j]]=node+elementDOF->dof;
-		}
+		// for(j=0;j<2;j++)
+		// {
+		// 	A->JA[rowstart[j]+count]=node;
+		// 	A->JA[rowstart[j]+count+row21[j]]=node+elementDOF->dof;
+		// }
+		A->JA[rowstart[0] + count] = node;
+		A->JA[rowstart[1] + count] = node + elementDOF->dof;
 		count++;
 	}
 	

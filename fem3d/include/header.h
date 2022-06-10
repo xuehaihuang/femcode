@@ -666,7 +666,7 @@ double poisson3d_f(double *x);
 double poisson3d_u(double *x);
 void poisson3d_gradu(double *x, double *val);
 
-/* poissonfem.c */
+/* poissonfem3d.c */
 void poissonfem3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void assemble_poissonLagrange3d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);

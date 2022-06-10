@@ -125,25 +125,39 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 	A->row=m;
 	A->col=n;
 	A->val=(int**)calloc(A->row, sizeof(int *));
+	A->vertices=(double***)calloc(A->row, sizeof(double **));
+	A->barycenter=(double**)calloc(A->row, sizeof(double *));
 	A->xi=(double**)calloc(A->row, sizeof(double *));
 	A->eta=(double**)calloc(A->row, sizeof(double *));
 	A->edgeslength=(double**)calloc(A->row, sizeof(double *));
+	A->gradLambda=(double***)calloc(A->row, sizeof(double **));
 	A->nvector=(double***)calloc(A->row, sizeof(double **));
 	A->tvector=(double***)calloc(A->row, sizeof(double **));
+	A->eperm = (int***)malloc(A->row * sizeof(int **));
+	A->eorien = (short**)malloc(A->row * sizeof(short *));
 	int i,j;
 	for(i=0;i<A->row;i++)
 	{
 		A->val[i]=(int*)calloc(A->col, sizeof(int));
+		A->vertices[i]=(double**)calloc(A->col, sizeof(double *));
+		A->barycenter[i]=(double*)calloc(A->col-1, sizeof(double));
 		A->xi[i]=(double*)calloc(A->col, sizeof(double));
 		A->eta[i]=(double*)calloc(A->col, sizeof(double));
 		A->edgeslength[i]=(double*)calloc(A->col, sizeof(double));
+		A->gradLambda[i]=(double**)calloc(A->col, sizeof(double *));
 		A->nvector[i]=(double**)calloc(A->col, sizeof(double *));
 		A->tvector[i]=(double**)calloc(A->col, sizeof(double *));
+		A->eperm[i] = (int**)malloc(A->col*(A->col - 1) / 2 * sizeof(int *));
+		A->eorien[i] = (short*)malloc(A->col*(A->col - 1) / 2 * sizeof(short));
 		for(j=0;j<A->col;j++)
 		{
+			A->vertices[i][j]=(double*)calloc(A->col-1, sizeof(double));
+			A->gradLambda[i][j]=(double*)calloc(A->col-1, sizeof(double));
 			A->nvector[i][j]=(double*)calloc(A->col-1, sizeof(double));
 			A->tvector[i][j]=(double*)calloc(A->col-1, sizeof(double));
 		}
+		for (j = 0; j < A->col*(A->col - 1) / 2; j++)
+			A->eperm[i][j] = (int*)malloc(2 * sizeof(int));
 	}
 	A->vol=(double*)calloc(A->row, sizeof(double));
 	return 1;
@@ -161,24 +175,38 @@ int free_ELEMENT(ELEMENT *A)
 	for(i=0;i<A->row;i++)
 	{
 		free(A->val[i]);
+		free(A->barycenter[i]);
 		free(A->xi[i]);
 		free(A->eta[i]);
 		free(A->edgeslength[i]);
 		for(j=0;j<A->col;j++)
 		{
+			free(A->vertices[i][j]);
+			free(A->gradLambda[i][j]);
 			free(A->nvector[i][j]);
 			free(A->tvector[i][j]);
 		}
+		free(A->vertices[i]);
+		free(A->gradLambda[i]);
 		free(A->nvector[i]);
 		free(A->tvector[i]);
+		for (j = 0; j < A->col*(A->col - 1) / 2; j++)
+			free(A->eperm[i][j]);
+		free(A->eperm[i]);
+		free(A->eorien[i]);
 	}
 	free(A->val);
 	free(A->vol);
+	free(A->vertices);
+	free(A->barycenter);
 	free(A->xi);
 	free(A->eta);
 	free(A->edgeslength);
+	free(A->gradLambda);
 	free(A->nvector);
 	free(A->tvector);
+	free(A->eperm);
+	free(A->eorien);
 	A->row=0;
 	A->col=0;
 	return 1;
@@ -274,6 +302,22 @@ int free_dden_matrix(ddenmat *A)
 	A->row=0;
 	A->col=0;
 	return 1;
+}
+
+/**
+ * \fn void init_dden_matrix(ddenmat *A, double val)
+ * \brief Initial double dense matrix
+ * \param *A pointer to the ddenmat matrix
+ * \param val initial value
+ */
+void init_dden_matrix(ddenmat *A, double val)
+{		
+	int i, j;
+	for(i=0;i<A->row;i++)
+	{
+		for(j=0;j<A->col;j++)
+			A->val[i][j] = val;
+	}
 }
 
 /**
@@ -550,6 +594,21 @@ int copy_array(int n, double *x, double *y)
 }
 
 /**
+ * \fn int ax_array(int n, double a, double *x)
+ * \brief x = a*x
+ * \param n number of variables
+ * \param a a real number
+ * \param *x pointer to the original vector
+ * \return 1 if succeed, 0 if fail
+ */
+int ax_array(int n, double a, double *x) 
+{
+	int i;
+	for (i=0; i<n; i++) x[i] *= a;
+	return 1;
+}
+
+/**
 * \fn int axy_array(int n, double a, double *x, double *y)
 * \brief y = a*x
 * \param n number of variables
@@ -617,6 +676,24 @@ int axpby_array(int n, double a, double *x, double b, double *y)
 }
 
 /**
+ * \fn int axpbyz_array(int n, double a, double *x, double b, double *y, double *z)
+ * \brief z = a*x + b*y
+ * \param n number of variables
+ * \param a real number
+ * \param b real number
+ * \param *x pointer to the original vector 1
+ * \param *y pointer to the original vector 2
+ * \param *z pointer to the destination vector
+ * \return 1 if succeed, 0 if fail
+ */
+int axpbyz_array(int n, double a, double *x, double b, double *y, double *z) 
+{
+	int i;
+	for(i=0; i<n; i++) z[i] = a*x[i]+b*y[i];
+	return 1;
+}
+
+/**
  * \fn double dot_array(int n, double *x, double *y) 
  * \brief Inner product of two arraies (x,y)
  * \param n number of variables
@@ -632,6 +709,50 @@ double dot_array(int n, double *x, double *y)
 	return value;
 }
 
+/**
+ * \fn void cross_array(double *x, double *y, double *z) 
+ * \brief Cross product of two arraies x and y
+ * \param *x pointer to vector 1
+ * \param *y pointer to vector 2
+ * \return cross product
+ */
+void cross_array(double *x, double *y, double *z) 
+{
+	z[0]=x[1]*y[2]-x[2]*y[1];
+	z[1]=x[2]*y[0]-x[0]*y[2];
+	z[2]=x[0]*y[1]-x[1]*y[0];
+}
+
+/**
+ * \fn void orthocomplement_array(double *x, double *y, double *z) 
+ * \brief find a set of two normal orthogonal bases of the orthogonal complement space of vector x in three dimensions
+ * \param *x pointer to vector 1
+ * \param *y pointer to orthogonal basis 1
+ * \param *z pointer to orthogonal basis 2
+ * \return a set of two normal orthogonal bases of the orthogonal complement space of vector x
+ */
+void orthocomplement_array(double *x, double *y, double *z) 
+{
+	int i, mini;
+	double temp;
+	for(i=0;i<3;i++)
+		z[i]=0;
+
+	mini=0;
+	for(i=1;i<3;i++)
+	{
+		if(fabs(x[i])<fabs(x[mini]))
+			mini=i;
+	}
+	z[mini]=1;
+
+	cross_array(x, z, y);
+	temp=sqrt(dot_array(3, y, y));
+	for(i=0;i<3;i++)
+		y[i]/=temp;
+
+	cross_array(x, y, z);
+}
 
 // some simple vector Blas operations follows, same operations as above, but for vector
 
@@ -902,6 +1023,57 @@ double twonorm_dvector(dvector *x)
 }
 
 /**
+ * \fn double lpnorm_array(int n, double *x, double p)
+ * \brief lp norm of vector x
+ * \param *x pointer to vector
+ * \return lp norm of x
+ */
+double lpnorm_array(int n, double *x, double p)
+{
+	int i;
+	double lpnorm=0, absx;
+	for (i=0;i<n;i++){
+		absx=fabs(x[i]);
+		lpnorm+=pow(absx, p);
+	}
+	return pow(lpnorm, 1.0/p);
+}
+
+/**
+ * \fn double lpnormp_array(int n, double *x, double p)
+ * \brief power p of lp norm of vector x
+ * \param *x pointer to vector
+ * \return power p of lp norm of x
+ */
+double lpnormp_array(int n, double *x, double p)
+{
+	int i;
+	double powerp=0, absx;
+	for (i=0;i<n;i++){
+		absx=fabs(x[i]);
+		powerp+=pow(absx, p);
+	}
+	return powerp;
+}
+
+/**
+ * \fn double maxnorm_array(int n, double *x, double p)
+ * \brief max norm of vector x
+ * \param *x pointer to vector
+ * \return max norm of x
+ */
+double maxnorm_array(int n, double *x, double p)
+{
+	int i;
+	double maxnorm=0, absx;
+	for (i=0;i<n;i++){
+		absx=fabs(x[i]);
+		if (maxnorm<absx) maxnorm=absx;
+	}
+	return maxnorm;
+}
+
+/**
  * \fn int sparse_mv0(double alpha, dCSRmat *A, double *x, double *y) 
  * \brief Matrix-vector multiplication y = alpha*A*x
  * \param alpha real number
@@ -1091,6 +1263,197 @@ int getdiag(int n, dCSRmat *A, dvector *diag)
 	return ret;
 }
 
+/**
+ * \fn void Axy_ddenmat(double alpha, ddenmat *A, double *x, double *y)
+ * \brief Matrix-vector multiplication y = alpha*A*x
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ */
+void Axy_ddenmat(double alpha, ddenmat *A, double *x, double *y)
+{
+	int i,j;	
+	double temp;
+	
+	for(i=0;i<A->row;i++) {
+		temp=0.0;
+		for(j=0;j<A->col;j++)
+			temp += A->val[i][j]*x[j];
+		y[i] = temp*alpha;
+	}
+}
+
+/**
+ * \fn void Atxy_ddenmat(double alpha, ddenmat *A, double *x, double *y)
+ * \brief Matrix-vector multiplication y = alpha*A^T*x
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ */
+void Atxy_ddenmat(double alpha, ddenmat *A, double *x, double *y)
+{
+	int i,j;	
+	double temp;
+	
+	for(i=0;i<A->col;i++) {
+		temp=0.0;
+		for(j=0;j<A->row;j++)
+			temp += A->val[j][i]*x[j];
+		y[i] = temp*alpha;
+	}
+}
+
+/**
+ * \fn void AB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+ * \brief Matrix-vector multiplication C = alpha*A*B
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ */
+void AB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+{
+	int i,j,k;	
+	double temp;
+	if(A->col!=B->row) {
+		printf("AB_ddenmat: A->col!=B->row\n");
+		exit(1);
+	}
+	
+	for(i=0;i<C->row;i++) {
+		for(j=0;j<C->col;j++) {
+			temp=0.0;
+			for(k=0;k<A->col;k++)
+				temp += A->val[i][k]*B->val[k][j];
+			C->val[i][j] = temp*alpha;
+		}
+	}
+}
+
+/**
+ * \fn void ABt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+ * \brief Matrix-vector multiplication C = alpha*A*B^T
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ */
+void ABt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+{
+	int i,j,k;	
+	double temp;
+	if(A->col!=B->col) {
+		printf("ABt_ddenmat: A->col!=B->col\n");
+		exit(1);
+	}
+	
+	for(i=0;i<C->row;i++) {
+		for(j=0;j<C->col;j++) {
+			temp=0.0;
+			for(k=0;k<A->col;k++)
+				temp += A->val[i][k]*B->val[j][k];
+			C->val[i][j] = temp*alpha;
+		}
+	}
+}
+
+/**
+ * \fn void AtB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+ * \brief Matrix-vector multiplication C = alpha*A^T*B
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ */
+void AtB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+{
+	int i,j,k;	
+	double temp;
+	if(A->row!=B->row) {
+		printf("AtB_ddenmat: A->row!=B->row\n");
+		exit(1);
+	}
+	
+	for(i=0;i<C->row;i++) {
+		for(j=0;j<C->col;j++) {
+			temp=0.0;
+			for(k=0;k<A->row;k++)
+				temp += A->val[k][i]*B->val[k][j];
+			C->val[i][j] = temp*alpha;
+		}
+	}
+}
+
+/**
+ * \fn void ABAt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C) 
+ * \brief Matrix-vector multiplication C = alpha*A*B*A^T
+ * \param alpha real number
+ * \param *A pointer to ddenmat matrix
+ * \param *B pointer to ddenmat matrix
+ * \param *C pointer to ddenmat matrix
+ * \return 1 if succeed
+ */
+void ABAt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C)
+{
+	int i,j,l,k;	
+	double temp;
+	ddenmat AB;
+	create_dden_matrix(A->row, B->col, &AB);
+	AB_ddenmat(alpha, A, B, &AB);
+	ABt_ddenmat(1.0, &AB, A, C);
+	free_dden_matrix(&AB);
+}
+
+/**
+* \fn void compress_dcsr(dCSRmat *A, dCSRmat *B, double EPS)
+* \brief Remove the zero terms of a CSR matrix A
+* \param *A pointer to the original dCSRmat CSR matrix
+* \param *B pointer to the compressed dCSRmat CSR matrix
+* \param EPS used to characterize zero
+* \return void
+*/
+void compress_dcsr(dCSRmat *A, dCSRmat *B, double EPS)
+{
+	int i, j, k;
+	int count;
+	B->row = A->row;
+	B->col = A->col;
+	B->IA = (int*)calloc(B->row + 1, sizeof(int));
+	B->JA = NULL;
+	B->val = NULL;
+
+	for (i = 0; i < A->row; i++)
+	{
+		for (j = A->IA[i]; j < A->IA[i + 1]; j++)
+		{
+			if (abs(A->val[j]) > EPS)
+				B->IA[i + 1]++;
+		}
+	}
+
+	for (i = 0; i<B->row; i++)
+		B->IA[i + 1] += B->IA[i];
+	B->nnz = B->IA[B->row];
+
+	B->JA = (int*)calloc(B->nnz, sizeof(int));
+	B->val = (double*)calloc(B->nnz, sizeof(double));
+
+	for (i = 0; i < A->row; i++)
+	{
+		count = 0;
+		for (j = A->IA[i]; j < A->IA[i + 1]; j++)
+		{
+			if (abs(A->val[j]) > EPS)
+			{
+				B->JA[B->IA[i] + count] = A->JA[j];
+				B->val[B->IA[i] + count] = A->val[j];
+				count++;
+			}
+		}
+	}
+}
 
 /**
  * \fn int inverse_dBDmat(dBDmat *A, dBDmat *Ainv)

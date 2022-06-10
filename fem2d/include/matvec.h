@@ -16,6 +16,10 @@
  */
  
 /* matvecio.c */
+int print_darray(int n, double *u);
+int print_dvector(int n, dvector *u);
+int print_ivector(int n, ivector *u);
+void print_dcsr_matrix(dCSRmat *A);
 int read_matvec(char *filename, dCSRmat *A, dvector *u); 
 int plot_matrix(const dCSRmat *A, const char *fname, int size);
 int write_IJ_matrix(dCSRmat *A, char *fname);
@@ -40,6 +44,7 @@ int create_EDGE(int m, int n, EDGE *A);
 int free_EDGE(EDGE *A);
 int create_dden_matrix(int m, int n, ddenmat *A);
 int free_dden_matrix(ddenmat *A);
+void init_dden_matrix(ddenmat *A, double val);
 int create_dden_matrix3(int l, int m, int n, ddenmat3 *A);
 int free_dden_matrix3(ddenmat3 *A);
 int create_dbd_matrix(int m, int n, int nb, dBDmat *A);
@@ -59,11 +64,15 @@ int print_ivector(int n, ivector *u);
 int init_array(int n, double *x, double val);
 int copy_iarray(int n, int *x, int *y);
 int copy_array(int n, double *x, double *y);
+int ax_array(int n, double a, double *x);
 int axy_array(int n, double a, double *x, double *y);
 int axpy_array(int n, double a, double *x, double *y);
 int axpby_array(int n, double a, double *x, double b, double *y);
 int axpyz_array(int n, double a, double *x, double *y, double *z);
+int axpbyz_array(int n, double a, double *x, double b, double *y, double *z);
 double dot_array(int n, double *x, double *y);
+void cross_array(double *x, double *y, double *z);
+void orthocomplement_array(double *x, double *y, double *z);
 
 int init_dvector(dvector *x, double val);
 int init_dvector2b(dvector *x, double val);
@@ -80,6 +89,9 @@ double maxnorm_dvector(dvector *x);
 double maxdiff_dvector(dvector *a, dvector *b);
 double onenorm_dvector(dvector *x);
 double twonorm_dvector(dvector *x); 
+double lpnorm_array(int n, double *x, double p);
+double lpnormp_array(int n, double *x, double p);
+double maxnorm_array(int n, double *x, double p);
 
 int sparse_mv0(double alpha, dCSRmat *A, double *x, double *y);
 int sparse_mv(double alpha, dCSRmat *A, double *x, double *y);
@@ -87,6 +99,15 @@ int sparse_mv2b(double alpha, dCSRmat *A, dvector *x, dvector *y);
 int denmat_mv(double alpha, ddenmat *A, double *x, double *y);
 int dBDMultiplydvector(double alpha, dBDmat *A, dvector *x, dvector *y);
 int getdiag(int n, dCSRmat *A, dvector *diag);
+
+void Axy_ddenmat(double alpha, ddenmat *A, double *x, double *y);
+void Atxy_ddenmat(double alpha, ddenmat *A, double *x, double *y);
+void AB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C);
+void ABt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C);
+void AtB_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C);
+void ABAt_ddenmat(double alpha, ddenmat *A, ddenmat *B, ddenmat *C);
+
+void compress_dcsr(dCSRmat *A, dCSRmat *B, double EPS);
 
 int inverse_dBDmat(dBDmat *A, dBDmat *Ainv);
 int inverse_dBDmat2(dBDmat *A, dBDmat *Ainv, int col1, int col2);

@@ -20,6 +20,23 @@
 #include "header.h"
 
 /**
+ * \fn int print_darray(int n, double *u) 
+ * \brief Print first n entries of a double array
+ * \param n an interger (if n=0, then print all entries)
+ * \param *u pointer to a double array
+ * \return 1 if succeed, 0 if fail
+ */
+int print_darray(int n, double *u) 
+{
+	int i;	
+	
+	if (n<1) n=1;
+	for(i=0;i<n;i++) printf("%d: %le\n", i,u[i]);
+	
+	return 1;
+}
+
+/**
  * \fn int print_dvector(int n, dvector *u) 
  * \brief Print first n entries of a dvector
  * \param n an interger (if n=0, then print all entries)
@@ -51,6 +68,23 @@ int print_ivector(int n, ivector *u)
 	for(i=0;i<n;i++) printf("%d: %d\n", i,u->val[i]);
 	
 	return 1;
+}
+
+/**
+ * \fn void print_dcsr_matrix(dCSRmat *A) 
+ * \brief Print dCSRmat matrix
+ * \param *A pointer to the dCSRmat matrix
+ */
+void print_dcsr_matrix(dCSRmat *A)
+{
+	int i, j;
+	printf("row=%d, col=%d, nnz=%d\n", A->row, A->col, A->nnz);
+	for(i=0;i<A->row;i++)
+	{
+		for(j=A->IA[i];j<A->IA[i+1];j++)
+			printf("(%d, %d):%f, ", i+1, A->JA[j]+1, A->val[j]);
+		printf("\n");
+	}
 }
 
 /**

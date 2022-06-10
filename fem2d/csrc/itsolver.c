@@ -248,7 +248,7 @@ int asP1ElasDG_PCG(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int pri
 		getTransposeOfelementDoF(&elementDOFas[i], &elementdofTranas[i], 0);
 		getBoundaryInfo(&edges[i], &nodes[i], elementDOFas[i].dof, elementDOFas[i].dop, &isInNode[i], &dirichlet[i], &nondirichlet[i], &index[i]);
 		
-		assembleStiffmatrixLagrange(&tempA, &elements[i], &elementEdge[i], &edges[i], &nodes[i], &elementDOFas[i], &elementdofTranas[i], mu);
+		assembleBiGradLagrange2d(&tempA, &elements[i], &elementEdge[i], &edges[i], &nodes[i], &elementDOFas[i], &elementdofTranas[i], mu);
 		extractNondirichletMatrix11(&tempA, &As[i], &isInNode[i], &dirichlet[i], &nondirichlet[i], &index[i]);
 		free_csr_matrix(&tempA);
 	}
@@ -388,7 +388,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	}
 
 	// setup preconditioner
-	assembleStiffmatrixHuZhangA11_2d(&M, &elements[levelNum - 1], elementDOF, elementdofTran, 0, mu);
+	assembleweightedMassatrixHuZhang2d(&M, &elements[levelNum - 1], elementDOF, elementdofTran, 0, mu);
 
 	dvector diag, diaginv;
 	getdiag(M.row, &M, &diag);
@@ -414,7 +414,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	getElementDOF_Lagrange(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
 	getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
 	getBoundaryInfo(edges, nodes, elementDOFas.dof, elementDOFas.dop, &isInNode, &dirichlet, &nondirichlet, &index);
-	assembleStiffmatrixLagrange(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, &elementdofTranas, mu);
+	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, &elementdofTranas, mu);
 	extractNondirichletMatrix11(&tempA, &As[0], &isInNode, &dirichlet, &nondirichlet, &index);
 	free_csr_matrix(&tempA);
 	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
@@ -588,7 +588,7 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	}
 
 	// setup preconditioner
-	assembleStiffmatrixHuZhangA11_2d(&M, elements, elementDOF, elementdofTran, 0, mu);
+	assembleweightedMassatrixHuZhang2d(&M, elements, elementDOF, elementdofTran, 0, mu);
 
 	dvector diag, diaginv;
 	getdiag(M.row, &M, &diag);
@@ -614,7 +614,7 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	getElementDOF_Lagrange(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
 	getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
 	getBoundaryInfo(edges, nodes, elementDOFas.dof, elementDOFas.dop, &isInNode, &dirichlet, &nondirichlet, &index);
-	assembleStiffmatrixLagrange(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, &elementdofTranas, mu);
+	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, &elementdofTranas, mu);
 	extractNondirichletMatrix11(&tempA, &As[0], &isInNode, &dirichlet, &nondirichlet, &index);
 	free_csr_matrix(&tempA);
 	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
