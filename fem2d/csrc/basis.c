@@ -385,11 +385,14 @@ void lagrange_basis(double *lambda, int index, int dop, double *phi)
 	{
 		if(index<3)
 		{
-			*phi = lambda[index]*(2*lambda[index]-1);
+			*phi = lambda[index]*(2.0*lambda[index]-1.0);
 		}
 		else
 		{
-			*phi = 4.0*lambda[(index+1)%3]*lambda[(index+2)%3];
+			in = index-3;
+			i1=(in+1)%3;
+			i2=(in+2)%3;
+			*phi = 4.0*lambda[i1]*lambda[i2];
 		}
 	} // dop=2
 	
@@ -556,12 +559,13 @@ void lagrange_basis1(double *lambda, double **gradLambda, int index, int dop, do
 	else if(dop==2)
 	{
 		if(index<3)
-			axy_array(2, 4*lambda[index]-1, gradLambda[index], phi);
+			axy_array(2, 4.0*lambda[index]-1.0, gradLambda[index], phi);
 		else
 		{
-			i1=(index+1)%3;
-			i2=(index+2)%3;
-			axpbyz_array(3, 4*lambda[i2], gradLambda[i1], 4*lambda[i1], gradLambda[i2], phi);
+			in = index-3;
+			i1=(in+1)%3;
+			i2=(in+2)%3;
+			axpbyz_array(2, 4.0*lambda[i2], gradLambda[i1], 4*lambda[i1], gradLambda[i2], phi);
 		}
 	} // dop=2
 

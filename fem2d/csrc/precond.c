@@ -113,9 +113,9 @@ void precond_asP1ElasDG(dCSRmat *A, double *r, double *z, void *data)
 	EDGE *edges = aspdata->edges;
 	iCSRmat *edgesTran = aspdata->edgesTran;
 	ivector *nodeCEdge = aspdata->nodeCEdge;
-	ivector *isInNode = aspdata->isInNode;
-	ivector *nondirichlet = aspdata->nondirichlet;
-	ivector *index = aspdata->index;
+	// ivector *isInNode = aspdata->isInNode;
+	// ivector *nondirichlet = aspdata->nondirichlet;
+	// ivector *index = aspdata->index;
 	int precond_type = aspdata->precond_type; // 1 additive; 2 multiplicative  
 
 	zz.row = rr.row = m;

@@ -244,7 +244,7 @@ void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop)
  */
 void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop)
 {
-	int i,j,k;
+	int i,j,k,ii[3];
 	int nt=elements->row;
 	int ne=edges->row;
 	int nn=nvertices;
@@ -254,7 +254,7 @@ void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 	create_elementDOF(dop, nn + ne*(dop-1) + nt*(dop-1)*(dop-2)/2, nt, (dop+1)*(dop+2)/2, elementDOF);
 
 	int node, edge;
-	int orient;
+	int *perm;
 	for(k=0;k<nt;k++)
 	{
 		for(i=0;i<3;i++)
@@ -266,20 +266,12 @@ void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 		for(j=0;j<3;j++)
 		{
 			edge=elementEdge->val[k][j];
-			if(elements->val[k][(j+1)%3]== edges->val[edge][0])
-				orient=1;
-			else
-				orient=0;
-			
-			if(orient==1)
+			perm = elements->eperm[k][j];
+
+			for(ii[0]=0;ii[0]<dop-1;ii[0]++)
 			{
-				for(i=0;i<dop-1;i++)
-					elementDOF->val[k][3+(dop-1)*j+i] = nn + edge*(dop-1) + i;
-			}
-			else
-			{
-				for(i=0;i<dop-1;i++)
-					elementDOF->val[k][3+(dop-1)*j+dop-2-i] = nn + edge*(dop-1) + i;
+				ii[1]=dop-2-ii[0];
+				elementDOF->val[k][3+(dop-1)*j+ ii[0]] = nn + edge*(dop-1) + ii[perm[0]];
 			}
 		}
 
@@ -594,6 +586,70 @@ void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdg
 		} // k1
 	} // k
 	free_dden_matrix(&lA);
+}
+
+/**
+ * \fn void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double (*f)(double *))
+ * \brief assemble stiffness matrix (f, v)
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \return void
+ */
+void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras)
+{
+	int i,j,k,k1,i1;
+	
+	double phi;
+	double x[2], **gradLambda, **vertices;
+	double s;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+			
+	dvector lb;
+	create_dvector(elementDOF->col, &lb);
+	/************************************************** right hand side b *****************************************************************/
+	create_dvector(elementDOF->dof, b);
+	num_qp = 49; 
+	init_Gauss2d(num_qp, lambdas, weight);
+
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		s = elements->vol[k];
+		vertices = elements->vertices[k];
+		// end set parameters
+
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOF->col; i++)
+		{
+			for (i1 = 0; i1<num_qp; i1++)
+			{
+				lagrange_basis(lambdas[i1], i, elementDOF->dop, &phi);
+				axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
+				axpy_array(2, lambdas[i1][2], vertices[2], x);
+				lb.val[i] += s*weight[i1] * f(x, paras)*phi;
+			} // i1
+		} // k1
+
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			i = elementDOF->val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1
+	} // k
+	free_dvector(&lb);
 }
 
 /**

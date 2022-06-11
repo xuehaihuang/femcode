@@ -76,8 +76,7 @@ int main(int argc, const char * argv[])
 	/** Step 2. discete method */
 	if(problem_num == 1) // Poisson equation
 	{
-		// poissonfem3d(&elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
-		exit(0);
+		poissonfem2d(&elements[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
 	}
 	else if(problem_num == 2) // Biharmonic equation
 	{

@@ -17,17 +17,17 @@ beta2          = 1    % coefficient of penalty parameter eta2
 beta3          = 1    % coefficient of penalty parameter eta3
 CglevelNum     = 4    % geometric level number of coarse grid 
 FglevelNum     = 6    % geometric level number of fine grid 
-glevelNum      = 2
+glevelNum      = 1
 cDOP           = 1    % degree of polynomial on coarse grid
 rDOP           = 1    % degree of polynomial for lifting operator, only take value 1,2,3 now
-dop1           = 3    % degree of polynomial for stress tensor
+dop1           = 2    % degree of polynomial for stress tensor
 dop2           = 2    % degree of polynomial for displacement 
 dop3           = -1    % degree of polynomial for trace of normal derivative of displacement 
 dop4           = -1    % degree of polynomial for trace of displacement 
 
 domain_num     = 1    % Domain number: 1 unitsquare | 2 square | 3 adapmesh | 4 unstructuredmesh1 | 5 LDomain | 6 rotLDomain 
-problem_num    = 3    % Problem number:  1 Poisson equation | 2 Biharmonic equation | 3 Linear Elasticity | 4 Stokes equation
-variationalform_type = 2  % 1 primal | mixed  | 3 Lame system
+problem_num    = 1    % Problem number:  1 Poisson equation | 2 Biharmonic equation | 3 Linear Elasticity | 4 Stokes equation
+variationalform_type = 1  % 1 primal | mixed  | 3 Lame system
 fem_num        = 1    % FEM number: 1 1st kind Nedelec element | 2 2nd kind Nedelec element 
 nitsche        = 0    % Use the Nitsche’s technique or not. 1 Yes | 0 No 
 

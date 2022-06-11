@@ -582,7 +582,20 @@ void sparseTripleMultiplication3(dCSRmat *R, dCSRmat *A, dCSRmat *P, dCSRmat *B)
 int dIJtoCSR(dIJmat *A, dCSRmat *B);
 int dCSRtoIJ(dCSRmat *A, dIJmat *B);
 
-/* linearElas.c */
+/* poisson2d.c */
+double poisson2d_f(double *x, double *paras);
+double poisson2d_u(double *x, double *paras);
+void poisson2d_gradu(double *x, double *val, double *paras);
+
+/* poissonfem2d.c */
+void poissonfem2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void poissonLagrange2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void assemble_poissonLagrange2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
+
+/* poissonerror2d.c */
+void geterrorsPoissonLagrange2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+
+/* linearElas2d.c */
 void linearElas2d_f(double *x, double *val, double *paras);
 void linearElas2d_u(double *x, double *val, double *paras);
 void linearElas2d_gradu(double *x, double *val, double *paras);
@@ -607,6 +620,7 @@ void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 void getElementDOF_HuZhang(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getFreenodesInfoLagrange2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu);
+void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras);
 void assembleweightedMassatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
 void assembleDivHuZhangL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assembleRHSHuZhang2d(dvector *b, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, void (*f)(double *, double *, double *), double *paras);
@@ -714,6 +728,12 @@ void postprocess2newDisplacement(dvector *uhstar, dvector *sigmah, dvector *uh, 
 
 /* output.c */
 int getElementsNodes4Matlab(ELEMENT *elements, dennode *nodes, dvector *uh);
+int writeElementsNodes(ELEMENT *elements, dennode *nodes, char *fname1, char *fname2);
+int write_IJ_dCSRmat(dCSRmat *A, char *fname);
+void write_IJ_dCSRmat4Matlab(dCSRmat *A, char *fname);
+void write_dvector4Matlab(dvector *vec, char *fname);
+void read_dvector4Matlab(dvector *vec, char *fname);
+
 
 /* xuludmil.for (Xiangtan energy minimization code) */
 //void get_p_xuludmil_(int *ia,int *ja,double *a, int *n, int *nc,int *ip,int *jp,double *pn,int *ipt,int *jpt,int *mf);
