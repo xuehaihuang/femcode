@@ -11,171 +11,115 @@
  */
  
 #include <math.h>
+#include <stdio.h>
 #include "header.h"
 #include "matvec.h"
 
 /** 
- * \fn void morley_basis(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double *phi)
+ * \fn void morley_basis(double *lambda, double **gradLambda, double *nve[3], int index, double *phi)
  * \brief basis function of Morley element
- * \param lambda1 the first area coordiante
- * \param lambda2 the second area coordiante
- * \param lambda3 the third area coordiante
- * \param s the area of the triangule
- * \param elen[3] length of three edge
- * \param eta[3] some auxiliary parameter
- * \param xi[3] some auxiliary parameter
- * \param sij[3] some auxiliary parameter
- * \param orient[3] some auxiliary parameter
+ * \param lambda the barycentric coordinate
+ * \param gradLambda the gradient of  barycentric coordinate
+ * \param nve[3] the unit normal vectors of three edge
  * \param index the indicator of the basis function
  * \param *phi basis function
  * \return void
  */
-void morley_basis(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double *phi)
+void morley_basis(double *lambda, double **gradLambda, double *nve[3], int index, double *phi)
 {
-	if(index==0)
-	{
-		*phi=lambda1*lambda1 + (sij[2]/(elen[1]*elen[1])+sij[1]/(elen[2]*elen[2]))*lambda2*lambda3 + sij[1]/(elen[2]*elen[2])*lambda3*lambda1 + sij[2]/(elen[1]*elen[1])*lambda1*lambda2;
+	int i,j,k;
+	double c1, c2;
+	if(index<0 || index>5) *phi=0.0;
+	// printf("basis0\n");
+	if(index<3){
+		i = index;
+		j = (i+1)%3;
+		k = (i+2)%3;
+		// printf("basis01: %d, %d, %d\n",i,j,k);
+		// printf("basis01, %f, %f\n", gradLambda[i][0], gradLambda[j][1]);
+		// printf("basis01, %f\n", dot_array(2, gradLambda[i], gradLambda[j]));
+		// printf("basis01, %f\n", lpnormp_array(2, gradLambda[j], 2));
+		c1 = dot_array(2, gradLambda[i], gradLambda[j])/ lpnormp_array(2, gradLambda[j], 2);
+		// printf("basis1\n");
+		c2 = dot_array(2, gradLambda[i], gradLambda[k])/ lpnormp_array(2, gradLambda[k], 2);
+		// printf("basis2\n");
+		*phi = lambda[i]*lambda[i] + c1*lambda[j]*(lambda[j]-1) + c2*lambda[k]*(lambda[k]-1);
 	}
-	else if(index==1)
-	{
-		*phi=lambda2*lambda2 + sij[0]/(elen[2]*elen[2])*lambda2*lambda3 + (sij[0]/(elen[2]*elen[2])+sij[2]/(elen[0]*elen[0]))*lambda3*lambda1 + sij[2]/(elen[0]*elen[0])*lambda1*lambda2;
-	}
-	else if(index==2)
-	{
-		*phi=lambda3*lambda3 + sij[0]/(elen[1]*elen[1])*lambda2*lambda3 + sij[1]/(elen[0]*elen[0])*lambda3*lambda1 + (sij[1]/(elen[0]*elen[0])+sij[0]/(elen[1]*elen[1]))*lambda1*lambda2;
-	}
-	else if(index==3)
-	{
-		*phi=2*s/elen[0]*lambda1*(lambda1-1)*orient[0];
-	}
-	else if(index==4)
-	{
-		*phi=2*s/elen[1]*lambda2*(lambda2-1)*orient[1];
-	}
-	else if(index==5)
-	{
-		*phi=2*s/elen[2]*lambda3*(lambda3-1)*orient[2];
-	}
-	else
-	{
-		*phi=0;
+	else{
+		i = index-3;
+		c1 = -1.0 / dot_array(2, nve[i], gradLambda[i]);
+		*phi = c1*lambda[i]*(lambda[i]-1);
 	}
 }
 
 /** 
- * \fn void morley_basis1(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double phi[2])
- * \brief the first order derivative of Morley element basis function: (\partial_{x}phi, \partial_{y}phi)
- * \param lambda1 the first area coordiante
- * \param lambda2 the second area coordiante
- * \param lambda3 the third area coordiante
- * \param s the area of the triangule
- * \param elen[3] length of three edge
- * \param eta[3] some auxiliary parameter
- * \param xi[3] some auxiliary parameter
- * \param sij[3] some auxiliary parameter
- * \param orient[3] some auxiliary parameter
+ * \fn void morley_basis1(double *lambda, double **gradLambda, double *nve[3], int index, double phi[2])
+ * \brief the gradient of basis function of Morley element
+ * \param lambda the barycentric coordinate
+ * \param gradLambda the gradient of  barycentric coordinate
+ * \param nve[3] the unit normal vectors of three edge
  * \param index the indicator of the basis function
- * \param phi[2] the first order derivative of Morley element basis function: (\partial_{x}phi, \partial_{y}phi)
+ * \param *phi basis function
  * \return void
  */
-void morley_basis1(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double phi[2])
+void morley_basis1(double *lambda, double **gradLambda, double *nve[3], int index, double phi[2])
 {
-	if(index==0)
-	{
-		phi[0]=(2*lambda1*eta[0]+sij[2]/(elen[1]*elen[1])*eta[1]*(1-2*lambda2)+sij[1]/(elen[2]*elen[2])*eta[2]*(1-2*lambda3))/(2*s);
-		phi[1]=-(2*lambda1*xi[0]+sij[2]/(elen[1]*elen[1])*xi[1]*(1-2*lambda2)+sij[1]/(elen[2]*elen[2])*xi[2]*(1-2*lambda3))/(2*s);
+	int i,j,k;
+	double c1, c2;
+	if(index<0 || index>5){ 
+		phi[0]=0.0; phi[1]=0.0;
 	}
-	else if(index==1)
-	{
-		phi[0]=(2*lambda2*eta[1]+sij[0]/(elen[2]*elen[2])*eta[2]*(1-2*lambda3)+sij[2]/(elen[0]*elen[0])*eta[0]*(1-2*lambda1))/(2*s);
-		phi[1]=-(2*lambda2*xi[1]+sij[0]/(elen[2]*elen[2])*xi[2]*(1-2*lambda3)+sij[2]/(elen[0]*elen[0])*xi[0]*(1-2*lambda1))/(2*s);
+
+	if(index<3){
+		i = index;
+		j = (i+1)%3;
+		k = (i+2)%3;
+		c1 = dot_array(2, gradLambda[i], gradLambda[j])/ lpnormp_array(2, gradLambda[j], 2);
+		c2 = dot_array(2, gradLambda[i], gradLambda[k])/ lpnormp_array(2, gradLambda[k], 2);
+		axpbyz_array(2, 2*lambda[i], gradLambda[i], c1*(2*lambda[j]-1), gradLambda[j], phi);
+		axpy_array(2, c2*(2*lambda[k]-1), gradLambda[k], phi);
 	}
-	else if(index==2)
-	{
-		phi[0]=(2*lambda3*eta[2]+sij[1]/(elen[0]*elen[0])*eta[0]*(1-2*lambda1)+sij[0]/(elen[1]*elen[1])*eta[1]*(1-2*lambda2))/(2*s);
-		phi[1]=-(2*lambda3*xi[2]+sij[1]/(elen[0]*elen[0])*xi[0]*(1-2*lambda1)+sij[0]/(elen[1]*elen[1])*xi[1]*(1-2*lambda2))/(2*s);
-	}
-	else if(index==3)
-	{
-		phi[0]=eta[0]/elen[0]*(2*lambda1-1)*orient[0];
-		phi[1]=-xi[0]/elen[0]*(2*lambda1-1)*orient[0];
-	}
-	else if(index==4)
-	{
-		phi[0]=eta[1]/elen[1]*(2*lambda2-1)*orient[1];
-		phi[1]=-xi[1]/elen[1]*(2*lambda2-1)*orient[1];
-	}
-	else if(index==5)
-	{
-		phi[0]=eta[2]/elen[2]*(2*lambda3-1)*orient[2];
-		phi[1]=-xi[2]/elen[2]*(2*lambda3-1)*orient[2];
-	}
-	else
-	{
-		phi[0]=0;
-		phi[1]=0;
+	else{
+		i = index-3;
+		c1 = -1.0 / dot_array(2, nve[i], gradLambda[i]);
+		axy_array(2, c1*(2*lambda[i]-1), gradLambda[i], phi);
 	}
 }
 
 /** 
- * \fn void morley_basis2(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double phi[3])
+ * \fn void morley_basis2(double **gradLambda, double *nve[3], int index, double phi[3])
  * \brief the second order derivative of Morley element basis function: (\partial_{xx}phi, \partial_{yy}phi, \partial_{xy}phi)
- * \param lambda1 the first area coordiante
- * \param lambda2 the second area coordiante
- * \param lambda3 the third area coordiante
- * \param s the area of the triangule
- * \param elen[3] length of three edge
- * \param eta[3] some auxiliary parameter
- * \param xi[3] some auxiliary parameter
- * \param sij[3] some auxiliary parameter
- * \param orient[3] some auxiliary parameter
+ * \param lambda the barycentric coordinate
+ * \param gradLambda the gradient of  barycentric coordinate
+ * \param nve[3] the unit normal vectors of three edge
  * \param index the indicator of the basis function
- * \param phi[3] the second order derivative of Morley element basis function: (\partial_{xx}phi, \partial_{yy}phi, \partial_{xy}phi)
+ * \param *phi basis function
  * \return void
  */
-void morley_basis2(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double phi[3])
+void morley_basis2(double **gradLambda, double *nve[3], int index, double phi[3])
 {
-	if(index==0)
-	{
-		phi[0]=(eta[0]*eta[0]-sij[2]/(elen[1]*elen[1])*eta[1]*eta[1]-sij[1]/(elen[2]*elen[2])*eta[2]*eta[2])/(2*s*s);
-		phi[1]=(xi[0]*xi[0]-sij[2]/(elen[1]*elen[1])*xi[1]*xi[1]-sij[1]/(elen[2]*elen[2])*xi[2]*xi[2])/(2*s*s);
-		phi[2]=-(xi[0]*eta[0]-sij[2]/(elen[1]*elen[1])*xi[1]*eta[1]-sij[1]/(elen[2]*elen[2])*xi[2]*eta[2])/(2*s*s);
+	int i,j,k;
+	double c1, c2;
+	if(index<0 || index>5){ 
+		phi[0]=0.0; phi[1]=0.0; phi[2]=0.0;
 	}
-	else if(index==1)
-	{
-		phi[0]=(eta[1]*eta[1]-sij[0]/(elen[2]*elen[2])*eta[2]*eta[2]-sij[2]/(elen[0]*elen[0])*eta[0]*eta[0])/(2*s*s);
-		phi[1]=(xi[1]*xi[1]-sij[0]/(elen[2]*elen[2])*xi[2]*xi[2]-sij[2]/(elen[0]*elen[0])*xi[0]*xi[0])/(2*s*s);
-		phi[2]=-(xi[1]*eta[1]-sij[0]/(elen[2]*elen[2])*xi[2]*eta[2]-sij[2]/(elen[0]*elen[0])*xi[0]*eta[0])/(2*s*s);
+
+	if(index<3){
+		i = index;
+		j = (i+1)%3;
+		k = (i+2)%3;
+		c1 = dot_array(2, gradLambda[i], gradLambda[j])/ lpnormp_array(2, gradLambda[j], 2);
+		c2 = dot_array(2, gradLambda[i], gradLambda[k])/ lpnormp_array(2, gradLambda[k], 2);
+		phi[0]= 2*gradLambda[i][0]*gradLambda[i][0]+2*c1*gradLambda[j][0]*gradLambda[j][0]+2*c2*gradLambda[k][0]*gradLambda[k][0];
+		phi[1]= 2*gradLambda[i][1]*gradLambda[i][1]+2*c1*gradLambda[j][1]*gradLambda[j][1]+2*c2*gradLambda[k][1]*gradLambda[k][1];
+		phi[2]= 2*gradLambda[i][0]*gradLambda[i][1]+2*c1*gradLambda[j][0]*gradLambda[j][1]+2*c2*gradLambda[k][0]*gradLambda[k][1];
 	}
-	else if(index==2)
-	{
-		phi[0]=(eta[2]*eta[2]-sij[1]/(elen[0]*elen[0])*eta[0]*eta[0]-sij[0]/(elen[1]*elen[1])*eta[1]*eta[1])/(2*s*s);
-		phi[1]=(xi[2]*xi[2]-sij[1]/(elen[0]*elen[0])*xi[0]*xi[0]-sij[0]/(elen[1]*elen[1])*xi[1]*xi[1])/(2*s*s);
-		phi[2]=-(xi[2]*eta[2]-sij[1]/(elen[0]*elen[0])*xi[0]*eta[0]-sij[0]/(elen[1]*elen[1])*xi[1]*eta[1])/(2*s*s);
-	}
-	else if(index==3)
-	{
-		phi[0]=eta[0]*eta[0]/(s*elen[0])*orient[0];
-		phi[1]=xi[0]*xi[0]/(s*elen[0])*orient[0];
-		phi[2]=-xi[0]*eta[0]/(s*elen[0])*orient[0];
-	}
-	else if(index==4)
-	{
-		phi[0]=eta[1]*eta[1]/(s*elen[1])*orient[1];
-		phi[1]=xi[1]*xi[1]/(s*elen[1])*orient[1];
-		phi[2]=-xi[1]*eta[1]/(s*elen[1])*orient[1];
-	}
-	else if(index==5)
-	{
-		phi[0]=eta[2]*eta[2]/(s*elen[2])*orient[2];
-		phi[1]=xi[2]*xi[2]/(s*elen[2])*orient[2];
-		phi[2]=-xi[2]*eta[2]/(s*elen[2])*orient[2];
-	}
-	else
-	{
-		phi[0]=0;
-		phi[1]=0;
-		phi[2]=0;
+	else{
+		i = index-3;
+		c1 = -1.0 / dot_array(2, nve[i], gradLambda[i]);
+		phi[0]= 2*c1*gradLambda[i][0]*gradLambda[i][0];
+		phi[1]= 2*c1*gradLambda[i][1]*gradLambda[i][1];
+		phi[2]= 2*c1*gradLambda[i][0]*gradLambda[i][1];
 	}
 }
 

@@ -1,12 +1,12 @@
 /*
- *  poissonerror.c
+ *  biharmonicerror2d.c
  *
  *  Created by Xuehai Huang on Apr 30, 2022.
  *  Copyright 2022 SUFE. All rights reserved.
  *
  */
 
-/*! \file poissonerror.c
+/*! \file biharmonicerror2d.c
  *  \brief Assembling for stiffness matrix and solve it
  */
 
@@ -19,7 +19,7 @@
 #include "checkmat.h"
 
 /**
- * \fn void geterrorsPoissonLagrange2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+ * \fn void geterrorsBiharmonicMorley2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
  * \brief compute error between numerical solution and exact solution: L2 norm, Energy norm
  * \param *errors pointer to error between numerical solution and exact solution: L2 norm, H1 norm, Energy norm
  * \param *sigmah pointer to numerical solution
@@ -38,17 +38,17 @@
  * \param lambda Lame constant
  * \param mu Lame constant or Poisson ratio of plate
  */
-void geterrorsPoissonLagrange2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+void geterrorsBiharmonicMorley2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
 {	
 	int Nt=elements->row;
-	init_array(3, errors, 0);
+	init_array(4, errors, 0);
 	
 	int i,j,k;
 	int face, edge;
 			
 	double phi0, phi1[3], phi2[3], val[3];
 	int k1,i1,i2,j1;
-	double x[2], s, **gradLambda, **vertices;
+	double x[2], s, **gradLambda, *nve[3], **vertices;
 
 	int num_qp;
 	double lambdas[100][3], weight[100];
@@ -62,9 +62,13 @@ void geterrorsPoissonLagrange2d(double *errors, dvector *uh, ELEMENT *elements, 
 	for(k=0;k<Nt;k++)
 	{
 		// set parameters
+		vertices = elements->vertices[k];
 		s=elements->vol[k];
         gradLambda = elements->gradLambda[k];
-		vertices = elements->vertices[k];
+		for(i=0;i<3;i++){
+			j = elementEdge->val[k][i];
+			nve[i] = edges->nvector[j];
+		}
 		// end set parameters
 		
 		for (i = 0; i<elementDOF[0].col; i++)
@@ -78,11 +82,11 @@ void geterrorsPoissonLagrange2d(double *errors, dvector *uh, ELEMENT *elements, 
 		{
             axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
 			axpy_array(2, lambdas[i1][2], vertices[2], x);
-			val[0] = -poisson2d_u(x, NULL);
+			val[0] = -biharmonic2d_u(x, NULL);
 
 			for(k1=0;k1<elementDOF->col;k1++)
 			{
-				lagrange_basis(lambdas[i1], k1, elementDOF->dop, &phi0);
+				morley_basis(lambdas[i1], gradLambda, nve, k1, &phi0);
 				val[0]+=phi0*luh.val[k1];
 			}
 			errors[0]+=s*weight[i1]*val[0]*val[0];
@@ -93,20 +97,35 @@ void geterrorsPoissonLagrange2d(double *errors, dvector *uh, ELEMENT *elements, 
 		{
 			axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
 			axpy_array(2, lambdas[i1][2], vertices[2], x);
-            poisson2d_gradu(x, val, NULL);
+            biharmonic2d_gradu(x, val, NULL);
 
 			for(k1=0;k1<elementDOF->col;k1++)
 			{
-				lagrange_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
+				morley_basis1(lambdas[i1], gradLambda, nve, k1, phi1);
 				axpy_array(2, -luh.val[k1], phi1, val);
 			}
 			errors[1]+=s*weight[i1]*dot_array(2, val, val);
 		}
+
+		// H2 semi-norm of u-u_h
+		for(i1=0;i1<num_qp;i1++)
+		{
+			axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
+			axpy_array(2, lambdas[i1][2], vertices[2], x);
+            biharmonic2d_hessu(x, val, NULL);
+
+			for(k1=0;k1<elementDOF->col;k1++)
+			{
+				morley_basis2(gradLambda, nve, k1, phi2);
+				axpy_array(3, -luh.val[k1], phi2, val);
+			}
+			errors[2]+=s*weight[i1]*(dot_array(2, val, val) + val[2]*val[2]);
+		}
 	}
 	free_dvector(&luh);
 
-	errors[2]=errors[0]+errors[1];
+	errors[3]=errors[0]+errors[1]+errors[2];
 	
-	for(i=0;i<3;i++)
+	for(i=0;i<4;i++)
 		errors[i]=sqrt(errors[i]);
 }

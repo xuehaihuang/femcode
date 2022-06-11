@@ -595,6 +595,22 @@ void assemble_poissonLagrange2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *el
 /* poissonerror2d.c */
 void geterrorsPoissonLagrange2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 
+/* biharmonic2d.c */
+double biharmonic2d_f(double *x, double *paras);
+double biharmonic2d_u(double *x, double *paras);
+void biharmonic2d_gradu(double *x, double *val, double *paras);
+void biharmonic2d_hessu(double *x, double *val, double *paras);
+
+/* biharmonicfem2d.c */
+void biharmonicfem2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void biharmonicMorley2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void assemble_biharmonicMorley2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
+
+/* biharmonicerror2d.c */
+void geterrorsBiharmonicMorley2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+
+
+
 /* linearElas2d.c */
 void linearElas2d_f(double *x, double *val, double *paras);
 void linearElas2d_u(double *x, double *val, double *paras);
@@ -617,10 +633,14 @@ void getElementDOF1D(ELEMENT_DOF *elementDOF, int ne, int dop);
 void getElementDOF1D_Continue(ELEMENT_DOF *edgeDOF, ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop);
 void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
+void getElementDOF_Morley2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices);
 void getElementDOF_HuZhang(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getFreenodesInfoLagrange2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void getFreenodesInfoMorley2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu);
 void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras);
+void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
+void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras);
 void assembleweightedMassatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
 void assembleDivHuZhangL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 void assembleRHSHuZhang2d(dvector *b, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, void (*f)(double *, double *, double *), double *paras);
@@ -678,9 +698,9 @@ void patchtogether33(dCSRmat *A11, dCSRmat *A12, dCSRmat *A13, dCSRmat *A21, dCS
 void getPenaltyParameters(ddenmat *etas, idenmat *elementEdge, EDGE *edges, double *alpha, double *beta);
 
 /* basicData.c */
-void morley_basis(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double *phi);
-void morley_basis1(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double phi[2]);
-void morley_basis2(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double phi[3]);
+void morley_basis(double *lambda, double **gradLambda, double *nve[3], int index, double *phi);
+void morley_basis1(double *lambda, double **gradLambda, double *nve[3], int index, double phi[2]);
+void morley_basis2(double **gradLambda, double *nve[3], int index, double phi[3]);
 void lagrange1D_basis(double lambda, int index, int dop, double *phi);
 void lagrange1D_basis1(double lambda, int index, int dop, double h, double *phi);
 void lagrange_basis(double *lambda, int index, int dop, double *phi);

@@ -283,6 +283,43 @@ void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 }
 
 /**
+ * \fn void getElementDOF_Morley2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices)
+ * \brief get the degrees of freedom of Morley element
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elements pointer to triangulation: the first 3 columns store the indexes of vertices
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+                                   the fourth column stores -1 if the edge is on boundary
+ * \param nvertices number of vertices
+ */
+void getElementDOF_Morley2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices)
+{
+	int i,j,k,ii[3];
+	int nt=elements->row;
+	int ne=edges->row;
+	int nn=nvertices;
+	
+	create_elementDOF(2, nn + ne, nt, 6, elementDOF);
+
+	int node, edge;
+	int *perm;
+	for(k=0;k<nt;k++)
+	{
+		for(i=0;i<3;i++)
+		{
+			node=elements->val[k][i];
+			elementDOF->val[k][i]=node;
+		}
+		
+		for(j=0;j<3;j++)
+		{
+			edge=elementEdge->val[k][j];
+			elementDOF->val[k][3+j] = nn + edge;
+		}
+	}
+}
+
+/**
  * \fn void getElementDOF_HuZhang(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop)
  * \brief get the degrees of freedom of Hu-Zhang element
  * \param *elementDOF pointer to relation between elements and DOFs
@@ -404,6 +441,72 @@ void getFreenodesInfoLagrange2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elemen
 				nfFlag->val[nn + j*estride + i] = 1;
 			}
 			nnf += estride;
+		}
+	}
+
+	create_ivector(nnf, nfreenodes);
+	create_ivector(dof - nnf, freenodes);
+
+	j = 0; k = 0;
+	for (i = 0; i<dof; i++)
+	{
+		if (nfFlag->val[i] == 1) //  non-free node
+		{
+			nfreenodes->val[k] = i;
+			index->val[i] = k;
+			k++;
+		}
+		else // free variable
+		{
+			freenodes->val[j] = i;
+			index->val[i] = j;
+			j++;
+		}
+	}
+}
+
+/**
+* \fn void getFreenodesInfoMorley2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+* \brief get freenodes information of Morley element in t2o dimensions
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to nodes: the first column stores the x coordinate of points, the second column stores the y coordinate of points
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void getFreenodesInfoMorley2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k, estride, fstride, nnf;
+
+	int nn = nodes->row;
+	int ne = edges->row;
+	int dof = elementDOF->dof;
+	int dop = 2;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	create_ivector(dof, nfFlag);
+	create_ivector(dof, index);
+
+	nnf = 0; // number of non-free nodes
+	for (i = 0; i < nn; i++)
+	{
+		if (nodes->bdFlag[i] == 1 || nodes->bdFlag[i] == 2 || nodes->bdFlag[i] == 3 || nodes->bdFlag[i] == 4)
+		{
+			nfFlag->val[i] = 1;
+			nnf++;
+		}
+	}
+
+	for (j = 0; j<ne; j++)
+	{
+		if (edges->bdFlag[j] == 1 || edges->bdFlag[j] == 2 || edges->bdFlag[j] == 3 || edges->bdFlag[j] == 4) // Dirichlet boundary
+		{
+			nfFlag->val[nn + j] = 1;
+			nnf++;
 		}
 	}
 
@@ -637,6 +740,238 @@ void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDO
 			for (i1 = 0; i1<num_qp; i1++)
 			{
 				lagrange_basis(lambdas[i1], i, elementDOF->dop, &phi);
+				axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
+				axpy_array(2, lambdas[i1][2], vertices[2], x);
+				lb.val[i] += s*weight[i1] * f(x, paras)*phi;
+			} // i1
+		} // k1
+
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			i = elementDOF->val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1
+	} // k
+	free_dvector(&lb);
+}
+
+/**
+* \fn void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+* \brief assemble stiffness matrix
+* \param *A pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \return void
+*/
+void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+{
+	int i, j, k, l;
+
+	A->row = elementDOF->dof;
+	A->col = A->row;
+	A->IA = (int*)calloc(A->row + 1, sizeof(int));
+	A->JA = NULL;
+	A->val = NULL;
+
+	//	create_dvector(A->row, b);
+
+	int nvertices = nodes->row;
+	int nedges = edges->row;
+	int element, edge, node;
+
+	double phi, phi1[3], phi2[3];
+	int k1, k2, i1, j1, l1, l2, ej;
+	double val, s, **gradLambda, *nve[3];
+	int count;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	
+									  /************************************************** stiffness matrix A *****************************************************************/
+	int *index;
+	int istart;
+	index = (int*)calloc(A->col, sizeof(int));
+	for (i = 0; i<A->col; i++)
+		index[i] = -1;
+	// step 1A: Find first the structure IA of the stiffness matrix A
+	for (i = 0; i<elementDOF->dof; i++)
+	{
+		count = 0;
+		istart = -2;
+		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
+		{
+			element = elementdofTran->JA[j];
+
+			for (k = 0; k<elementDOF->col; k++)
+			{
+				node = elementDOF->val[element][k];
+				if (index[node] == -1)
+				{
+					index[node] = istart;
+					istart = node;
+					count++;
+				}
+			}
+		}
+		A->IA[i + 1] = count;
+
+		for (j = 0; j<count; j++)
+		{
+			l = istart;
+			istart = index[l];
+			index[l] = -1;
+		}
+	} // i
+
+	for (i = 0; i<A->row; i++)
+		A->IA[i + 1] += A->IA[i];
+
+	A->nnz = A->IA[A->row];
+
+	// step 2A: Find the structure JA of the stiffness matrix A
+	A->JA = (int*)calloc(A->nnz, sizeof(int));
+	for (i = 0; i<elementDOF->dof; i++)
+	{
+		istart = -2;
+		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
+		{
+			element = elementdofTran->JA[j];
+
+			for (k = 0; k<elementDOF->col; k++)
+			{
+
+				node = elementDOF->val[element][k];
+				if (index[node] == -1)
+				{
+					index[node] = istart;
+					istart = node;
+				}
+			}
+		}
+
+		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
+		{
+			A->JA[j] = istart;
+			istart = index[istart];
+			index[A->JA[j]] = -1;
+		}
+	} // i
+	free(index);
+
+	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+	// step 3A: Loop element by element and compute the actual entries storing them in A
+	num_qp=getNumQuadPoints(elementDOF->dop * 2 - 2, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		for(i=0;i<3;i++){
+			j = elementEdge->val[k][i];
+			nve[i] = edges->nvector[j];
+		}
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF->col; k2++)
+			{
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					morley_basis2(gradLambda, nve, k1, phi1);
+					morley_basis2(gradLambda, nve, k2, phi2);
+					val += s*weight[i1] * (phi1[0] * phi2[0] + phi1[1] * phi2[1] + 2 * phi1[2] * phi2[2]);
+				}
+				lA.val[k1][k2] += val;
+			} // k2
+		} // k1
+
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			i = elementDOF->val[k][k1];
+			for (k2 = 0; k2<elementDOF->col; k2++)
+			{
+				j = elementDOF->val[k][k2];
+				for (j1 = A->IA[i]; j1<A->IA[i+1]; j1++)
+				{
+					if (A->JA[j1] == j)
+					{
+						A->val[j1] += lA.val[k1][k2];
+						break;
+					}
+				} // j1
+			} // k2
+		} // k1
+	} // k
+	free_dden_matrix(&lA);
+}
+
+/**
+ * \fn void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras)
+ * \brief assemble stiffness matrix (f, v)
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \return void
+ */
+void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras)
+{
+	int i,j,k,k1,i1;
+	
+	double phi;
+	double x[2], **gradLambda, *nve[3], **vertices;
+	double s;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+			
+	dvector lb;
+	create_dvector(elementDOF->col, &lb);
+	/************************************************** right hand side b *****************************************************************/
+	create_dvector(elementDOF->dof, b);
+	num_qp = 49; 
+	init_Gauss2d(num_qp, lambdas, weight);
+
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		vertices = elements->vertices[k];
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		for(i=0;i<3;i++){
+			j = elementEdge->val[k][i];
+			nve[i] = edges->nvector[j];
+		}
+		// end set parameters
+        
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOF->col; i++)
+		{
+			for (i1 = 0; i1<num_qp; i1++)
+			{
+				morley_basis(lambdas[i1], gradLambda, nve, i, &phi);
 				axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
 				axpy_array(2, lambdas[i1][2], vertices[2], x);
 				lb.val[i] += s*weight[i1] * f(x, paras)*phi;

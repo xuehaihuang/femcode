@@ -80,8 +80,7 @@ int main(int argc, const char * argv[])
 	}
 	else if(problem_num == 2) // Biharmonic equation
 	{
-		// maxwellfem(&elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
-		exit(0);
+		biharmonicfem2d(&elements[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
 	}
 	else if(problem_num == 3) // Linear Elasticity
 	{
