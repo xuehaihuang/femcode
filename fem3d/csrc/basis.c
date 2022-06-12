@@ -3604,7 +3604,7 @@ double area(double x1,double x2,double x3,double y1,double y2,double y3)
 }
 
 /**
- * \fn double volume(double (*tet)[3])
+ * \fn double volume(double **tet)
  * \brief get volume for tetrahedron p1(x1,y1,z1),p2(x2,y2,z2),p3(x3,y3,z3),p4(x4,y4,z4)
  * volume=det([1 x1 y1 z1;
                1 x2 y2 z2;
@@ -3613,7 +3613,7 @@ double area(double x1,double x2,double x3,double y1,double y2,double y3)
  * \param (*tet)[3] the axis value of the four vertices
  * \return volume of the tetrahedron
  */
-double volume(double (*tet)[3])
+double volume(double **tet)
 {
 	double a11=tet[1][0]-tet[0][0], a12=tet[1][1]-tet[0][1], a13=tet[1][2]-tet[0][2];
 	double a21=tet[2][0]-tet[0][0], a22=tet[2][1]-tet[0][1], a23=tet[2][2]-tet[0][2];

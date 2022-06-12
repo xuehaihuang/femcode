@@ -15,6 +15,56 @@
 #include "header.h"
 #include "matvec.h"
 
+
+/**
+* \fn void cartToPol2d(x,y,r,theta)
+* \brief Transform Cartesian coordinate to polar  coordinate
+* \param x the x-axis value of the point
+* \param y the y-axis value of the point
+* \param r the distance from the origin to a point in the x-y plane
+* \param theta a counterclockwise angular displacement in radians from the positive x-axis
+* \return void
+*/
+void cartToPol2d(double x, double y, double *r, double *theta)
+{
+	(*r) = sqrt(x*x + y*y);
+	(*theta) = atan2(y, x);
+	if ((*theta)<0)
+		(*theta) += 2 * PI;
+}
+
+/**
+* \fn void cartToBary2d(double *x, double *lambda, double **tri)
+* \brief Transform Cartesian coordinate to barycentric coordinate
+* \param x the Cartesian coordinate
+* \param lambda the barycentric coordinate
+* \param tri the Cartesian coordinate of three vertices of triangle
+* \return void
+*/
+void cartToBary2d(double *x, double *lambda, double **tri)
+{
+	double s = area(tri); 
+
+	lambda[0] = area0(x, tri[1], tri[2]) / s;
+	lambda[1] = area0(tri[0], x, tri[2]) / s;
+	lambda[2] = area0(tri[0], tri[1], x) / s;	
+}
+
+/**
+* \fn void baryToCart2d(double *lambda, double *x, double **tri)
+* \brief Transform barycentric to Cartesian coordinate coordinate
+* \param lambda the barycentric coordinate
+* \param x the Cartesian coordinate
+* \param tri the Cartesian coordinate of three vertices of triangle
+* \return void
+*/
+void baryToCart2d(double *lambda, double *x, double **tri)
+{
+	x[0] = lambda[0]*tri[0][0] + lambda[1]*tri[1][0] + lambda[2]*tri[2][0];
+	x[1] = lambda[0]*tri[0][1] + lambda[1]*tri[1][1] + lambda[2]*tri[2][1];
+}
+
+
 /** 
  * \fn void morley_basis(double *lambda, double **gradLambda, double *nve[3], int index, double *phi)
  * \brief basis function of Morley element
@@ -30,19 +80,13 @@ void morley_basis(double *lambda, double **gradLambda, double *nve[3], int index
 	int i,j,k;
 	double c1, c2;
 	if(index<0 || index>5) *phi=0.0;
-	// printf("basis0\n");
+
 	if(index<3){
 		i = index;
 		j = (i+1)%3;
 		k = (i+2)%3;
-		// printf("basis01: %d, %d, %d\n",i,j,k);
-		// printf("basis01, %f, %f\n", gradLambda[i][0], gradLambda[j][1]);
-		// printf("basis01, %f\n", dot_array(2, gradLambda[i], gradLambda[j]));
-		// printf("basis01, %f\n", lpnormp_array(2, gradLambda[j], 2));
 		c1 = dot_array(2, gradLambda[i], gradLambda[j])/ lpnormp_array(2, gradLambda[j], 2);
-		// printf("basis1\n");
 		c2 = dot_array(2, gradLambda[i], gradLambda[k])/ lpnormp_array(2, gradLambda[k], 2);
-		// printf("basis2\n");
 		*phi = lambda[i]*lambda[i] + c1*lambda[j]*(lambda[j]-1) + c2*lambda[k]*(lambda[k]-1);
 	}
 	else{
@@ -2169,7 +2213,7 @@ void huzhang_basisLaplaceTrace(double *lambda, double **gradLambda, double **nv,
 }
 
 /**
- * \fn double area(double (*tri)[2])
+ * \fn double area(double **tri)
  * \brief get area for triangle p1(x1,y1),p2(x2,y2),p3(x3,y3)
  * area = det([1 x1 y1;
                1 x2 y2;
@@ -2177,10 +2221,28 @@ void huzhang_basisLaplaceTrace(double *lambda, double **gradLambda, double **nv,
  * \param (*tru)[3] the axis value of the three vertices
  * \return area of the trianle
  */
-double area(double (*tri)[2])
+double area(double **tri)
 {
 	double val;
 	val = ((tri[1][0]-tri[0][0])*(tri[2][1]-tri[0][1])-(tri[1][1]-tri[0][1])*(tri[2][0]-tri[0][0]))/2;
+	
+	if(val<0) val *= -1;
+
+	return val;
+}
+
+/**
+ * \fn double area0(double *v0, double *v1, double *v2)
+ * \brief get area for triangle p0(x0,y0),p1(x1,y1),p2(x2,y2)
+ * \param v0 the coordinate of vertex p0
+ * \param v1 the coordinate of vertex p1
+ * \param v2 the coordinate of vertex p2
+ * \return area of the trianle
+ */
+double area0(double *v0, double *v1, double *v2)
+{
+	double val;
+	val = ((v1[0]-v0[0])*(v2[1]-v0[1])-(v1[1]-v0[1])*(v2[0]-v0[0]))/2;
 	
 	if(val<0) val *= -1;
 

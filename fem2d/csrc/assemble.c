@@ -740,8 +740,7 @@ void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDO
 			for (i1 = 0; i1<num_qp; i1++)
 			{
 				lagrange_basis(lambdas[i1], i, elementDOF->dop, &phi);
-				axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
-				axpy_array(2, lambdas[i1][2], vertices[2], x);
+				baryToCart2d(lambdas[i1], x, vertices);
 				lb.val[i] += s*weight[i1] * f(x, paras)*phi;
 			} // i1
 		} // k1
@@ -972,8 +971,7 @@ void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, ED
 			for (i1 = 0; i1<num_qp; i1++)
 			{
 				morley_basis(lambdas[i1], gradLambda, nve, i, &phi);
-				axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
-				axpy_array(2, lambdas[i1][2], vertices[2], x);
+				baryToCart2d(lambdas[i1], x, vertices);
 				lb.val[i] += s*weight[i1] * f(x, paras)*phi;
 			} // i1
 		} // k1
@@ -1345,8 +1343,7 @@ void assembleRHSHuZhang2d(dvector *b, ELEMENT *elements, dennode *nodes, ELEMENT
 			for (i1 = 0; i1<num_qp; i1++)
 			{
 				lagrange_basis(lambdas[i1], k1, elementDOF->dop, &phi);
-				axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
-				axpy_array(2, lambdas[i1][2], vertices[2], x);
+				baryToCart2d(lambdas[i1], x, vertices);
 				// linearElas2d_f(x, val, paras);
 				f(x, val, paras);
 				lb.val[k1] += s*weight[i1] * val[0]*phi;
@@ -3497,7 +3494,7 @@ void getElementEdgeGeoInfo(ELEMENT *elements, idenmat *elementEdge, EDGE *edges,
 			copy_array(2, nodes->val[vertex], elements->vertices[i][j]); 
 		}
 
-		elements->vol[i] = area(tri);
+		elements->vol[i] = area(elements->vertices[i]);
 
 		for(j=0;j<2;j++)
 			elements->barycenter[i][j] = (tri[0][j]+tri[1][j]+tri[2][j]) / 3.0;

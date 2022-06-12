@@ -90,8 +90,7 @@ void geterrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, 
 				value[1] += phi1[1] * sigmah->val[j1];
 				value[2] += phi1[2] * sigmah->val[j1];
 			}
-			axpbyz_array(2, lambdas[0][i1][0], vertices[0], lambdas[0][i1][1], vertices[1], x);
-			axpy_array(2, lambdas[0][i1][2], vertices[2], x);
+			baryToCart2d(lambdas[0][i1], x, vertices);
 			linearElas2d_sigma(x, val, paras);
 			value[0] -= val[0];
 			value[1] -= val[1];
@@ -121,8 +120,7 @@ void geterrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, 
 				value[0] += phi1[0] * sigmah->val[j1];
 				value[1] += phi1[1] * sigmah->val[j1];
 			}
-			axpbyz_array(2, lambdas[1][i1][0], vertices[0], lambdas[1][i1][1], vertices[1], x);
-			axpy_array(2, lambdas[1][i1][2], vertices[2], x);
+			baryToCart2d(lambdas[1][i1], x, vertices);
 			linearElas2d_f(x, val, paras);
 			value[0] += val[0];
 			value[1] += val[1];
@@ -142,8 +140,7 @@ void geterrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, 
 				j1 += elementDOF[1].dof;
 				value[1] += phi0*uh->val[j1];
 			}
-			axpbyz_array(2, lambdas[2][i1][0], vertices[0], lambdas[2][i1][1], vertices[1], x);
-			axpy_array(2, lambdas[2][i1][2], vertices[2], x);
+			baryToCart2d(lambdas[2][i1], x, vertices);
 			linearElas2d_u(x, val, paras);
 			value[0] -= val[0];
 			value[1] -= val[1];
@@ -203,8 +200,7 @@ void geterrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, 
 				value[2] += phi1[0] * uhstar->val[j1];
 				value[3] += phi1[1] * uhstar->val[j1];
 			}
-			axpbyz_array(2, lambdas[2][i1][0], vertices[0], lambdas[2][i1][1], vertices[1], x);
-			axpy_array(2, lambdas[2][i1][2], vertices[2], x);
+			baryToCart2d(lambdas[2][i1], x, vertices);
 			linearElas2d_gradu(x, val, paras);
 			value[0] -= val[0];
 			value[1] -= val[1];
@@ -226,8 +222,7 @@ void geterrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, 
 				j1 += elementDOF[2].dof;
 				value[1] += phi0*uhstar->val[j1];
 			}
-			axpbyz_array(2, lambdas[2][i1][0], vertices[0], lambdas[2][i1][1], vertices[1], x);
-			axpy_array(2, lambdas[2][i1][2], vertices[2], x);
+			baryToCart2d(lambdas[2][i1], x, vertices);
 			linearElas2d_u(x, val, paras);
 			value[0] -= val[0];
 			value[1] -= val[1];
@@ -457,8 +452,7 @@ void getposteriorierrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dve
 				j1 += elementDOF[1].dof;
 				value[1] += phi0*Qhf.val[j1];
 			}
-			axpbyz_array(2, lambdas[2][i1][0], vertices[0], lambdas[2][i1][1], vertices[1], x);
-			axpy_array(2, lambdas[2][i1][2], vertices[2], x);
+			baryToCart2d(lambdas[2][i1], x, vertices);
 			linearElas2d_f(x, val, paras);
 			value[0] -= val[0];
 			value[1] -= val[1];

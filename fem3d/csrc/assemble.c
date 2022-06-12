@@ -4826,7 +4826,7 @@ void getElementFaceEdgeGeoInfo(ELEMENT *elements, idenmat *elementFace, FACE *fa
 			copy_array(3, nodes->val[vertex], tet[j]);
 			copy_array(3, nodes->val[vertex], elements->vertices[i][j]); 
 		}
-		elements->vol[i]=volume(tet);
+		elements->vol[i]=volume(elements->vertices[i]);
 		vol = elements->vol[i];
 
 		for(j=0;j<3;j++)

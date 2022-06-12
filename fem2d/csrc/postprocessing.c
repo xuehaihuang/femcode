@@ -85,8 +85,7 @@ void projL2PkVec2d(dvector *Qhu, ELEMENT *elements, dennode *nodes, ELEMENT_DOF 
 			for (i1 = 0; i1<num_qp0; i1++)
 			{
 				lagrange_basis(lambdas0[i1], i, dop, &phi[0]);
-				axpbyz_array(2, lambdas0[i1][0], vertices[0], lambdas0[i1][1], vertices[1], x);
-				axpy_array(2, lambdas0[i1][2], vertices[2], x);
+				baryToCart2d(lambdas0[i1], x, vertices);
 				u(x, val, paras);
 				b[0].val[i] += s*weight0[i1] * val[0]*phi[0];
 				b[1].val[i] += s*weight0[i1] * val[1]*phi[0];

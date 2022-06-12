@@ -698,6 +698,9 @@ void patchtogether33(dCSRmat *A11, dCSRmat *A12, dCSRmat *A13, dCSRmat *A21, dCS
 void getPenaltyParameters(ddenmat *etas, idenmat *elementEdge, EDGE *edges, double *alpha, double *beta);
 
 /* basicData.c */
+void cartToPol2d(double x, double y, double *r, double *theta);
+void cartToBary2d(double *x, double *lambda, double **tri);
+void baryToCart2d(double *lambda, double *x, double **tri);
 void morley_basis(double *lambda, double **gradLambda, double *nve[3], int index, double *phi);
 void morley_basis1(double *lambda, double **gradLambda, double *nve[3], int index, double phi[2]);
 void morley_basis2(double **gradLambda, double *nve[3], int index, double phi[3]);
@@ -718,7 +721,8 @@ void huzhang_basisROT(double *lambda, double **gradLambda, double **nv, double *
 void huzhang_basisCurlTrace(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double phi[2]);
 void huzhang_basisROTROT(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double *phi);
 void huzhang_basisLaplaceTrace(double *lambda, double **gradLambda, double **nv, double **tv, int index, int dop, double *phi);
-double area(double (*tri)[2]);
+double area(double **tri);
+double area0(double *v0, double *v1, double *v2);
 
 /* basiscoeff.c */
 void generateBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes);

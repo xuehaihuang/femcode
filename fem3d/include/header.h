@@ -875,7 +875,7 @@ void huangQuadcurl3d_basisGradCurl(double **grd_lambda, double *nvf[4], short *e
 void huangzhang03d_basis(double *lambda, double **grd_lambda, int index, double phi[3]);
 void huangzhang03d_basisCurl(double *lambda, double **grd_lambda, int index, double phi[3]);
 void huangzhang03d_basisGradCurl(double *lambda, double **grd_lambda, int index, double phi[9]);
-double volume(double (*tet)[3]);
+double volume(double **tet);
 
 /* quadrature.c */
 int getNumQuadPoints(int dop, int dim);

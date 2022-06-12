@@ -79,9 +79,8 @@ void geterrorsBiharmonicMorley2d(double *errors, dvector *uh, ELEMENT *elements,
 
 		// L2 norm of u-u_h
 		for(i1=0;i1<num_qp;i1++)
-		{
-            axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
-			axpy_array(2, lambdas[i1][2], vertices[2], x);
+		{	
+			baryToCart2d(lambdas[i1], x, vertices);
 			val[0] = -biharmonic2d_u(x, NULL);
 
 			for(k1=0;k1<elementDOF->col;k1++)
@@ -95,9 +94,8 @@ void geterrorsBiharmonicMorley2d(double *errors, dvector *uh, ELEMENT *elements,
 		// H1 semi-norm of u-u_h
 		for(i1=0;i1<num_qp;i1++)
 		{
-			axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
-			axpy_array(2, lambdas[i1][2], vertices[2], x);
-            biharmonic2d_gradu(x, val, NULL);
+			baryToCart2d(lambdas[i1], x, vertices);
+			biharmonic2d_gradu(x, val, NULL);
 
 			for(k1=0;k1<elementDOF->col;k1++)
 			{
@@ -110,8 +108,7 @@ void geterrorsBiharmonicMorley2d(double *errors, dvector *uh, ELEMENT *elements,
 		// H2 semi-norm of u-u_h
 		for(i1=0;i1<num_qp;i1++)
 		{
-			axpbyz_array(2, lambdas[i1][0], vertices[0], lambdas[i1][1], vertices[1], x);
-			axpy_array(2, lambdas[i1][2], vertices[2], x);
+			baryToCart2d(lambdas[i1], x, vertices);
             biharmonic2d_hessu(x, val, NULL);
 
 			for(k1=0;k1<elementDOF->col;k1++)
