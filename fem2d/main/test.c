@@ -66,9 +66,9 @@ int main(int argc, const char * argv[])
 
 	int i;
 
-	getElementEdgeGeoInfo(&elements[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1]);
-//	for (i = 0; i < glevelNum; i++)
-//		getElementEdgeGeoInfo(&elements[i], &edges[i], &nodes[i]);
+	// getElementEdgeGeoInfo(&elements[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1]);
+	for (i = 0; i < glevelNum; i++)
+		getElementEdgeGeoInfo(&elements[i], &elementEdge[i], &edges[i], &nodes[i]);
 
 
 	printf("h = %f\n", edges[glevelNum - 1].length[1]);
@@ -80,7 +80,8 @@ int main(int argc, const char * argv[])
 	}
 	else if(problem_num == 2) // Biharmonic equation
 	{
-		biharmonicfem2d(&elements[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
+		// biharmonicfem2d(&elements[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
+		biharmonicfem2d(elements, elementEdge, edges, nodes, &Input);
 	}
 	else if(problem_num == 3) // Linear Elasticity
 	{

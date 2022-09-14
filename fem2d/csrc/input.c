@@ -74,6 +74,7 @@ int read_Input_data(char *filenm, Input_data *Input)
 	Input->mu = 0.35;
 	Input->t = 0;
 	Input->paraeps = 1.0;
+	Input->parapenalty = 3.0;
 	Input->glevelNum = 6;
 	Input->CglevelNum = 4;
 	Input->FglevelNum = 6;
@@ -83,6 +84,7 @@ int read_Input_data(char *filenm, Input_data *Input)
 	Input->stress_fem_type = 1;
 	Input->fem_num = 1;
 	Input->nitsche = 0;
+	Input->extrap = 0;
 	
 	// use default input parameters
 	if(filenm==NULL) return(0);
@@ -610,6 +612,18 @@ int read_Input_data(char *filenm, Input_data *Input)
 			fgets(buffer, 500, fp); // skip rest of line
 		}
 
+		else if (strcmp(buffer, "extrap") == 0)
+		{
+			val = fscanf(fp, "%s", buffer);
+			if (val != 1 || strcmp(buffer, "=") != 0) {
+				ret = 0; break;
+			}
+			val = fscanf(fp, "%hd", &sibuff);
+			if (val != 1) { ret = 0; break; }
+			Input->extrap = sibuff;
+			fgets(buffer, 500, fp); // skip rest of line
+		}
+
 		else if (strcmp(buffer,"nu")==0)
 		{
 			val = fscanf(fp,"%s",buffer);
@@ -667,6 +681,18 @@ int read_Input_data(char *filenm, Input_data *Input)
 			val = fscanf(fp, "%lf", &dbuff);
 			if (val != 1) { ret = 0; break; }
 			Input->paraeps = dbuff;
+			fgets(buffer, 500, fp); // skip rest of line
+		}
+
+		else if (strcmp(buffer, "parapenalty") == 0)
+		{
+			val = fscanf(fp, "%s", buffer);
+			if (val != 1 || strcmp(buffer, "=") != 0) {
+				ret = 0; break;
+			}
+			val = fscanf(fp, "%lf", &dbuff);
+			if (val != 1) { ret = 0; break; }
+			Input->parapenalty = dbuff;
 			fgets(buffer, 500, fp); // skip rest of line
 		}
 

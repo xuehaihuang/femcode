@@ -868,7 +868,7 @@ void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 	ddenmat lA; // local A
 	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
-	num_qp=getNumQuadPoints(elementDOF->dop * 2 - 2, 2); // the number of numerical intergation points
+	num_qp=getNumQuadPoints(elementDOF->dop * 2 - 4, 2); // the number of numerical intergation points
 	init_Gauss2d(num_qp, lambdas, weight);
 	for (k = 0; k<elements->row; k++)
 	{
@@ -983,6 +983,345 @@ void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, ED
 		} // k1
 	} // k
 	free_dvector(&lb);
+}
+
+/**
+* \fn void assembleBiHessC0ipdg2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double parapenalty)
+* \brief assemble stiffness matrix
+* \param *A pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \return void
+*/
+void assembleBiHessC0ipdg2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double parapenalty)
+{
+	int i, j, k, l, m;
+
+	A->row = elementDOF->dof;
+	A->col = A->row;
+	A->IA = (int*)calloc(A->row + 1, sizeof(int));
+	A->JA = NULL;
+	A->val = NULL;
+
+	//	create_dvector(A->row, b);
+
+	int nvertices = nodes->row;
+	int nedges = edges->row;
+	int element[4], edge, node;
+
+	int dop = elementDOF->dop;
+
+	double phi, phi1[3], phi2[3], jump[2], avg[2];
+	int k1, k2, i1, j1, l1, l2, ei;
+	double val, s, **gradLambda, *nve[3];
+	int count;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	
+									  /************************************************** stiffness matrix A *****************************************************************/
+	int *index;
+	int istart;
+	index = (int*)calloc(A->col, sizeof(int));
+	for (i = 0; i<A->col; i++)
+		index[i] = -1;
+	// step 1A: Find first the structure IA of the stiffness matrix A
+	for (i = 0; i<elementDOF->dof; i++)
+	{
+		count = 0;
+		istart = -2;
+		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
+		{
+			for(k=0;k<4;k++)
+				element[k]=-1;
+
+			element[0] = elementdofTran->JA[j];
+
+			for(k=0;k<elementDOF->col;k++)
+			{
+				if(elementDOF->val[element[0]][k]==i)
+					break;
+			}
+
+			if(k<3) // i is a vertex of triangle element[0]
+			{
+				edge=elementEdge->val[element[0]][k];
+				element[1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
+			}
+			else if(k<3*dop) // i is a trisection point of edge of triangle element[0]
+			{
+				ei = (k-3)/(dop-1);				
+				edge=elementEdge->val[element[0]][(ei+1)%3];
+				element[1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
+
+				edge=elementEdge->val[element[0]][(ei+2)%3];
+				element[2]=edges->val[edge][2]+edges->val[edge][3]-element[0];
+			}
+			else  // i is the barycenter of triangle element[0]
+			{
+				for(m=0;m<3;m++)
+				{
+					edge=elementEdge->val[element[0]][m];
+					element[m+1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
+				}
+			}
+			for(l=0;l<4;l++){
+				if(element[l] == -1) continue;
+				for (k = 0; k<elementDOF->col; k++)
+				{
+					node = elementDOF->val[element[l]][k];
+					if (index[node] == -1)
+					{
+						index[node] = istart;
+						istart = node;
+						count++;
+					}
+				}
+			}
+		}
+		A->IA[i + 1] = count;
+
+		for (j = 0; j<count; j++)
+		{
+			l = istart;
+			istart = index[l];
+			index[l] = -1;
+		}
+	} // i
+
+	for (i = 0; i<A->row; i++)
+		A->IA[i + 1] += A->IA[i];
+
+	A->nnz = A->IA[A->row];
+
+	// step 2A: Find the structure JA of the stiffness matrix A
+	A->JA = (int*)calloc(A->nnz, sizeof(int));
+	for (i = 0; i<elementDOF->dof; i++)
+	{
+		istart = -2;
+		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
+		{
+			for(k=0;k<4;k++)
+				element[k]=-1;
+
+			element[0] = elementdofTran->JA[j];
+
+			for(k=0;k<elementDOF->col;k++)
+			{
+				if(elementDOF->val[element[0]][k]==i)
+					break;
+			}
+
+			if(k<3) // i is a vertex of triangle element[0]
+			{
+				edge=elementEdge->val[element[0]][k];
+				element[1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
+			}
+			else if(k<3*dop) // i is a trisection point of edge of triangle element[0]
+			{
+				ei = (k-3)/(dop-1);
+				edge=elementEdge->val[element[0]][(ei+1)%3];
+				element[1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
+
+				edge=elementEdge->val[element[0]][(ei+2)%3];
+				element[2]=edges->val[edge][2]+edges->val[edge][3]-element[0];
+			}
+			else  // i is the barycenter of triangle element[0]
+			{
+				for(m=0;m<3;m++)
+				{
+					edge=elementEdge->val[element[0]][m];
+					element[m+1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
+				}
+			}
+
+			for(l=0;l<4;l++){
+				if(element[l] == -1) continue;
+				for (k = 0; k<elementDOF->col; k++)
+				{
+					node = elementDOF->val[element[l]][k];
+					if (index[node] == -1)
+					{
+						index[node] = istart;
+						istart = node;
+					}
+			}
+			}
+		}
+
+		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
+		{
+			A->JA[j] = istart;
+			istart = index[istart];
+			index[A->JA[j]] = -1;
+		}
+	} // i
+	// free(index);
+
+	A->val = (double*)calloc(A->nnz, sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+	// step 3A1: Loop element by element and compute the actual entries storing them in A
+	num_qp=getNumQuadPoints(elementDOF->dop * 2 - 4, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		// for(i=0;i<3;i++){
+		// 	j = elementEdge->val[k][i];
+		// 	nve[i] = edges->nvector[j];
+		// }
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF->col; k2++)
+			{
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					lagrange_basis2(lambdas[i1], gradLambda, k1, dop, phi1);
+					lagrange_basis2(lambdas[i1], gradLambda, k2, dop, phi2);
+					val += s*weight[i1] * (phi1[0] * phi2[0] + phi1[1] * phi2[1] + 2 * phi1[2] * phi2[2]);
+				}
+				lA.val[k1][k2] += val;
+			} // k2
+		} // k1
+
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			i = elementDOF->val[k][k1];
+			for (k2 = 0; k2<elementDOF->col; k2++)
+			{
+				j = elementDOF->val[k][k2];
+				for (j1 = A->IA[i]; j1<A->IA[i+1]; j1++)
+				{
+					if (A->JA[j1] == j)
+					{
+						A->val[j1] += lA.val[k1][k2];
+						break;
+					}
+				} // j1
+			} // k2
+		} // k1
+	} // k
+	free_dden_matrix(&lA);
+
+	
+	// additonal terms in IPDG
+	// search edge by edge
+	int patchnodes[200];
+	double elen;
+	int num_qp1;
+	double lambdas1[100][2], weight1[100];
+	num_qp1=getNumQuadPoints(elementDOF->dop * 2-2, 1);
+	if (num_qp1>5) num_qp1 = 5;
+	init_Gauss1d(num_qp1, lambdas1, weight1);
+
+	for(edge=0;edge<edges->row;edge++){
+		element[0] = edges->val[edge][2];
+		element[1] = edges->val[edge][3];
+		elen = edges->length[edge];
+
+		istart = -2;
+		count = 0;
+		for (i = 0; i<elementDOF->col; i++)
+		{
+			j = elementDOF->val[element[0]][i];
+			patchnodes[count] = j;
+			count++;
+			index[j] = istart;
+			istart = j;
+		}
+
+		if (element[1] != -1)
+		{
+			for (i = 0; i<elementDOF->col; i++)
+			{
+				j = elementDOF->val[element[1]][i];
+				if (index[j] == -1)
+				{
+					patchnodes[count] = j;
+					count++;
+					index[j] = istart;
+					istart = j;
+
+				}
+			}
+		}
+
+		for (j = 0; j<count; j++)
+		{
+			j1 = istart;
+			istart = index[j1];
+			index[j1] = -1;
+		}
+
+		create_dden_matrix(count, count, &lA);
+		init_dden_matrix(&lA, 0.0);
+
+		for (k1 = 0; k1<count; k1++)
+		{
+			i = patchnodes[k1];
+			for (k2 = 0; k2<count; k2++)
+			{
+				j = patchnodes[k2];
+				for (i1 = 0; i1<num_qp1; i1++)
+				{
+					averageNormalDerivative2Lagrange2d(lambdas1[i1], edge, elements, elementEdge, edges, elementDOF, i, avg);
+					averageNormalDerivative2Lagrange2d(lambdas1[i1], edge, elements, elementEdge, edges, elementDOF, j, avg+1);
+
+					jumpNormalDerivativeLagrange2d(lambdas1[i1], edge, elements, elementEdge, edges, elementDOF, i, jump);
+					jumpNormalDerivativeLagrange2d(lambdas1[i1], edge, elements, elementEdge, edges, elementDOF, j, jump+1);
+
+					lA.val[k1][k2] -= elen * weight1[i1] * (avg[0] * jump[1] + avg[1] * jump[0]);
+					lA.val[k1][k2] += parapenalty * weight1[i1] * jump[0] * jump[1];
+
+					// averageNormalDerivative2Lagrange2d(lambdas1[i1], edge, elements, elementEdge, edges, elementDOF, i, phi1);
+					// jumpNormalDerivativeLagrange2d(lambdas1[i1], edge, elements, elementEdge, edges, elementDOF, j, phi2);
+					// lA.val[k1][k2] -= elen * weight1[i1] * phi1[0] * phi2[0];
+
+					// averageNormalDerivative2Lagrange2d(lambdas1[i1], edge, elements, elementEdge, edges, elementDOF, j, phi1);
+					// jumpNormalDerivativeLagrange2d(lambdas1[i1], edge, elements, elementEdge, edges, elementDOF, i, phi2);
+					// lA.val[k1][k2] -= elen * weight1[i1] * phi1[0] * phi2[0];
+
+					// jumpNormalDerivativeLagrange2d(lambdas1[i1], edge, elements, elementEdge, edges, elementDOF, i, phi1);
+					// jumpNormalDerivativeLagrange2d(lambdas1[i1], edge, elements, elementEdge, edges, elementDOF, j, phi2);
+					// lA.val[k1][k2] += parapenalty * weight1[i1] * phi1[0] * phi2[0];
+				}
+			} // k2
+		} // k1
+
+		for (k1 = 0; k1<count; k1++)
+		{
+			i = patchnodes[k1];
+			for (k2 = 0; k2<count; k2++)
+			{
+				j = patchnodes[k2];
+				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
+				{
+					if (A->JA[j1] == j)
+					{
+						A->val[j1] += lA.val[k1][k2];
+						break;
+					}
+				}
+			} // k2
+		} // k1
+
+		free_dden_matrix(&lA);
+	}
+	free(index);
 }
 
 /**
@@ -1362,7 +1701,7 @@ void assembleRHSHuZhang2d(dvector *b, ELEMENT *elements, dennode *nodes, ELEMENT
 }
 
 /**
-* \fn void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double penaltypara)
+* \fn void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double parapenalty)
 * \brief assemble stiffness matrix
 * \param *A pointer to stiffness matrix
 * \param *BT pointer to stiffness matrix
@@ -1378,7 +1717,7 @@ the fourth column stores -1 if the edge is on boundary
 * \param mu Lame constant or Poisson ratio of plate
 * \return void
 */
-void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double penaltypara)
+void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double parapenalty)
 {
 	int i, j, k, l;
 
@@ -1666,14 +2005,14 @@ void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, E
 				{
 					jumpOperatorVector(lambdas[i1][0], lambdas[i1][1], edge, elements, elementEdge, edges, elementDOF, curnode[0], phi1);
 					jumpOperatorVector(lambdas[i1][0], lambdas[i1][1], edge, elements, elementEdge, edges, elementDOF, j, phi2);
-					lA[0].val[k1][k2] += penaltypara * weight[i1] * phi1[0] * phi2[0];
+					lA[0].val[k1][k2] += parapenalty * weight[i1] * phi1[0] * phi2[0];
 				}
 				// c22
 				for (i1 = 0; i1<num_qp; i1++)
 				{
 					jumpOperatorVector(lambdas[i1][0], lambdas[i1][1], edge, elements, elementEdge, edges, elementDOF, curnode[1], phi1);
 					jumpOperatorVector(lambdas[i1][0], lambdas[i1][1], edge, elements, elementEdge, edges, elementDOF, j + elementDOF->dof, phi2);
-					lA[1].val[k1][k2] += penaltypara * weight[i1] * phi1[1] * phi2[1];
+					lA[1].val[k1][k2] += parapenalty * weight[i1] * phi1[1] * phi2[1];
 				}
 			} // k2
 		} // k1
@@ -2621,10 +2960,9 @@ void TangentDerivative4Edge(double lambda1, double lambda2, int edge, int elemen
 }
 
 /**
- * \fn void averageOperator(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *average)
- * \brief the average operator for gradient of basis function
- * \param lambda1 the first length coordiante
- * \param lambda2 the second length coordiante
+ * \fn void averageOperator(double *lambdas1d, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *average)
+ * \brief the average of second order normal derivative of basis function
+ * \param lambdas1d the barycentric coordiante in one dimension
  * \param edge the index of current edge
  * \param *elements pointer to the structure of the triangulation
  * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
@@ -2632,150 +2970,156 @@ void TangentDerivative4Edge(double lambda1, double lambda2, int edge, int elemen
 								   the fourth column stores -1 if the edge is on boundary
  * \param *elementDOF pointer to relation between elements and DOFs
  * \param node index of current node variable
- * \param *jump pointer to the result of jump operator
+ * \param *avg pointer to the result of average
  * \return void
  */
-void averageOperator(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *average)
+void averageNormalDerivative2Lagrange2d(double *lambdas1d, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *avg)
 {
-	int i;
-	int nodeindex1,nodeindex2, edgeindex;
-	int element[2], edgeNode[2];
-	double averageplus[2];
-	int isInedge=0;
-	int nedges=edges->row;
+	int i, j, k, l;
+	int ni, ei;
+	int element, edgeNode[2];
 	int dop=elementDOF->dop;
 
-	average[0]=0;
-	average[1]=0;
-	if(dop<=0)
+	double lambdas[3], **gradLambda, *nve, phi[3], val;
+	double lambda1 = lambdas1d[0];
+	double lambda2 = lambdas1d[1];
+	
+	*avg =0;
+
+	if (node<0 && node >= elementDOF->dof)
 		return;
 
 	double elen=edges->length[edge];
 	edgeNode[0]=edges->val[edge][0];
 	edgeNode[1]=edges->val[edge][1];
-	element[0]=edges->val[edge][2];
-	element[1]=edges->val[edge][3];
-	
-	for(nodeindex1=0;nodeindex1<elementDOF->col;nodeindex1++)
-    {
-		if(elementDOF->val[element[0]][nodeindex1]==node)
-			break;
-	}
-	
-	if(element[1]==-1)
-	{
-		if(nodeindex1==elementDOF->col)
-			return;
-	}
-	else
-	{
-		for(nodeindex2=0;nodeindex2<elementDOF->col;nodeindex2++)
-		{
-			if(elementDOF->val[element[1]][nodeindex2]==node)
-				break;
-		}
-		
-		if(nodeindex1==elementDOF->col && nodeindex2==elementDOF->col)
-			return;
-	}
-	
-	for(edgeindex=0;edgeindex<elementEdge->col;edgeindex++)
-	{
-		if(elementEdge->val[element[0]][edgeindex]==edge)
-			break;
-	}
-	
-	for(i=0;i<2;i++)
-	{
-		if(edgeNode[i]==node)
-		{
-			isInedge=1;
-			break;
-		}
-	}
-	
-	if(isInedge==0)
-	{
-		for(i=0;i<dop-1;i++)
-		{
-			if(elementDOF->val[element[0]][3+edgeindex*(dop-1)+i]==node)
-			{
-				isInedge=1;
-				break;
-			}
-		}
-	}
-	
-	if(isInedge==1)
-	{
-		getinfo4average(lambda1, lambda2, edgeNode, element[0], elements, dop, nodeindex1, average);
-		if(element[1]!=-1)
-		{			
-			getinfo4average(lambda1, lambda2, edgeNode, element[1], elements, dop, nodeindex2, averageplus);
-			average[0] += averageplus[0];
-			average[1] += averageplus[1];
-		}
-	}
-	else
-	{
-		if(nodeindex1<elementDOF->col)
-			getinfo4average(lambda1, lambda2, edgeNode, element[0], elements, dop, nodeindex1, average);
-		else{
-				if(element[1]!=-1)
-				{
-					if(nodeindex2<elementDOF->col)
-						getinfo4average(lambda1, lambda2, edgeNode, element[1], elements, dop, nodeindex2, average);
-				}
-			}
-	}
+	nve = edges->nvector[edge];
 
-	if(element[1]!=-1)
+	for (k = 0; k < 2; k++)
 	{
-		average[0]/=2.0;
-		average[1]/=2.0;
-	}
+		element = edges->val[edge][2 + k];
+		if (element == -1)
+			continue;
+
+		for (ni = 0; ni<elementDOF->col; ni++)
+		{
+			if (elementDOF->val[element][ni] == node)
+				break;
+		}
+		if (ni == elementDOF->col)
+			continue;
+
+		for (ei = 0; ei<3; ei++)
+		{
+			if (elementEdge->val[element][ei] == edge)
+				break;
+		}
+
+		for (i = 0; i<3; i++)
+		{
+			if (elements->val[element][i] == edgeNode[0])
+				break;
+		}
+		for (j = 0; j<3; j++)
+		{
+			if (elements->val[element][j] == edgeNode[1])
+				break;
+		}
+		l = 3 - i - j;  //  l == ei
+
+		lambdas[i] = lambda1;
+		lambdas[j] = lambda2;
+		lambdas[l] = 0;
+
+		gradLambda = elements->gradLambda[element];
+	
+		lagrange_basis2(lambdas, gradLambda, ni, dop, phi);
+
+		val = phi[0] * nve[0] * nve[0] + phi[1] * nve[1] * nve[1] + 2 * phi[2] * nve[0] * nve[1];
+		*avg += val;
+	} // k	
+
+	if(edges->val[edge][3]!=-1)
+		*avg /= 2.0;
 }
 
 /**
- * \fn void getinfo4average(double lambda1, double lambda2, int *edgeNode, int element, ELEMENT *elements, int dop, int index, double *average)
- * \brief the gradient of basis function
- * \param lambda1 the first length coordiante
- * \param lambda2 the second length coordiante
- * \param *edgeNode pointer to the two indices of current edge
- * \param element the index of current element
+ * \fn void jumpNormalDerivativeLagrange2d(double *lambdas1d, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump)
+ * \brief the jump of normal derivative of basis function
+ * \param lambdas1d the barycentric coordiante in one dimension
+ * \param edge the index of current edge
  * \param *elements pointer to the structure of the triangulation
- * \param dop number of degrees of polynomial
- * \param index index of current node variable
- * \param *average pointer to gradient of basis function
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+								   the fourth column stores -1 if the edge is on boundary
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param node index of current node variable
+ * \param *jump pointer to the result of jump
  * \return void
  */
-void getinfo4average(double lambda1, double lambda2, int *edgeNode, int element, ELEMENT *elements, int dop, int index, double *average)
+void jumpNormalDerivativeLagrange2d(double *lambdas1d, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump)
 {
-	int i,j,l;
-	double lambdas[3];
-	double s, **gradLambda;
+	int i, j, k, l;
+	int ni, ei;
+	int element, edgeNode[2];
+	int dop=elementDOF->dop;
+
+	double lambdas[3], **gradLambda, *nv, phi[3], val;
+	double lambda1 = lambdas1d[0];
+	double lambda2 = lambdas1d[1];
+	
+	*jump =0;
+
+	if (node<0 && node >= elementDOF->dof)
+		return;
+
+	double elen=edges->length[edge];
+	edgeNode[0]=edges->val[edge][0];
+	edgeNode[1]=edges->val[edge][1];
+	// nve = edges->nvector[edge];
+
+	for (k = 0; k < 2; k++)
+	{
+		element = edges->val[edge][2 + k];
+		if (element == -1)
+			continue;
+
+		for (ni = 0; ni<elementDOF->col; ni++)
+		{
+			if (elementDOF->val[element][ni] == node)
+				break;
+		}
+		if (ni == elementDOF->col)
+			continue;
+
+		for (ei = 0; ei<3; ei++)
+		{
+			if (elementEdge->val[element][ei] == edge)
+				break;
+		}
+
+		for (i = 0; i<3; i++)
+		{
+			if (elements->val[element][i] == edgeNode[0])
+				break;
+		}
+		for (j = 0; j<3; j++)
+		{
+			if (elements->val[element][j] == edgeNode[1])
+				break;
+		}
+		l = 3 - i - j; //  l == ei
+		lambdas[i] = lambda1;
+		lambdas[j] = lambda2;
+		lambdas[l] = 0;
+
+		gradLambda = elements->gradLambda[element];
+		nv = elements->nvector[element][ei];
 		
-	for(i=0;i<3;i++)
-	{
-		if(elements->val[element][i]==edgeNode[0])
-			break;
-	}
-	
-	for(j=0;j<3;j++)
-	{
-		if(elements->val[element][j]==edgeNode[1])
-			break;
-	}
-	
-	l=3-i-j;
-	lambdas[i]=lambda1;
-	lambdas[j]=lambda2;
-	lambdas[l]=0;
-	
-	s=elements->vol[element];
-	gradLambda=elements->gradLambda[element];
-	
-	lagrange_basis1(lambdas, gradLambda, index, dop, average);
+		lagrange_basis1(lambdas, gradLambda, ni, dop, phi);
+
+		val = phi[0] * nv[0] + phi[1] * nv[1];
+		*jump += val;
+	} // k	
 }
 
 /**

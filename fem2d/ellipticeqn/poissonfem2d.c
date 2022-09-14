@@ -102,7 +102,9 @@ void poissonLagrange2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, den
 	int FglevelNum = Input->FglevelNum;
 	int dop = Input->dop1;
 		
-	/** Step 1. generate degrees of freedom */
+	printf("k = %d\n", dop);
+	
+/** Step 1. generate degrees of freedom */
 	getElementDOF_Lagrange2d(&elementDOF, elements, elementEdge, edges, nodes->row, dop);
 	getFreenodesInfoLagrange2d(edges, nodes, &elementDOF);
 	getTransposeOfelementDoF(&elementDOF, &elementdofTran, 0);
