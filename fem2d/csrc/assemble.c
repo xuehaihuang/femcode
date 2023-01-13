@@ -532,7 +532,7 @@ void getFreenodesInfoMorley2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementD
 }
 
 /**
-* \fn void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu)
+* \fn void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu)
 * \brief assemble stiffness matrix
 * \param *A pointer to stiffness matrix
 * \param *b pointer to right hand side
@@ -546,15 +546,9 @@ the fourth column stores -1 if the edge is on boundary
 * \param mu Lame constant or Poisson ratio of plate
 * \return void
 */
-void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu)
+void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu)
 {
 	int i, j, k, l;
-
-	A->row = elementDOF->dof;
-	A->col = A->row;
-	A->IA = (int*)calloc(A->row + 1, sizeof(int));
-	A->JA = NULL;
-	A->val = NULL;
 
 	//	create_dvector(A->row, b);
 
@@ -571,81 +565,16 @@ void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdg
 	double lambdas[100][3], weight[100];
 
 	
-									  /************************************************** stiffness matrix A *****************************************************************/
-	int *index;
-	int istart;
-	index = (int*)calloc(A->col, sizeof(int));
-	for (i = 0; i<A->col; i++)
-		index[i] = -1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for (i = 0; i<elementDOF->dof; i++)
-	{
-		count = 0;
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF->col; k++)
-			{
-				node = elementDOF->val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i + 1] = count;
-
-		for (j = 0; j<count; j++)
-		{
-			l = istart;
-			istart = index[l];
-			index[l] = -1;
-		}
-	} // i
-
-	for (i = 0; i<A->row; i++)
-		A->IA[i + 1] += A->IA[i];
-
-	A->nnz = A->IA[A->row];
-
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA = (int*)calloc(A->nnz, sizeof(int));
-	for (i = 0; i<elementDOF->dof; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF->col; k++)
-			{
-
-				node = elementDOF->val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF->col*elementDOF->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
 	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+
 	num_qp=getNumQuadPoints(elementDOF->dop * 2 - 2, 2); // the number of numerical intergation points
 	init_Gauss2d(num_qp, lambdas, weight);
 	for (k = 0; k<elements->row; k++)
@@ -671,24 +600,50 @@ void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdg
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF->col; k1++)
+		l = elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++)
 		{
-			i = elementDOF->val[k][k1];
-			for (k2 = 0; k2<elementDOF->col; k2++)
+			for (j = 0; j<elementDOF->col; j++)
 			{
-				j = elementDOF->val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i+1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
 	} // k
 	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+	free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
 }
 
 /**
@@ -772,12 +727,6 @@ void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 {
 	int i, j, k, l;
 
-	A->row = elementDOF->dof;
-	A->col = A->row;
-	A->IA = (int*)calloc(A->row + 1, sizeof(int));
-	A->JA = NULL;
-	A->val = NULL;
-
 	//	create_dvector(A->row, b);
 
 	int nvertices = nodes->row;
@@ -793,81 +742,16 @@ void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 	double lambdas[100][3], weight[100];
 
 	
-									  /************************************************** stiffness matrix A *****************************************************************/
-	int *index;
-	int istart;
-	index = (int*)calloc(A->col, sizeof(int));
-	for (i = 0; i<A->col; i++)
-		index[i] = -1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for (i = 0; i<elementDOF->dof; i++)
-	{
-		count = 0;
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF->col; k++)
-			{
-				node = elementDOF->val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i + 1] = count;
-
-		for (j = 0; j<count; j++)
-		{
-			l = istart;
-			istart = index[l];
-			index[l] = -1;
-		}
-	} // i
-
-	for (i = 0; i<A->row; i++)
-		A->IA[i + 1] += A->IA[i];
-
-	A->nnz = A->IA[A->row];
-
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA = (int*)calloc(A->nnz, sizeof(int));
-	for (i = 0; i<elementDOF->dof; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF->col; k++)
-			{
-
-				node = elementDOF->val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF->col*elementDOF->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
 	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+
 	num_qp=getNumQuadPoints(elementDOF->dop * 2 - 4, 2); // the number of numerical intergation points
 	init_Gauss2d(num_qp, lambdas, weight);
 	for (k = 0; k<elements->row; k++)
@@ -897,24 +781,50 @@ void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF->col; k1++)
+		l = elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++)
 		{
-			i = elementDOF->val[k][k1];
-			for (k2 = 0; k2<elementDOF->col; k2++)
+			for (j = 0; j<elementDOF->col; j++)
 			{
-				j = elementDOF->val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i+1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
 	} // k
 	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+	free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
 }
 
 /**
@@ -1003,12 +913,6 @@ void assembleBiHessC0ipdg2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 {
 	int i, j, k, l, m;
 
-	A->row = elementDOF->dof;
-	A->col = A->row;
-	A->IA = (int*)calloc(A->row + 1, sizeof(int));
-	A->JA = NULL;
-	A->val = NULL;
-
 	//	create_dvector(A->row, b);
 
 	int nvertices = nodes->row;
@@ -1026,146 +930,61 @@ void assembleBiHessC0ipdg2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 	double lambdas[100][3], weight[100];
 
 	
-									  /************************************************** stiffness matrix A *****************************************************************/
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF->col*elementDOF->col*elements->row;
+	int patchnodes[200];
 	int *index;
 	int istart;
-	index = (int*)calloc(A->col, sizeof(int));
-	for (i = 0; i<A->col; i++)
-		index[i] = -1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
+	index = (int*)calloc(elementDOF->dof, sizeof(int));
 	for (i = 0; i<elementDOF->dof; i++)
-	{
-		count = 0;
+		index[i] = -1;
+	for(edge=0;edge<edges->row;edge++){
+		element[0] = edges->val[edge][2];
+		element[1] = edges->val[edge][3];
+		// elen = edges->length[edge];
+
 		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
+		count = 0;
+		for (i = 0; i<elementDOF->col; i++)
 		{
-			for(k=0;k<4;k++)
-				element[k]=-1;
+			j = elementDOF->val[element[0]][i];
+			patchnodes[count] = j;
+			count++;
+			index[j] = istart;
+			istart = j;
+		}
 
-			element[0] = elementdofTran->JA[j];
-
-			for(k=0;k<elementDOF->col;k++)
+		if (element[1] != -1)
+		{
+			for (i = 0; i<elementDOF->col; i++)
 			{
-				if(elementDOF->val[element[0]][k]==i)
-					break;
-			}
-
-			if(k<3) // i is a vertex of triangle element[0]
-			{
-				edge=elementEdge->val[element[0]][k];
-				element[1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
-			}
-			else if(k<3*dop) // i is a trisection point of edge of triangle element[0]
-			{
-				ei = (k-3)/(dop-1);				
-				edge=elementEdge->val[element[0]][(ei+1)%3];
-				element[1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
-
-				edge=elementEdge->val[element[0]][(ei+2)%3];
-				element[2]=edges->val[edge][2]+edges->val[edge][3]-element[0];
-			}
-			else  // i is the barycenter of triangle element[0]
-			{
-				for(m=0;m<3;m++)
+				j = elementDOF->val[element[1]][i];
+				if (index[j] == -1)
 				{
-					edge=elementEdge->val[element[0]][m];
-					element[m+1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
-				}
-			}
-			for(l=0;l<4;l++){
-				if(element[l] == -1) continue;
-				for (k = 0; k<elementDOF->col; k++)
-				{
-					node = elementDOF->val[element[l]][k];
-					if (index[node] == -1)
-					{
-						index[node] = istart;
-						istart = node;
-						count++;
-					}
+					patchnodes[count] = j;
+					count++;
+					index[j] = istart;
+					istart = j;
+
 				}
 			}
 		}
-		A->IA[i + 1] = count;
 
 		for (j = 0; j<count; j++)
 		{
-			l = istart;
-			istart = index[l];
-			index[l] = -1;
+			j1 = istart;
+			istart = index[j1];
+			index[j1] = -1;
 		}
-	} // i
+		N += count*count;
+	}
 
-	for (i = 0; i<A->row; i++)
-		A->IA[i + 1] += A->IA[i];
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 
-	A->nnz = A->IA[A->row];
-
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA = (int*)calloc(A->nnz, sizeof(int));
-	for (i = 0; i<elementDOF->dof; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			for(k=0;k<4;k++)
-				element[k]=-1;
-
-			element[0] = elementdofTran->JA[j];
-
-			for(k=0;k<elementDOF->col;k++)
-			{
-				if(elementDOF->val[element[0]][k]==i)
-					break;
-			}
-
-			if(k<3) // i is a vertex of triangle element[0]
-			{
-				edge=elementEdge->val[element[0]][k];
-				element[1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
-			}
-			else if(k<3*dop) // i is a trisection point of edge of triangle element[0]
-			{
-				ei = (k-3)/(dop-1);
-				edge=elementEdge->val[element[0]][(ei+1)%3];
-				element[1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
-
-				edge=elementEdge->val[element[0]][(ei+2)%3];
-				element[2]=edges->val[edge][2]+edges->val[edge][3]-element[0];
-			}
-			else  // i is the barycenter of triangle element[0]
-			{
-				for(m=0;m<3;m++)
-				{
-					edge=elementEdge->val[element[0]][m];
-					element[m+1]=edges->val[edge][2]+edges->val[edge][3]-element[0];
-				}
-			}
-
-			for(l=0;l<4;l++){
-				if(element[l] == -1) continue;
-				for (k = 0; k<elementDOF->col; k++)
-				{
-					node = elementDOF->val[element[l]][k];
-					if (index[node] == -1)
-					{
-						index[node] = istart;
-						istart = node;
-					}
-			}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	// free(index);
-
-	A->val = (double*)calloc(A->nnz, sizeof(double));
 	ddenmat lA; // local A
 	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
 	// step 3A1: Loop element by element and compute the actual entries storing them in A
@@ -1198,29 +1017,23 @@ void assembleBiHessC0ipdg2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF->col; k1++)
+		l = elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++)
 		{
-			i = elementDOF->val[k][k1];
-			for (k2 = 0; k2<elementDOF->col; k2++)
+			for (j = 0; j<elementDOF->col; j++)
 			{
-				j = elementDOF->val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i+1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
 	} // k
 	free_dden_matrix(&lA);
 
 	
 	// additonal terms in IPDG
 	// search edge by edge
-	int patchnodes[200];
 	double elen;
 	int num_qp1;
 	double lambdas1[100][2], weight1[100];
@@ -1255,7 +1068,6 @@ void assembleBiHessC0ipdg2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 					count++;
 					index[j] = istart;
 					istart = j;
-
 				}
 			}
 		}
@@ -1302,26 +1114,51 @@ void assembleBiHessC0ipdg2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<count; k1++)
+		for (i = 0; i<count; i++)
 		{
-			i = patchnodes[k1];
-			for (k2 = 0; k2<count; k2++)
+			for (j = 0; j<count; j++)
 			{
-				j = patchnodes[k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				}
-			} // k2
-		} // k1
+				ia[l] = patchnodes[i];
+				ja[l] = patchnodes[j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
 
 		free_dden_matrix(&lA);
 	}
 	free(index);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+	free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
 }
 
 /**
@@ -1357,93 +1194,20 @@ void assembleweightedMassatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_D
 	int num_qp;
 	double lambdas[100][3], weight[100], gauss[100][3];
 
-	/************************************************** matrix A *****************************************************************/
-	A->row = elementDOF->dof;
-	A->col = A->row;
-	A->IA = (int*)calloc(A->row + 1, sizeof(int));
-	A->JA = NULL;
-	A->val = NULL;
+	/******************** matrix A ********************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF->col*elementDOF->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
 
-	int *index;
-	int istart;
-	index = (int*)calloc(A->col, sizeof(int));
-	for (i = 0; i<A->col; i++)
-		index[i] = -1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for (i = 0; i<elementDOF[0].dof; i++)
-	{
-		count = 0;
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element[0] = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element[0]][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i + 1] = count;
-
-		for (j = 0; j<count; j++)
-		{
-			l = istart;
-			istart = index[l];
-			index[l] = -1;
-		}
-	} // i
-
-	for (i = 0; i<A->row; i++)
-		A->IA[i + 1] += A->IA[i];
-
-	A->nnz = A->IA[A->row];
-
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA = (int*)calloc(A->nnz, sizeof(int));
-	for (i = 0; i<elementDOF[0].dof; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element[0] = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-
-				node = elementDOF[0].val[element[0]][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-
-	// step 3A: Loop element by element and compute the actual entries storing them in A
 	// num_qp = getNumQuadPoints_ShunnWilliams(elementDOF->dop * 2, 2); // the number of numerical intergation points
 	// init_ShunnWilliams2d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	num_qp = getNumQuadPoints(elementDOF->dop * 2, 2); // the number of numerical intergation points
 	init_Gauss2d(num_qp, lambdas, weight);
-
-
-	A->val = (double*)calloc(A->nnz, sizeof(double));
-	ddenmat lA; // local A
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
 	for (k = 0; k<elements->row; k++)
 	{
 		// set parameters
@@ -1466,24 +1230,50 @@ void assembleweightedMassatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_D
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF->col; k1++)
+		l = elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF->col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
 	} // k
 	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+	free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
 }
 
 /**
@@ -1511,64 +1301,25 @@ void assembleDivHuZhangL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elem
 	double phi, phi1[3], phi2[3], val[2];
 	int k1, k2, i1, j1, l1, l2, ej;
 	double x, y, xs[3], ys[3], s, **gradLambda;
-	int rowstart[2], row21[2], taustart;
-	int count;
 
 	int num_qp;
 	double lambdas[100][3], weight[100], gauss[100][3];
 
-	/************************************************** matrix A *****************************************************************/
-	A->row = elementDOF[0].dof;
-	A->col = elementDOF[1].dof * 2;
-	A->IA = (int*)calloc(A->row + 1, sizeof(int));
-	A->JA = NULL;
-	A->val = NULL;
-
-	// int *index;
-	// int istart;
-	// index = (int*)calloc(A->col, sizeof(int));
-	// for (i = 0; i<A->col; i++)
-	// 	index[i] = -1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for (i = 0; i<elementDOF[0].dof; i++)
-	{
-		A->IA[i + 1] += 2 * elementDOF[1].col*(elementdofTran->IA[i + 1] - elementdofTran->IA[i]);
-	} // i
-
-	for (i = 0; i<A->row; i++)
-		A->IA[i + 1] += A->IA[i];
-
-	A->nnz = A->IA[A->row];
-
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA = (int*)calloc(A->nnz, sizeof(int));
-	for (i = 0; i<elementDOF[0].dof; i++)
-	{
-		rowstart[0] = A->IA[i];
-		row21[0] = (A->IA[i + 1] - A->IA[i]) / 2;
-		count = 0;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element[0] = elementdofTran->JA[j];
-			for (i1 = 0; i1<elementDOF[1].col; i1++)
-			{
-				A->JA[rowstart[0] + count] = elementDOF[1].val[element[0]][i1];
-				A->JA[rowstart[0] + count + row21[0]] = elementDOF[1].val[element[0]][i1] + elementDOF[1].dof;
-				count++;
-			}
-		} // j
-	} // i
-
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+	/***************** matrix A *****************/
+	int *ia, *ja;
+	double *va;
+	int N = 2*elementDOF[0].col*elementDOF[1].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA[2]; // local A
+	create_dden_matrix(elementDOF[0].col, elementDOF[1].col, lA);
+	create_dden_matrix(elementDOF[0].col, elementDOF[1].col, lA+1);
+	
 	// num_qp = getNumQuadPoints_ShunnWilliams(elementDOF->dop * 2, 2); // the number of numerical intergation points
 	// init_ShunnWilliams2d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	num_qp = getNumQuadPoints(elementDOF[0].dop + elementDOF[1].dop - 1, 2); // the number of numerical intergation points
 	init_Gauss2d(num_qp, lambdas, weight);
-
-	A->val = (double*)calloc(A->nnz, sizeof(double));
-	ddenmat lA[2]; // local A
-	create_dden_matrix(elementDOF->col, elementDOF->col, lA);
-	create_dden_matrix(elementDOF->col, elementDOF->col, lA+1);
 	for (k = 0; k<elements->row; k++)
 	{
 		// set parameters
@@ -1590,44 +1341,55 @@ void assembleDivHuZhangL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elem
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		l = 2*elementDOF[0].col*elementDOF[1].col * k;
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
-			row21[0] = (A->IA[i + 1] - A->IA[i]) / 2;
-			for (k2 = 0; k2<elementDOF[1].col; k2++)
+			for (j = 0; j<elementDOF[1].col; j++)
 			{
-				j = elementDOF[1].val[k][k2];
-				// b11
-				for (j1 = A->IA[i]; j1<A->IA[i] + row21[0]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA[0].val[k1][k2];
-						break;
-					}
-				} // j1
-				if (j1 == (A->IA[i] + row21[0])){
-					printf("There is something wrong in constructing b11 in assembleDivHuZhangL2poly2d\n");
-					exit(1);
-				}
-				// b12
-				for (j1 = A->IA[i] + row21[0]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == (j + elementDOF[1].dof))
-					{
-						A->val[j1] += lA[1].val[k1][k2];
-						break;
-					}
-				} // j1
-				if (j1 == (A->IA[i + 1])){
-					printf("There is something wrong in constructing b12 in assembleDivHuZhangL2poly2d\n");
-					exit(1);
-				}
-			} // k2
-		} // k1
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[1].val[k][j];
+				va[l] = lA[0].val[i][j];
+				l++;
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[1].val[k][j] + elementDOF[1].dof;
+				va[l] = lA[1].val[i][j];
+				l++;
+			} // i
+		} // j
 	} // k
 	free_dden_matrix(&lA[0]);
 	free_dden_matrix(&lA[1]);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+		free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
 }
 
 /**
@@ -1721,12 +1483,6 @@ void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, E
 {
 	int i, j, k, l;
 
-	A->row = elementDOF->dof * 2;
-	A->col = A->row;
-	A->IA = (int*)calloc(A->row + 1, sizeof(int));
-	A->JA = NULL;
-	A->val = NULL;
-
 	int nvertices = nodes->row;
 	int nedges = edges->row;
 	int element[2], edge, node;
@@ -1734,7 +1490,7 @@ void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, E
 	double phi, phi1[3], phi2[3];
 	int k1, k2, i1, j1, l1, l2, ej;
 	double x, y, xs[3], ys[3], s, *eta, *xi;
-	int rowstart[2], row21[2], taustart;
+	int curnode[2];
 	int count;
 
 	// int num_qp = getNumQuadPoints(elementDOF->dop * 2, 1); // the number of numerical intergation points
@@ -1745,195 +1501,30 @@ void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, E
 	double lambdas[100][2], weight[100];
 	
 
-	  /************************************************** stiffness matrix A *****************************************************************/
-	int curnode[2];
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for (k = 0; k<elements->row; k++)
-	{
-		if (elementDOF->dop == 0)
-		{
-			curnode[0] = elementDOF->val[k][0];
-			curnode[1] = curnode[0] + elementDOF->dof;
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = 0;
+	int patchnodes[200];
+	for(edge=0;edge<edges->row;edge++){
+		element[0] = edges->val[edge][2];
+		element[1] = edges->val[edge][3];
 
-			A->IA[curnode[0] + 1] += 1;
-			A->IA[curnode[1] + 1] += 1;
-			for (i = 0; i<3; i++)
-			{
-				edge = elementEdge->val[k][i];
-				element[0] = edges->val[edge][2] + edges->val[edge][3] - k;
-				if (element[0] != -1)
-				{
-					A->IA[curnode[0] + 1] += 1;
-					A->IA[curnode[1] + 1] += 1;
-				}
-			}
-			continue;
-		}
+		count = elementDOF->dop + 1;
+		if (element[1] != -1) count*=2;
 
-		for (i = 0; i<3 * elementDOF->dop; i++) //  for each node
-		{
-			curnode[0] = elementDOF->val[k][i];
-			curnode[1] = curnode[0] + elementDOF->dof;
+		N += count*count;
+	}
 
-			if (i<3)
-			{
-				A->IA[curnode[0] + 1] += (elementDOF->dop * 2 + 1);
-				A->IA[curnode[1] + 1] += (elementDOF->dop * 2 + 1);
-				edge = elementEdge->val[k][(i + 1) % 3];
-				element[0] = edges->val[edge][2] + edges->val[edge][3] - k;
-				if (element[0] != -1)
-				{
-					A->IA[curnode[0] + 1] += (elementDOF->dop + 1);
-					A->IA[curnode[1] + 1] += (elementDOF->dop + 1);
-				}
-				edge = elementEdge->val[k][(i + 2) % 3];
-				element[0] = edges->val[edge][2] + edges->val[edge][3] - k;
-				if (element[0] != -1)
-				{
-					A->IA[curnode[0] + 1] += (elementDOF->dop + 1);
-					A->IA[curnode[1] + 1] += (elementDOF->dop + 1);
-				}
-			}
-			else
-			{
-				A->IA[curnode[0] + 1] += (elementDOF->dop + 1);
-				A->IA[curnode[1] + 1] += (elementDOF->dop + 1);
-				edge = elementEdge->val[k][(i - 3) / (elementDOF->dop - 1)];
-				element[0] = edges->val[edge][2] + edges->val[edge][3] - k;
-				if (element[0] != -1)
-				{
-					A->IA[curnode[0] + 1] += (elementDOF->dop + 1);
-					A->IA[curnode[1] + 1] += (elementDOF->dop + 1);
-				}
-			}
-		} // i
-	} // k
+	ia = (int*)calloc(2*N, sizeof(int));
+	ja = (int*)calloc(2*N, sizeof(int));
+	va = (double*)calloc(2*N, sizeof(double));
 
-	for (i = 0; i<A->row; i++)
-		A->IA[i + 1] += A->IA[i];
-
-	A->nnz = A->IA[A->row];
-
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA = (int*)calloc(A->nnz, sizeof(int));
-	for (k = 0; k<elements->row; k++)
-	{
-		if (elementDOF->dop == 0)
-		{
-			curnode[0] = elementDOF->val[k][0];
-			curnode[1] = curnode[0] + elementDOF->dof;
-
-			for (j = 0; j<2; j++)
-			{
-				rowstart[j] = A->IA[curnode[j]];
-				// row21[j] = (A->IA[curnode[j] + 1] - A->IA[curnode[j]]) / 2;
-			}
-			count = 0;
-			for (j = 0; j<2; j++)
-			{
-				A->JA[rowstart[j] + count] = curnode[j];
-				// A->JA[rowstart[j] + count + row21[j]] = curnode[1];
-			}
-			A->JA[rowstart[0] + count] = curnode[0];
-			A->JA[rowstart[1] + count] = curnode[1];
-			count++;
-			for (i = 0; i<3; i++)
-			{
-				edge = elementEdge->val[k][i];
-				element[0] = edges->val[edge][2] + edges->val[edge][3] - k;
-				if (element[0] != -1)
-				{
-					A->JA[rowstart[0] + count] = elementDOF->val[element[0]][0];
-					A->JA[rowstart[1] + count] = elementDOF->val[element[0]][0] + elementDOF->dof;
-					count++;
-				}
-			}
-			continue;
-		}
-
-		// elementDOF->dop > 0
-		for (i = 0; i<3 * elementDOF->dop; i++) //  for each node
-		{
-			curnode[0] = elementDOF->val[k][i];
-			curnode[1] = curnode[0] + elementDOF->dof;
-
-			for (j = 0; j<2; j++)
-			{
-				rowstart[j] = A->IA[curnode[j]];
-				// row21[j] = (A->IA[curnode[j] + 1] - A->IA[curnode[j]]) / 2;
-			}
-			count = 0;
-			if (i<3)
-			{
-				for (i1 = 0; i1<3; i1++)
-				{
-					node = elementDOF->val[k][i1];
-					A->JA[rowstart[0] + count] = node;
-					A->JA[rowstart[1] + count] = node + elementDOF->dof;
-					count++;
-				}
-				l = (i + 1) % 3;
-				for (i1 = 0; i1<elementDOF->dop - 1; i1++)
-				{
-					node = elementDOF->val[k][3 + l*(elementDOF->dop - 1) + i1];
-					A->JA[rowstart[0] + count] = node;
-					A->JA[rowstart[1] + count] = node + elementDOF->dof;
-					count++;
-				}
-				l = (i + 2) % 3;
-				for (i1 = 0; i1<elementDOF->dop - 1; i1++)
-				{
-					node = elementDOF->val[k][3 + l*(elementDOF->dop - 1) + i1];
-					A->JA[rowstart[0] + count] = node;
-					A->JA[rowstart[1] + count] = node + elementDOF->dof;
-					count++;
-				}
-
-				edge = elementEdge->val[k][(i + 1) % 3];
-				element[0] = edges->val[edge][2] + edges->val[edge][3] - k;
-				if (element[0] != -1)
-					count = getEdgeDOFsVector(A, count, element[0], edge, elementEdge, elementDOF, rowstart);
-
-				edge = elementEdge->val[k][(i + 2) % 3];
-				element[0] = edges->val[edge][2] + edges->val[edge][3] - k;
-				if (element[0] != -1)
-					count = getEdgeDOFsVector(A, count, element[0], edge, elementEdge, elementDOF, rowstart);
-			} // if(i<3)
-			else
-			{
-				l = (i - 3) / (elementDOF->dop - 1);
-				node = elementDOF->val[k][(l + 1) % 3];
-				A->JA[rowstart[0] + count] = node;
-				A->JA[rowstart[1] + count] = node + elementDOF->dof;
-				count++;
-				node = elementDOF->val[k][(l + 2) % 3];
-				A->JA[rowstart[0] + count] = node;
-				A->JA[rowstart[1] + count] = node + elementDOF->dof;
-				count++;
-				for (i1 = 0; i1<elementDOF->dop - 1; i1++)
-				{
-					node = elementDOF->val[k][3 + l*(elementDOF->dop - 1) + i1];
-					A->JA[rowstart[0] + count] = node;
-					A->JA[rowstart[1] + count] = node + elementDOF->dof;
-					count++;
-				}
-
-				edge = elementEdge->val[k][l];
-				element[0] = edges->val[edge][2] + edges->val[edge][3] - k;
-				if (element[0] != -1)
-					count = getEdgeDOFsVector(A, count, element[0], edge, elementEdge, elementDOF, rowstart);
-			}  // if(i<3) else
-		} // i
-	} // k
-
-	  // step 3A: Loop edge by edge and compute the actual entries storing them in A
 	double elen, C11;
-	int patchnodes[100];
+	ddenmat lA[2]; // local A
 	num_qp = getNumQuadPoints(elementDOF->dop * 2, 1); // the number of numerical intergation points
 	init_Gauss1d(num_qp, lambdas, weight);
-
-	A->val = (double*)calloc(A->nnz, sizeof(double));
-	ddenmat lA[2]; // local A
+	l = 0;
 	for (edge = 0; edge<edges->row; edge++)
 	{
 		//		edgeNode[0]=edges->val[edge][0];
@@ -2017,45 +1608,66 @@ void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, E
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<count; k1++)
+		for (i = 0; i<count; i++)
 		{
-			curnode[0] = patchnodes[k1];
-			curnode[1] = curnode[0] + elementDOF->dof;
-			// for (j = 0; j<2; j++)
-			// {
-			// 	rowstart[j] = A->IA[curnode[j]];
-			// 	// row21[j] = (A->IA[curnode[j] + 1] - A->IA[curnode[j]]) / 2;
-			// }
-			for (k2 = 0; k2<count; k2++)
+			for (j = 0; j<count; j++)
 			{
-				j = patchnodes[k2];
-				// c11
-				for (j1 = A->IA[curnode[0]]; j1<A->IA[curnode[0] + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA[0].val[k1][k2];
-						break;
-					}
-				}
-				// c22
-				for (j1 = A->IA[curnode[1]]; j1<A->IA[curnode[1] + 1]; j1++)
-				{
-					if (A->JA[j1] == (j + elementDOF->dof))
-					{
-						A->val[j1] += lA[1].val[k1][k2];
-						break;
-					}
-				}
-			} // k2
-		} // k1
+				ia[l] = patchnodes[i];
+				ja[l] = patchnodes[j];
+				va[l] = lA[0].val[i][j];
+				l++;
+			} // i
+		} // j
+
+		for (i = 0; i<count; i++)
+		{
+			for (j = 0; j<count; j++)
+			{
+				ia[l] = patchnodes[i] + elementDOF->dof;
+				ja[l] = patchnodes[j] + elementDOF->dof;
+				va[l] = lA[1].val[i][j];
+				l++;
+			} // i
+		} // j
+
 		free_dden_matrix(lA);
 		free_dden_matrix(lA+1);
 	} // edge
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, 2*N, 0, 0);
+		free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<2*N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<2*N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 2*elementDOF->dof, 2*elementDOF->dof);
+		free(Ia); free(Ja); free(Va);
+	}
 }
 
 /**
- * \fn void assembleStiffmatrixElasLagrange(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu)
+ * \fn void assembleStiffmatrixElasLagrange(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, double mu)
  * \brief assemble stiffness matrix 
  * \param *A pointer to stiffness matrix
  * \param *b pointer to right hand side
@@ -2069,27 +1681,19 @@ void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, E
  * \param mu Lame constant or Poisson ratio of plate
  * \return void
  */
-void assembleStiffmatrixElasLagrange(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu)
+void assembleStiffmatrixElasLagrange(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, double mu)
 {
 	int i,j,k,l;
 
-	A->row = elementDOF->dof * 2;
-	A->col = A->row;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-//	create_dvector(A->row, b);
-
-	int nvertices=nodes->row;
-	int nedges=edges->row;
+	// int nvertices=nodes->row;
+	// int nedges=edges->row;
 	int element[2], edge, node;
 	
 	double phi, phi1[2], phi2[2];
 	int k1,k2,i1,j1,l1,l2,ej;
 	double x, y, xs[3], ys[3], s, **gradLambda;
-	int rowstart[2], row21[2], curnode[2];
 	int count;
+	double val;
 	
 	int num_qp;
 	double lambdas[100][3], weight[100];
@@ -2098,84 +1702,15 @@ void assembleStiffmatrixElasLagrange(dCSRmat *A, ELEMENT *elements, idenmat *ele
 	init_Gauss2d(num_qp, lambdas, weight);
 
 	/************************************************** stiffness matrix A *****************************************************************/
-	int *index;
-	int istart;
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<elementDOF->dof;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
-		{
-			element[0]=elementdofTran->JA[j];
+	int *ia, *ja;
+	double *va;
+	int N = 4*elementDOF->col*elementDOF->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(2*elementDOF->col, 2*elementDOF->col, &lA);
 
-			for(k=0;k<elementDOF->col;k++)
-			{
-				node=elementDOF->val[element[0]][k];
-				if(index[node]==-1)
-				{
-					index[node]=istart;
-					istart=node;
-					count++;
-				}
-			}
-		}
-		A->IA[i + 1] = count * 2;
-		A->IA[elementDOF->dof + i + 1] = count * 2;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for(i=0;i<elementDOF->dof;i++)
-	{
-		istart=-2;
-		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
-		{
-			element[0]=elementdofTran->JA[j];
-
-			for(k=0;k<elementDOF->col;k++)
-			{
-
-				node=elementDOF->val[element[0]][k];
-				if(index[node]==-1)
-				{
-					index[node]=istart;
-					istart=node;
-				}
-			}
-		}
-
-		row21[0] = (A->IA[i + 1] - A->IA[i]) / 2;
-		rowstart[1] = A->IA[i + elementDOF->dof];
-		for (j = A->IA[i]; j<A->IA[i] + row21[0]; j++)
-		{
-			A->JA[j] = istart;
-			A->JA[j + row21[0]] = istart + elementDOF->dof;
-			A->JA[j - A->IA[i] + rowstart[1]] = A->JA[j];
-			A->JA[j - A->IA[i] + rowstart[1] + row21[0]] = A->JA[j + row21[0]];
-			istart=index[istart];
-			index[A->JA[j]]=-1;
-		}
-	} // i
-	free(index);
-	
-	// step 3A: Loop element by element and compute the actual entries storing them in A
-	A->val=(double*)calloc(A->nnz, sizeof(double));
 	for(k=0;k<elements->row;k++)
 	{
 		// set parameters
@@ -2185,79 +1720,108 @@ void assembleStiffmatrixElasLagrange(dCSRmat *A, ELEMENT *elements, idenmat *ele
 		gradLambda=elements->gradLambda[k];
 		// end set parameters
 
+		init_dden_matrix(&lA, 0.0);
 		for(k1=0;k1<elementDOF->col;k1++)
 		{
-			curnode[0] = elementDOF->val[k][k1];
-			curnode[1] = curnode[0] + elementDOF->dof;
-
-			for (j = 0; j<2; j++)
-			{
-				rowstart[j] = A->IA[curnode[j]];
-				row21[j] = (A->IA[curnode[j] + 1] - A->IA[curnode[j]]) / 2;
-			}
-
 			for(k2=0;k2<elementDOF->col;k2++)
 			{
-				j=elementDOF->val[k][k2];
 				// a11
-				for (j1 = A->IA[curnode[0]]; j1<A->IA[curnode[0]] + row21[0]; j1++)
-				{
-					if(A->JA[j1]==j)
-					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							lagrange_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
-							lagrange_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
-							A->val[j1] += s*weight[i1] * (phi1[0] * phi2[0] + phi1[1] * phi2[1] / 2) * 2 * mu;
-						}
-						break;
-					}
-				} // j1
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++){
+					lagrange_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
+					lagrange_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
+					val += s*weight[i1] * (phi1[0] * phi2[0] + phi1[1] * phi2[1] / 2) * 2 * mu;
+				}
+				lA.val[k1][k2] += val;
 				// a12
-				for (j1 = A->IA[curnode[0]] + row21[0]; j1<A->IA[curnode[0] + 1]; j1++)
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++)
 				{
-					if (A->JA[j1] == j + elementDOF->dof)
-					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							lagrange_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
-							lagrange_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
-							A->val[j1] += s*weight[i1] * phi1[1] * phi2[0]/ 2 * 2 * mu;
-						}
-						break;
-					}
-				} // j1
+					lagrange_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
+					lagrange_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
+					val += s*weight[i1] * phi1[1] * phi2[0]/ 2 * 2 * mu;
+				}
+				lA.val[k1][k2+elementDOF->col] += val;
 				// a21
-				for (j1 = A->IA[curnode[1]]; j1<A->IA[curnode[1]] + row21[1]; j1++)
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++)
 				{
-					if (A->JA[j1] == j)
-					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							lagrange_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
-							lagrange_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
-							A->val[j1] += s*weight[i1] * phi1[0] * phi2[1] / 2 * 2 * mu;
-						}
-						break;
-					}
-				} // j1
+					lagrange_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
+					lagrange_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
+					val += s*weight[i1] * phi1[0] * phi2[1] / 2 * 2 * mu;
+				}
+				lA.val[k1+elementDOF->col][k2] += val;
 				// a22
-				for (j1 = A->IA[curnode[1]] + row21[1]; j1<A->IA[curnode[1] + 1]; j1++)
-				{
-					if (A->JA[j1] == (j + elementDOF->dof))
-					{
-						for (i1 = 0; i1<num_qp; i1++)
-						{
-							lagrange_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
-							lagrange_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
-							A->val[j1] += s*weight[i1] * (phi1[0] * phi2[0] / 2 + phi1[1] * phi2[1]) * 2 * mu;
-						}
-						break;
-					}
-				} // j1
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++){
+					lagrange_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
+					lagrange_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
+					val += s*weight[i1] * (phi1[0] * phi2[0] / 2 + phi1[1] * phi2[1]) * 2 * mu;
+				}
+				lA.val[k1+elementDOF->col][k2+elementDOF->col] += val;
 			} // k2
 		} // k1
+
+		l = 4*elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++)
+		{
+			for (j = 0; j<elementDOF->col; j++)
+			{
+				// a11
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+				// a12
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j] + elementDOF->dof;
+				va[l] = lA.val[i][j+elementDOF->col];
+				l++;
+				// a21
+				ia[l] = elementDOF->val[k][i] + elementDOF->dof;
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i+elementDOF->col][j];
+				l++;
+				// a22
+				ia[l] = elementDOF->val[k][i] + elementDOF->dof;
+				ja[l] = elementDOF->val[k][j] + elementDOF->dof;
+				va[l] = lA.val[i+elementDOF->col][j+elementDOF->col];
+				l++;
+			} // i
+		} // j
 	} // k
+	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+	free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
 }
 
 /**

@@ -86,7 +86,7 @@ void poissonLagrange2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, den
 {
 	int i,j;
 	dCSRmat A;
-	dvector b, uh, _uh;
+	dvector b, uh;
 	ELEMENT_DOF elementDOF;
 	iCSRmat elementdofTran;
 		
@@ -110,6 +110,8 @@ void poissonLagrange2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, den
 	getTransposeOfelementDoF(&elementDOF, &elementdofTran, 0);
 		
 	/** Step 2. assemble stiffmatrix and right hand side term */
+	// create_dvector(b.row, &uh);
+	// init_dvector(&uh, 0.0);
 	assemble_poissonLagrange2d(&A, &b, &uh, elements, elementEdge, edges, nodes, &elementDOF, &elementdofTran);
 	free(elementdofTran.IA);
 	free(elementdofTran.JA);
@@ -131,9 +133,6 @@ void poissonLagrange2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, den
 		printf("Maximal iteration number = %d\n", Input->itsolver_maxit);
 		printf("Tolerance for rel. res.  = %e\n", Input->itsolver_tol);
 	}
-
-	create_dvector(b.row, &_uh);
-	init_dvector(&_uh, 0.0);
 
 	printf("A.row=%d, A.col=%d, A.nnz=%d\n", A.row, A.col, A.nnz);
 
@@ -160,37 +159,37 @@ void poissonLagrange2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, den
 	/* PCG+AMG */
 	if (itsolver_type == 1) {
 		printf("AMG iterative solver\n");
-		classicAMG_PCG(&A, &b, &_uh, &amgparam, print_level);
+		classicAMG_PCG(&A, &b, &uh, &amgparam, print_level);
 	}
 
 	/* AMG solver */
 	else if (itsolver_type == 2) {
 		printf("AMG preconditioned CG solver\n");
-		classicAMG(&A, &b, &_uh, &amgparam);
+		classicAMG(&A, &b, &uh, &amgparam);
 	}
 
 	/* PCG+diag */
 	else if (itsolver_type == 3) {
 		printf("Diagonal preconditioned CG solver\n");
-		diag_PCG(&A, &b, &_uh, itsolver_maxit, itsolver_tol, print_level);
+		diag_PCG(&A, &b, &uh, itsolver_maxit, itsolver_tol, print_level);
 	}
 
 	/* CG */
 	else if (itsolver_type == 4) {
 		printf("Classical CG solver\n");
-		standard_CG(&A, &b, &_uh, itsolver_maxit, itsolver_tol, print_level);
+		standard_CG(&A, &b, &uh, itsolver_maxit, itsolver_tol, print_level);
 	}
 
 	/* GMRES+AMG */
 	else if (itsolver_type == 5) {
 		printf("AMG preconditioned GMRES solver\n");
-		classicAMG_GMRES(&A, &b, &_uh, &amgparam, print_level);
+		classicAMG_GMRES(&A, &b, &uh, &amgparam, print_level);
 	}
 
-	for (i = 0; i < _uh.row; i++)
-		uh.val[elementDOF.freenodes.val[i]] = _uh.val[i];
+	// for (i = 0; i < _uh.row; i++)
+	// 	uh.val[elementDOF.freenodes.val[i]] = _uh.val[i];
 
-	free_dvector(&_uh);
+	// free_dvector(&_uh);
 
 	/* output solution to a diskfile */
 	/*	char *outputfile="output/sol.out";
@@ -245,17 +244,15 @@ void assemble_poissonLagrange2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *el
 	Ax = b
 	**/
 	dCSRmat AA;
-	dvector bb;
 
-	assembleBiGradLagrange2d(&AA, elements, elementEdge, edges, nodes, elementDOF, elementdofTran, 0.5);
-	assembleRHSLagrange2d(&bb, elements, elementDOF, poisson2d_f, NULL);
+	assembleBiGradLagrange2d(&AA, elements, elementEdge, edges, nodes, elementDOF, 0.5);
+	assembleRHSLagrange2d(b, elements, elementDOF, poisson2d_f, NULL);
     // initial solution
-	create_dvector(bb.row, uh);
+	create_dvector(b->row, uh);
 	
-	// extract
-	extractFreenodesVector(&AA, &bb, b, elementDOF, uh);
-	free_dvector(&bb);
-	extractFreenodesMatrix11(&AA, A, elementDOF, elementDOF);
+	// Apply boundary condition
+	updateFreenodesRHS(&AA, b, uh, elementDOF);
+	updateFreenodesMatrix11(&AA, A, elementDOF, elementDOF);
 
 	// /* output A, b to a diskfile */
 	// char *outputfileAA="output/AA.dat";

@@ -20,8 +20,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
-
-
 #include "header.h"
 #include "matvec.h"
 #include "checkmat.h"
@@ -55,6 +53,15 @@ int main(int argc, const char * argv[])
 	edges = (EDGE*)calloc(glevelNum, sizeof(EDGE));
 	nodes = (dennode*)calloc(glevelNum, sizeof(dennode));
 	edgesTran = (iCSRmat*)calloc(glevelNum, sizeof(iCSRmat));
+
+// 	dCSRmat A;
+//     int ia[]={2,0,3,5,4,4,4,5,5,10};
+// 	int ja[]={1,0,2,5,4,3,4,5,5,2};
+// 	double val[]={3,5,5,1,-4,-5,-3,-3,8,202};
+// 	dIJtoCSR(&A, ia, ja, val, 10, 14, 13);
+// // dIJtoCSR(dCSRmat *A, int *ia, int *ja, double *val, int N, int row, int col)
+// 	print_dcsr_matrix(&A);
+// 	return 0;
 
 
 	/** Step 1. generate mesh */

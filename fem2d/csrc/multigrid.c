@@ -166,6 +166,7 @@ double mgvVectorP1_solve(dCSRmat *A, dvector *b, dvector *x, EDGE *edges, iCSRma
 		sparse_mv(-1.0, &A[l], e[l].val, temp.val);
 
 		restrictionPTvector2d(&edgesTran[l], &index[l], &nondirichlet[l - 1], &temp, &r[l - 1]);
+		// restrictionPTvector2d2023(&edgesTran[l], &temp, &r[l - 1]);
 		free_dvector(&temp);
 	}
 
@@ -181,6 +182,7 @@ double mgvVectorP1_solve(dCSRmat *A, dvector *b, dvector *x, EDGE *edges, iCSRma
 		dvector temp;
 		create_dvector(e[l].row, &temp);
 		interpolationPvector2d(&edges[l - 1], &isInNode[l - 1], &index[l - 1], &nondirichlet[l], nodeCEdge, index[l - 1].row / 2, &e[l - 1], &temp);
+		// interpolationPvector2d2023(&edges[l - 1], nodeCEdge, index[l - 1].row / 2, &e[l - 1], &temp);
 		axpy_dvector(1.0, &temp, &e[l]);
 		free_dvector(&temp);
 
@@ -339,6 +341,32 @@ double mgvP1_solve(dCSRmat *A, dvector *b, dvector *x, EDGE *edges, iCSRmat *edg
 * \param *e pointer to the dvector on coarse grid
 * \param *Pe pointer to the dvector  on fine grid
 */
+void interpolationPvector2d2023(EDGE *Cedges, ivector *nodeCEdge, int cnn, dvector *e, dvector *Pe)
+{
+	int i, j, k;
+	int cdof = e->row / 2;
+	int fdof = Pe->row / 2;
+
+	for (i = 0; i<fdof; i++)
+	{
+		if (i<cnn) // case i is on the level-1(coarse) grid 
+		{
+			Pe->val[i] = e->val[i];
+			Pe->val[i + fdof] = e->val[i + cdof];
+		}
+		else // case i is on the level(fine) grid 
+		{
+			Pe->val[i] = 0;
+			Pe->val[i + fdof] = 0;
+			for (k = 0; k < 2; k++)
+			{
+				j = Cedges->val[nodeCEdge->val[i]][k];
+				Pe->val[i] += e->val[j] / 2;
+				Pe->val[i + fdof] += e->val[j + cdof] / 2;
+			}
+		}
+	}
+}
 void interpolationPvector2d(EDGE *Cedges, ivector *CisInNode, ivector *Cindex, ivector *Fnondirichlet, ivector *nodeCEdge, int cnn, dvector *e, dvector *Pe)
 {
 	int i, j, i1, j1, k;
@@ -462,6 +490,23 @@ void interpolationP2d(EDGE *Cedges, ivector *CisInNode, ivector *Cindex, ivector
 * \param *r pointer to the dvector on fine grid
 * \param *PTr pointer to the dvector  on coarse grid
 */
+void restrictionPTvector2d2023(iCSRmat *FedgesTran, dvector *r, dvector *PTr)
+{
+	int i, j, j1;
+	int cdof = PTr->row / 2;
+	int fdof = r->row / 2;
+	for (i = 0; i<cdof; i++)
+	{
+		PTr->val[i] = r->val[j];
+		PTr->val[i + cdof] = r->val[j + fdof];
+		for (j = FedgesTran->IA[i]; j<FedgesTran->IA[i + 1]; j++)
+		{
+			j1 = FedgesTran->val[j];
+			PTr->val[i] += r->val[j1] / 2;
+			PTr->val[i + cdof] += r->val[j1 + fdof] / 2;
+		}
+	}
+}
 void restrictionPTvector2d(iCSRmat *FedgesTran, ivector *Findex, ivector *Cnondirichlet, dvector *r, dvector *PTr)
 {
 	int i, j, i1, j1;

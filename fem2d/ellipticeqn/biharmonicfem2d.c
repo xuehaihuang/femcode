@@ -175,7 +175,7 @@ void solve_biharmonicMorley2d(dvector *uh, ELEMENT_DOF *elementDOF, ELEMENT *ele
 {
 	int i,j;
 	dCSRmat A;
-	dvector b, _uh;
+	dvector b;
 	// ELEMENT_DOF elementDOF;
 	iCSRmat elementdofTran;
 		
@@ -219,8 +219,8 @@ void solve_biharmonicMorley2d(dvector *uh, ELEMENT_DOF *elementDOF, ELEMENT *ele
 		printf("Tolerance for rel. res.  = %e\n", Input->itsolver_tol);
 	}
 
-	create_dvector(b.row, &_uh);
-	init_dvector(&_uh, 0.0);
+	create_dvector(b.row, uh);
+	init_dvector(uh, 0.0);
 
 	printf("A.row=%d, A.col=%d, A.nnz=%d\n", A.row, A.col, A.nnz);
 
@@ -247,38 +247,33 @@ void solve_biharmonicMorley2d(dvector *uh, ELEMENT_DOF *elementDOF, ELEMENT *ele
 	/* PCG+diag */
 	if (itsolver_type == 1) {
 		printf("Diagonal preconditioned CG solver\n");
-		diag_PCG(&A, &b, &_uh, itsolver_maxit, itsolver_tol, print_level);
+		diag_PCG(&A, &b, uh, itsolver_maxit, itsolver_tol, print_level);
 	}
 	
 	/* PCG+AMG */
 	else if (itsolver_type == 2) {
 		printf("AMG iterative solver\n");
-		classicAMG_PCG(&A, &b, &_uh, &amgparam, print_level);
+		classicAMG_PCG(&A, &b, uh, &amgparam, print_level);
 	}
 
 	/* AMG solver */
 	else if (itsolver_type == 3) {
 		printf("AMG preconditioned CG solver\n");
-		classicAMG(&A, &b, &_uh, &amgparam);
+		classicAMG(&A, &b, uh, &amgparam);
 	}
 
 
 	/* CG */
 	else if (itsolver_type == 4) {
 		printf("Classical CG solver\n");
-		standard_CG(&A, &b, &_uh, itsolver_maxit, itsolver_tol, print_level);
+		standard_CG(&A, &b, uh, itsolver_maxit, itsolver_tol, print_level);
 	}
 
 	/* GMRES+AMG */
 	else if (itsolver_type == 5) {
 		printf("AMG preconditioned GMRES solver\n");
-		classicAMG_GMRES(&A, &b, &_uh, &amgparam, print_level);
+		classicAMG_GMRES(&A, &b, uh, &amgparam, print_level);
 	}
-
-	for (i = 0; i < _uh.row; i++)
-		uh->val[elementDOF->freenodes.val[i]] = _uh.val[i];
-
-	free_dvector(&_uh);
 
 	/* output solution to a diskfile */
 	/*	char *outputfile="output/sol.out";
@@ -313,16 +308,18 @@ void assemble_biharmonicMorley2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *e
 	Ax = b
 	**/
 	dCSRmat AA;
-	dvector bb;
 
 	assembleBiHessMorley2d(&AA, elements, elementEdge, edges, nodes, elementDOF, elementdofTran);
-	assembleRHSMorley2d(&bb, elements, elementEdge, edges, elementDOF, biharmonic2d_f, NULL);
+	assembleRHSMorley2d(b, elements, elementEdge, edges, elementDOF, biharmonic2d_f, NULL);
     // initial solution
-	create_dvector(bb.row, uh);
-	// extract
-	extractFreenodesVector(&AA, &bb, b, elementDOF, uh);
-	free_dvector(&bb);
-	extractFreenodesMatrix11(&AA, A, elementDOF, elementDOF);
+	create_dvector(b->row, uh);
+	// Apply boundary condition
+	updateFreenodesRHS(&AA, b, uh, elementDOF);
+	updateFreenodesMatrix11(&AA, A, elementDOF, elementDOF);
+
+	// extractFreenodesVector(&AA, &bb, b, elementDOF, uh);
+	// // free_dvector(&bb);
+	// extractFreenodesMatrix11(&AA, A, elementDOF, elementDOF);
 
 	// /* output A, b to a diskfile */
 	// char *outputfileAA="output/AA.dat";
@@ -568,7 +565,7 @@ void solve_biharmonicC0ipdg2d(dvector *uh, ELEMENT_DOF *elementDOF, ELEMENT *ele
 {
 	int i,j;
 	dCSRmat A;
-	dvector b, _uh;
+	dvector b;
 	// ELEMENT_DOF elementDOF;
 	// iCSRmat elementdofTran;
 		
@@ -618,8 +615,8 @@ void solve_biharmonicC0ipdg2d(dvector *uh, ELEMENT_DOF *elementDOF, ELEMENT *ele
 	}
 
 
-	create_dvector(b.row, &_uh);
-	init_dvector(&_uh, 0.0);
+	create_dvector(b.row, uh);
+	init_dvector(uh, 0.0);
 
 
 	printf("A.row=%d, A.col=%d, A.nnz=%d\n", A.row, A.col, A.nnz);
@@ -656,44 +653,39 @@ void solve_biharmonicC0ipdg2d(dvector *uh, ELEMENT_DOF *elementDOF, ELEMENT *ele
 		char c;
 		while ( (c = getchar()) != '\n' && c != EOF ) ;
 
-		read_dvector4Matlab(&_uh, outputfileuh);
+		read_dvector4Matlab(uh, outputfileuh);
 	}
 
 	/* PCG+diag */
 	if (itsolver_type == 1) {
 		printf("Diagonal preconditioned CG solver\n");
-		diag_PCG(&A, &b, &_uh, itsolver_maxit, itsolver_tol, print_level);
+		diag_PCG(&A, &b, uh, itsolver_maxit, itsolver_tol, print_level);
 	}
 
 	/* PCG+AMG */
 	else if (itsolver_type == 2) {
 		printf("AMG preconditioned CG solver\n");
-		classicAMG_PCG(&A, &b, &_uh, &amgparam, print_level);
+		classicAMG_PCG(&A, &b, uh, &amgparam, print_level);
 	}
 
 	/* AMG solver */
 	else if (itsolver_type == 3) {
 		printf("AMG iterative solver\n");
-		classicAMG(&A, &b, &_uh, &amgparam);
+		classicAMG(&A, &b, uh, &amgparam);
 	}
 
 	
 	/* CG */
 	else if (itsolver_type == 4) {
 		printf("Classical CG solver\n");
-		standard_CG(&A, &b, &_uh, itsolver_maxit, itsolver_tol, print_level);
+		standard_CG(&A, &b, uh, itsolver_maxit, itsolver_tol, print_level);
 	}
 
 	/* GMRES+AMG */
 	else if (itsolver_type == 5) {
 		printf("AMG preconditioned GMRES solver\n");
-		classicAMG_GMRES(&A, &b, &_uh, &amgparam, print_level);
+		classicAMG_GMRES(&A, &b, uh, &amgparam, print_level);
 	}
-
-	for (i = 0; i < _uh.row; i++)
-		uh->val[elementDOF->freenodes.val[i]] = _uh.val[i];
-
-	free_dvector(&_uh);
 
 	/* output solution to a diskfile */
 	/*	char *outputfile="output/sol.out";
@@ -730,19 +722,15 @@ void assemble_biharmonicC0ipdg2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *e
 	Ax = b
 	**/
 	dCSRmat AA;
-	dvector bb;
 
 	assembleBiHessC0ipdg2d(&AA, elements, elementEdge, edges, nodes, elementDOF, elementdofTran, parapenalty);
-// printf("heiheihei\n");
-	assembleRHSLagrange2d(&bb, elements, elementDOF, biharmonic2d_f, NULL);
-// printf("heiheihei2\n");
+	assembleRHSLagrange2d(b, elements, elementDOF, biharmonic2d_f, NULL);
     // initial solution
-	create_dvector(bb.row, uh);
-	// extract
-	extractFreenodesVector(&AA, &bb, b, elementDOF, uh);
-	free_dvector(&bb);
-	extractFreenodesMatrix11(&AA, A, elementDOF, elementDOF);
-
+	create_dvector(b->row, uh);
+	// Apply boundary condition
+	updateFreenodesRHS(&AA, b, uh, elementDOF);
+	updateFreenodesMatrix11(&AA, A, elementDOF, elementDOF);
+	
 	// /* output A, b to a diskfile */
 	// char *outputfileAA="output/AA.dat";
 	// char *outputfileA="output/A.dat";

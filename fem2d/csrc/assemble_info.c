@@ -800,6 +800,45 @@ void extractFreenodesVector(dCSRmat *A, dvector *b, dvector *b1, ELEMENT_DOF *el
 }
 
 /**
+* \fn void updateFreenodesRHS(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *elementDOF)
+* \brief update right hand side b in Ax = b when some elements of x are given
+* \param *A pointer to matrix
+* \param *b pointer to the right hand side
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *x pointer to the solution
+* \return void
+*/
+void updateFreenodesRHS(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *elementDOF)
+{
+	if (x == NULL) return;
+
+	int i, j, k, i1, j1;
+
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+
+	// set b = x for non-freenodes
+    for (i1 = 0; i1<nfreenodes->row; i1++){
+		i = nfreenodes->val[i1];
+		b->val[i] = x->val[i];
+	}
+
+	// update b for freenodes
+	for (i1 = 0; i1<freenodes->row; i1++){
+		i = freenodes->val[i1];
+		for (j1 = 0; j1 < nfreenodes->row; j1++){
+			j = nfreenodes->val[j1];
+			for (k = A->IA[i]; k < A->IA[i + 1]; k++){
+				if (A->JA[k] == j){
+					b->val[i] -= A->val[k] * b->val[j];
+					break;
+				}
+			}
+		}
+	}
+}
+
+/**
 * \fn void extractFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
 * \brief extract stiffness matrix A11 according to freenodes
 * \param *A pointer to the original matrix
@@ -862,6 +901,86 @@ void extractFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr
 				A11->val[count] = A->val[k];
 				count++;
 			}
+		}
+	}
+}
+
+/**
+* \fn void updateFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
+* \brief extract stiffness matrix A11 according to freenodes
+* \param *A pointer to the original matrix
+* \param *A11 pointer to the extracted matrix according to freenodes
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void updateFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
+{
+	// achiveve A11 due to dirichlet boundary condition
+	int i, j, k, l;
+	int count;
+
+	ivector *nfFlagr = &elementDOFr->nfFlag;
+	ivector *freenodesr = &elementDOFr->freenodes;
+	ivector *nfreenodesr = &elementDOFr->nfreenodes;
+	//	ivector *indexr = &elementDOFr->index;
+
+	ivector *nfFlagc = &elementDOFc->nfFlag;
+	// ivector *freenodesc = &elementDOFc->freenodes;
+	//	ivector *nfreenodesc = &elementDOFc->nfreenodes;
+	// ivector *indexc = &elementDOFc->index;
+
+	// A11->row = freenodesr->row;
+	// A11->col = freenodesc->row;
+	A11->row = A->row;
+	A11->col = A->col;
+	A11->IA = (int*)calloc(A11->row + 1, sizeof(int));
+	A11->JA = NULL;
+	A11->val = NULL;
+
+	// form A11->IA
+	for (i = 0; i < nfreenodesr->row; i++)
+	{
+		l = nfreenodesr->val[i];
+		A11->IA[l + 1] = 1;
+	}
+	for (i = 0; i < freenodesr->row; i++)
+	{
+		l = freenodesr->val[i];
+		for (k = A->IA[l]; k<A->IA[l + 1]; k++)
+		{
+			j = A->JA[k];
+			if (nfFlagc->val[j] == 0)
+				A11->IA[l + 1]++;
+		}
+	}
+
+	for (i = 0; i<A11->row; i++)
+		A11->IA[i + 1] += A11->IA[i];
+
+	A11->nnz = A11->IA[A11->row];
+
+	// form A11->JA, A11->val
+	A11->JA = (int*)calloc(A11->nnz, sizeof(int));
+	A11->val = (double*)calloc(A11->nnz, sizeof(double));
+	count = 0;
+	for (i = 0; i<A11->row; i++)
+	{
+		if(nfFlagr->val[i] == 1){
+			A11->JA[count] = i;
+			A11->val[count] = 1.0;
+			count++;
+		}
+		else{
+			for (k = A->IA[i]; k<A->IA[i + 1]; k++)
+			{
+				j = A->JA[k];
+				if (nfFlagc->val[j] == 0)
+				{
+					A11->JA[count] = j;
+					A11->val[count] = A->val[k];
+					count++;
+				}
+			}		
 		}
 	}
 }

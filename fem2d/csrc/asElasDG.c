@@ -55,13 +55,14 @@ int mgvVectorP1AsElasDG(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 		getTransposeOfelementDoF(&elementDOFas[i], &elementdofTranas[i], 0);
 		getBoundaryInfoVector2d(&edges[i], &nodes[i], elementDOFas[i].dof, elementDOFas[i].dop, &isInNode[i], &dirichlet[i], &nondirichlet[i], &index[i]);
 
-		assembleStiffmatrixElasLagrange(&tempA, &elements[i], &elementEdge[i], &edges[i], &nodes[i], &elementDOFas[i], &elementdofTranas[i], mu);
+		assembleStiffmatrixElasLagrange(&tempA, &elements[i], &elementDOFas[i], mu);
 		extractNondirichletMatrix11(&tempA, &As[i], &isInNode[i], &dirichlet[i], &nondirichlet[i], &index[i]);
 		free_csr_matrix(&tempA);
 	}
 	interpVecP1toDG2d(&tempA, &elementDOFas[levelNum - 1], elementDOFipdg);
 	extractNondirichletMatrix1c(&tempA, &P, &isInNode[levelNum - 1], &dirichlet[levelNum - 1], &index[levelNum - 1]);
 	free_csr_matrix(&tempA);
+	// interpVecP1toDG2d(&P, &elementDOFas[levelNum - 1], elementDOFipdg);
 	getTransposeOfSparse(&P, &PT);
 
 	precond_data aspData;

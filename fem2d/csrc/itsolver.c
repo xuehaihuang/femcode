@@ -248,7 +248,7 @@ int asP1ElasDG_PCG(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int pri
 		getTransposeOfelementDoF(&elementDOFas[i], &elementdofTranas[i], 0);
 		getBoundaryInfo(&edges[i], &nodes[i], elementDOFas[i].dof, elementDOFas[i].dop, &isInNode[i], &dirichlet[i], &nondirichlet[i], &index[i]);
 		
-		assembleBiGradLagrange2d(&tempA, &elements[i], &elementEdge[i], &edges[i], &nodes[i], &elementDOFas[i], &elementdofTranas[i], mu);
+		assembleBiGradLagrange2d(&tempA, &elements[i], &elementEdge[i], &edges[i], &nodes[i], &elementDOFas[i], mu);
 		extractNondirichletMatrix11(&tempA, &As[i], &isInNode[i], &dirichlet[i], &nondirichlet[i], &index[i]);
 		free_csr_matrix(&tempA);
 	}
@@ -413,14 +413,16 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	getElementDOF_Lagrange2d(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
 	getFreenodesInfoLagrange2d(edges, nodes, &elementDOFas);
 	getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
-	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, &elementdofTranas, mu);
-	extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
+	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, mu);
+	// extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
+	updateFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
 	free_csr_matrix(&tempA);
 	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
 	
-	interpVecP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
-	extractFreenodesMatrix1cBlock(&tempA, &P, &elementDOFas);
-	free_csr_matrix(&tempA);
+	// interpVecP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
+	// extractFreenodesMatrix1cBlock(&tempA, &P, &elementDOFas);
+	// free_csr_matrix(&tempA);
+	interpVecP1toDG2d(&P, &elementDOFas, elementDOFdg);
 	getTransposeOfSparse(&P, &PT);
 
 
@@ -432,7 +434,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	asP1ElasDG_PCG(&Adg, &b[1], &uh, param, print_level);
 
 	return 0;
-	/**************************************************************/
+	**************************************************************/
 
 
 
@@ -608,14 +610,16 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	getElementDOF_Lagrange2d(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
 	getFreenodesInfoLagrange2d(edges, nodes, &elementDOFas);
 	getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
-	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, &elementdofTranas, mu);
-	extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
+	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, mu);
+	// extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
+	updateFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
 	free_csr_matrix(&tempA);
 	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
 
-	interpVecP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
-	extractFreenodesMatrix1cBlock(&tempA, &P, &elementDOFas);
-	free_csr_matrix(&tempA);
+	// interpVecP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
+	// extractFreenodesMatrix1cBlock(&tempA, &P, &elementDOFas);
+	// free_csr_matrix(&tempA);
+	interpVecP1toDG2d(&P, &elementDOFas, elementDOFdg);
 	getTransposeOfSparse(&P, &PT);
 
 
@@ -627,7 +631,7 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	asP1ElasDG_PCG(&Adg, &b[1], &uh, param, print_level);
 
 	return 0;
-	/**************************************************************/
+	**************************************************************/
 
 
 
@@ -1008,4 +1012,6 @@ int itsolverInCG(dCSRmat *A, dvector *b, dvector *x, AMG_param *param, int itsol
 //		printf("Classical GMRES solver\n");			
 		gmres(A, b, x, param->restart, itsolver_maxit, itsolver_tol, NULL, print_level);
 	}
+
+	return 1;
 }

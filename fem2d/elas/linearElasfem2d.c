@@ -112,6 +112,7 @@ void linearElasHuZhang2d_mfem(ELEMENT *elements, idenmat *elementEdge, EDGE *edg
 	int FglevelNum = Input->FglevelNum;
 	int dop1 = Input->dop1;
 	int dop2 = dop1-1;
+	if(dop2 < 0) dop2 = 0;
 
 	double paras[2];
 	paras[0] = lambda;
@@ -334,6 +335,7 @@ void assemble_linearElasHuZhang2d(dCSRmat *ptr_A, dvector *ptr_b, ELEMENT *eleme
 	assembleweightedMassatrixHuZhang2d(&ptr_A[0], elements, elementDOF, elementdofTran, lambda, mu);
 	assembleDivHuZhangL2poly2d(&ptr_A[1], elements, elementDOF, elementdofTran);
 	assembleRHSHuZhang2d(&ptr_b[1], elements, nodes, elementDOF+1, elementdofTran+1, linearElas2d_f, paras);
+
 	if (elementDOF[0].dop > 2)
 	{
 		ptr_A[3].row = 0;
