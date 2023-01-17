@@ -205,3 +205,28 @@ void read_dvector4Matlab(dvector *vec, char *fname)
 	}
 	fclose(inputFile);
 }
+
+/**
+* \fn void read_dvector4Matlab2b(dvector *vec, char *fname)
+* \brief Read dvector *vec from disk files
+*/
+void read_dvector4Matlab2b(dvector *vec, char *fname)
+{
+	int i, j;
+	FILE *inputFile;
+
+	inputFile = fopen(fname, "r");
+	if (inputFile == NULL)
+	{
+		printf("read_dvector4Matlab: opening file %s fails!\n", fname);
+		return;
+	}
+
+	for (i = 0; i<vec[0].row; i++){
+		fscanf(inputFile, "%lf", &vec[0].val[i]);
+	}
+	for (i = 0; i<vec[1].row; i++){
+		fscanf(inputFile, "%lf", &vec[1].val[i]);
+	}
+	fclose(inputFile);
+}

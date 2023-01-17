@@ -134,6 +134,7 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 	A->gradLambda=(double***)calloc(A->row, sizeof(double **));
 	A->nvector=(double***)calloc(A->row, sizeof(double **));
 	A->tvector=(double***)calloc(A->row, sizeof(double **));
+	A->tij=(double***)calloc(A->row, sizeof(double **));
 	A->eperm = (int***)malloc(A->row * sizeof(int **));
 	A->eorien = (short**)malloc(A->row * sizeof(short *));
 	int i,j;
@@ -148,6 +149,7 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 		A->gradLambda[i]=(double**)calloc(A->col, sizeof(double *));
 		A->nvector[i]=(double**)calloc(A->col, sizeof(double *));
 		A->tvector[i]=(double**)calloc(A->col, sizeof(double *));
+		A->tij[i]=(double**)calloc(A->col, sizeof(double *));
 		A->eperm[i] = (int**)malloc(A->col*(A->col - 1) / 2 * sizeof(int *));
 		A->eorien[i] = (short*)malloc(A->col*(A->col - 1) / 2 * sizeof(short));
 		for(j=0;j<A->col;j++)
@@ -156,6 +158,7 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 			A->gradLambda[i][j]=(double*)calloc(A->col-1, sizeof(double));
 			A->nvector[i][j]=(double*)calloc(A->col-1, sizeof(double));
 			A->tvector[i][j]=(double*)calloc(A->col-1, sizeof(double));
+			A->tij[i][j]=(double*)calloc(A->col-1, sizeof(double));
 		}
 		for (j = 0; j < A->col*(A->col - 1) / 2; j++)
 			A->eperm[i][j] = (int*)malloc(2 * sizeof(int));
@@ -186,11 +189,13 @@ int free_ELEMENT(ELEMENT *A)
 			free(A->gradLambda[i][j]);
 			free(A->nvector[i][j]);
 			free(A->tvector[i][j]);
+			free(A->tij[i][j]);
 		}
 		free(A->vertices[i]);
 		free(A->gradLambda[i]);
 		free(A->nvector[i]);
 		free(A->tvector[i]);
+		free(A->tij[i]);
 		for (j = 0; j < A->col*(A->col - 1) / 2; j++)
 			free(A->eperm[i][j]);
 		free(A->eperm[i]);
@@ -207,6 +212,7 @@ int free_ELEMENT(ELEMENT *A)
 	free(A->gradLambda);
 	free(A->nvector);
 	free(A->tvector);
+	free(A->tij);
 	free(A->eperm);
 	free(A->eorien);
 	A->row=0;

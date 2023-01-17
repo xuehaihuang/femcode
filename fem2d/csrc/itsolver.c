@@ -318,7 +318,7 @@ int asP1ElasDG_PCG(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int pri
 }
 
 /**
-* \fn int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level)
+* \fn int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ELEMENT *, ELEMENT_DOF *, double, double))
 * \brief Solve Ax=b by block diagonal preconditioned MINRES solver with auxiliary space method
 * \param *A	pointer to the dCSRmat matrix
 * \param *b	pointer to the dvector of right hand side
@@ -327,7 +327,7 @@ int asP1ElasDG_PCG(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int pri
 * \param print_level how much information to print out
 * \return the number of iterations
 */
-int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level)
+int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ELEMENT *, ELEMENT_DOF *, double, double))
 {
 	int levelNum = 1;
 	int iter, i;
@@ -387,7 +387,8 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	}
 
 	// setup preconditioner
-	assembleweightedMassatrixHuZhang2d(&M, &elements[levelNum - 1], elementDOF, elementdofTran, 0, mu);
+//	assembleweightedMassatrixHuZhang2d(&M, &elements[levelNum - 1], elementDOF, elementdofTran, 0, mu);
+	assembleMassmatrix(&M, &elements[levelNum - 1], elementDOF, 0, mu);
 
 	dvector diag, diaginv;
 	getdiag(M.row, &M, &diag);
@@ -515,7 +516,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 }
 
 /**
-* \fn int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level)
+* \fn int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ELEMENT *, ELEMENT_DOF *, double, double))
 * \brief Solve Ax=b by block triangular preconditioned GMRES solver with auxiliary space method
 * \param *A	pointer to the dCSRmat matrix
 * \param *b	pointer to the dvector of right hand side
@@ -524,7 +525,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 * \param print_level how much information to print out
 * \return the number of iterations
 */
-int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level)
+int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ELEMENT *, ELEMENT_DOF *, double, double))
 {
 	int levelNum = 1;
 	int iter, i;
@@ -584,7 +585,8 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	}
 
 	// setup preconditioner
-	assembleweightedMassatrixHuZhang2d(&M, elements, elementDOF, elementdofTran, 0, mu);
+	// assembleweightedMassatrixHuZhang2d(&M, elements, elementDOF, elementdofTran, 0, mu);
+	assembleMassmatrix(&M, &elements[levelNum - 1], elementDOF, 0, mu);
 
 	dvector diag, diaginv;
 	getdiag(M.row, &M, &diag);

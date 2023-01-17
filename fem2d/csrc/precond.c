@@ -259,7 +259,7 @@ void precond_TriAsP1ElasDG(dvector *r, dvector *z, void *data)
 		// solver part
 		int iter = pcg(Adg, &tempVec, &z[1], 5, 1e-8, prec, 0);
 		//		printf("iter=%d\n",iter);
-		/****  asP1ElasDG_PCG  ****/
+		****  asP1ElasDG_PCG  ****/
 	}
 
 	free_dvector(&tempVec);
@@ -335,7 +335,7 @@ void precond_DiagAsP1ElasDG(dvector *r, dvector *z, void *data)
 		// solver part
 		int iter = pcg(Adg, &r[1], &z[1], 2, 1e-8, prec, 0);
 //		printf("iter=%d\n",iter);
-		/****  asP1ElasDG_PCG  ****/
+		****  asP1ElasDG_PCG  ****/
 	}
 //	init_dvector(&z[1], 0);
 

@@ -623,6 +623,8 @@ int orderone(int **mat, double **matval, int *lengths)
 	free(cols[1]);
 	free(vals[0]);
 	free(vals[1]);
+
+	return 0;
 }
 
 
@@ -772,6 +774,8 @@ int genintval(dCSRmat *A, int **itmat, double **itmatval, int ittniz, int *isol,
 	free(mat[0]);
 	free(mat[1]);
 	free(matval[0]);
+
+	return 0;
 }
 
 

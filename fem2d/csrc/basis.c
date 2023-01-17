@@ -2212,6 +2212,398 @@ void huzhang_basisLaplaceTrace(double *lambda, double **gradLambda, double **nv,
 	}
 }
 
+/** 
+ * \fn void divS_huangzhou_prebasis(double *lambda, double **tij, int i, double phi[3])
+ * \brief preparation for basis function of Huang-Zhou element
+ * \param *lambda pointer to the area coordiante
+ * \param **nv the unit normal vectors of the three edges
+ * \param **tv the unit tangential vectors of the three edges
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param *phi basis function
+ * \return void
+ */
+void divS_huangzhou_prebasis(double *lambda, double **tij, int i, double phi[3])
+{
+	double val, c1, c2;
+
+	phi[0]=0;
+	phi[1]=0;
+	phi[2]=0;
+	
+	int j = (i+1)%3; 
+	int k = (i+2)%3;
+
+	c1 = dot_array(2, tij[i], tij[k]);
+	c2 = dot_array(2, tij[i], tij[j]);
+
+	double T[3][3];
+	for(int i1=0;i1<3;i1++){
+		T[i1][0]=tij[i1][0]*tij[i1][0]; 
+		T[i1][1]=tij[i1][1]*tij[i1][1]; 
+		T[i1][2]=tij[i1][0]*tij[i1][1];
+	}
+
+	val = -10*c1*lambda[j]*lambda[k]*lambda[k];
+	axpy_array(3, val, T[j], phi);
+
+	val = -10*c2*(lambda[k]+lambda[i])*lambda[j]*lambda[k];
+	axpy_array(3, val, T[k], phi);
+
+	val = ((6*c2-9*c1)*lambda[j] + (9*c2-6*c1)*lambda[k])*lambda[j]*lambda[k];
+	axpy_array(3, val, T[i], phi);
+
+	val = ((6*c2-9*c1)*lambda[j] + (2*c1-3*c2)*lambda[k])*lambda[k]*lambda[i];
+	axpy_array(3, val, T[j], phi);
+
+	val = ((3*c1-2*c2)*lambda[j] + (9*c2-6*c1)*lambda[k])*lambda[i]*lambda[j];
+	axpy_array(3, val, T[k], phi);
+}
+
+/** 
+ * \fn void divS_huangzhou_prebasisDIV(double *lambda, double **tij, int i, double phi[2])
+ * \brief preparation for basis function of Huang-Zhou element
+ * \param *lambda pointer to the area coordiante
+ * \param **nv the unit normal vectors of the three edges
+ * \param **tv the unit tangential vectors of the three edges
+ * \param **tij the tangential vectors from vertex i to vertex j
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param *phi basis function
+ * \return void
+ */
+void divS_huangzhou_prebasisDIV(double *lambda, double **tij, int i, double phi[2])
+{
+	double val, c1, c2;
+
+	phi[0]=0;
+	phi[1]=0;
+	
+	int j = (i+1)%3; 
+	int k = (i+2)%3;
+
+	c1 = dot_array(2, tij[i], tij[k]);
+	c2 = dot_array(2, tij[i], tij[j]);
+
+	val = 20*c1*lambda[j]*lambda[k];
+	axpy_array(2, val, tij[j], phi);
+
+	val = 10*c2*lambda[k]*(2*lambda[j]-1);
+	axpy_array(2, val, tij[k], phi);
+
+	val = ((6*c2-9*c1)*lambda[j] + (9*c2-6*c1)*lambda[k])*(lambda[j]-lambda[k]);
+	val += 3*(c1+c2)*lambda[j]*lambda[k];
+	axpy_array(2, val, tij[i], phi);
+
+	val = ((6*c2-9*c1)*lambda[j] + (2*c1-3*c2)*lambda[k])*(lambda[k]-lambda[i]);
+	val += (3*c2-2*c1)*lambda[k]*lambda[i];
+	axpy_array(2, val, tij[j], phi);
+
+	val = ((3*c1-2*c2)*lambda[j] + (9*c2-6*c1)*lambda[k])*(lambda[i]-lambda[j]);
+	val += (3*c1-2*c2)*lambda[i]*lambda[j];
+	axpy_array(2, val, tij[k], phi);
+}
+
+// /** 
+//  * \fn void divS_huangzhou_basis(double *lambda, double s, double **nv, double **tv, double **tij, int index, double phi[3])
+//  * \brief basis function of Huang-Zhou element
+//  * \param *lambda pointer to the area coordiante
+//  * \param s pointer to the area of the triangle
+//  * \param **nv the unit normal vectors of the three edges
+//  * \param **tv the unit tangential vectors of the three edges
+//  * \param **tij the tangential vectors from vertex i to vertex j
+//  * \param index the indicator of the basis function
+//  * \param *phi basis function
+//  * \return void
+//  */
+// void divS_huangzhou_basis(double *lambda, double s, double **nv, double **tv, double **tij, int index, double phi[3])
+// {
+// 	phi[0]=0;
+// 	phi[1]=0;
+// 	phi[2]=0;
+// 	if(index>= 21 || index<0)
+// 		return;
+
+// 	double val, c1[2], c2[2], phi0[3];
+// 	double nn[3][3], nt[3][3], tt[3][3];
+// 	int i, j, k, ii;
+// 	for(i=0;i<3;i++){
+// 		nn[i][0]=nv[i][0]*nv[i][0]; nn[i][1]=nv[i][1]*nv[i][1]; nn[i][2]=nv[i][0]*nv[i][1];
+// 		nt[i][0]=nv[i][0]*tv[i][0]; nt[i][1]=nv[i][1]*tv[i][1]; nt[i][2]=(nv[i][0]*tv[i][1]+nv[i][1]*tv[i][0])/2;
+// 		tt[i][0]=tv[i][0]*tv[i][0]; tt[i][1]=tv[i][1]*tv[i][1]; tt[i][2]=tv[i][0]*tv[i][1];
+// 	}
+	
+// 	c1[0] = 36.0; c2[0] = -3.0/(2.0*s*s);
+// 	c1[1] = -24.0; c2[1] = 3.0/(2.0*s*s);
+// 	// c1[0] /=9; c2[0] /=9;
+// 	// c1[1] /=6; c2[1] /=6;	
+
+// 	if(index<9){
+// 		i = index%3;
+// 		// val = lambda[i]*lambda[i];
+// 		lagrange_basis(lambda, i, 2, &val);
+// 		phi[index/3] = val;
+// 	}
+// 	else if(index<15){
+// 		// i=index-9;
+// 		ii = (index-9)%2;
+// 		i = (index-9)/2;
+// 		j = (i+1)%3; k = (i+2)%3;
+
+// 		val = lambda[j]*lambda[k];
+// 		axy_array(3, c1[ii]*val, nn[i], phi);
+		
+// 		divS_huangzhou_prebasis(lambda, tij, i, phi0);
+// 		axpy_array(3, c2[ii], phi0, phi);
+// 	}
+// 	else if(index<18){
+// 		i=index-15;
+// 		// j = (i+1)%3; k = (i+2)%3;
+// 		// val = lambda[j]*lambda[k];
+// 		lagrange_basis(lambda, 3+i, 2, &val);
+// 		axy_array(3, val, nt[i], phi);
+// 	}
+// 	else{
+// 		i=index-18;
+// 		// j = (i+1)%3; k = (i+2)%3;
+// 		// val = lambda[j]*lambda[k];
+// 		lagrange_basis(lambda, 3+i, 2, &val);
+// 		axy_array(3, val, tt[i], phi);
+// 	}
+// }
+
+// /** 
+//  * \fn void divS_huangzhou_basisDIV(double *lambda, double **gradLambda, double s, double **nv, double **tv, double **tij, int index, double phi[2])
+//  * \brief divergence of basis function of Huang-Zhou element
+//  * \param *lambda pointer to the area coordiante
+//  * \param gradLambda gradient of the barycentric coordinate
+//  * \param **nv the unit normal vectors of the three edges
+//  * \param **tv the unit tangential vectors of the three edges
+//  * \param index the indicator of the basis function
+//  * \param *phi divergence of basis function
+//  * \return void
+//  */
+// void divS_huangzhou_basisDIV(double *lambda, double **gradLambda, double s, double **nv, double **tv, double **tij, int index, double phi[2])
+// {
+// 	phi[0]=0;
+// 	phi[1]=0;
+// 	if(index>= 21 || index<0)
+// 		return;
+
+// 	double val[2], c1[2], c2[2], phi0[2];
+// 	double nn[3][3], nt[3][3], tt[3][3];
+// 	int i, j, k, ii;
+// 	for(i=0;i<3;i++){
+// 		nn[i][0]=nv[i][0]*nv[i][0]; nn[i][1]=nv[i][1]*nv[i][1]; nn[i][2]=nv[i][0]*nv[i][1];
+// 		nt[i][0]=nv[i][0]*tv[i][0]; nt[i][1]=nv[i][1]*tv[i][1]; nt[i][2]=(nv[i][0]*tv[i][1]+nv[i][1]*tv[i][0])/2;
+// 		tt[i][0]=tv[i][0]*tv[i][0]; tt[i][1]=tv[i][1]*tv[i][1]; tt[i][2]=tv[i][0]*tv[i][1];
+// 	}
+
+// 	c1[0] = 36.0; c2[0] = -3.0/(2.0*s*s);
+// 	c1[1] = -24.0; c2[1] = 3.0/(2.0*s*s);
+// 	// c1[0] /=9; c2[0] /=9;
+// 	// c1[1] /=6; c2[1] /=6;	
+
+// 	if(index<3){
+// 		i = index;
+// 		// axy_array(2, 2.0*lambda[i], gradLambda[i], val);
+// 		lagrange_basis1(lambda, gradLambda, i, 2, val);
+// 		phi[0] = val[0];
+// 		phi[1] = 0;
+// 	}
+// 	else if(index<6){
+// 		i = index%3;
+// 		// axy_array(2, 2.0*lambda[i], gradLambda[i], val);
+// 		lagrange_basis1(lambda, gradLambda, i, 2, val);
+// 		phi[0] = 0;
+// 		phi[1] = val[1];
+// 	}
+// 	else if(index<9){
+// 		i = index%3;
+// 		// axy_array(2, 2.0*lambda[i], gradLambda[i], val);
+// 		lagrange_basis1(lambda, gradLambda, i, 2, val);
+// 		phi[0] = val[1];
+// 		phi[1] = val[0];
+// 	}
+// 	else if(index<15){
+// 		// i=index-9;
+// 		ii = (index-9)%2;
+// 		i = (index-9)/2;
+// 		j = (i+1)%3; k = (i+2)%3;
+
+// 		axpbyz_array(2, lambda[j], gradLambda[k], lambda[k], gradLambda[j], val);
+// 		phi[0]= (val[0]*nn[i][0]+val[1]*nn[i][2]) * c1[ii];
+// 		phi[1]= (val[0]*nn[i][2]+val[1]*nn[i][1]) * c1[ii];
+
+// 		divS_huangzhou_prebasisDIV(lambda, tij, i, phi0);
+// 		axpy_array(2, c2[ii], phi0, phi);
+// 	}
+// 	else if(index<18){
+// 		i=index-15;
+// 		// j = (i+1)%3; k = (i+2)%3;
+// 		// axpbyz_array(2, lambda[j], gradLambda[k], lambda[k], gradLambda[j], val);
+// 		lagrange_basis1(lambda, gradLambda, 3+i, 2, val);
+// 		phi[0]=val[0]*nt[i][0]+val[1]*nt[i][2];
+// 		phi[1]=val[0]*nt[i][2]+val[1]*nt[i][1];
+// 	}
+// 	else{
+// 		i=index-18;
+// 		// j = (i+1)%3; k = (i+2)%3;
+// 		// axpbyz_array(2, lambda[j], gradLambda[k], lambda[k], gradLambda[j], val);
+// 		lagrange_basis1(lambda, gradLambda, 3+i, 2, val);
+// 		phi[0]=val[0]*tt[i][0]+val[1]*tt[i][2];
+// 		phi[1]=val[0]*tt[i][2]+val[1]*tt[i][1];
+// 	}
+// }
+
+/** 
+ * \fn void divS_huangzhou_basis(double *lambda, double s, double **nv, double **tv, double **tij, int index, double phi[3])
+ * \brief basis function of Huang-Zhou element
+ * \param *lambda pointer to the area coordiante
+ * \param s pointer to the area of the triangle
+ * \param **nv the unit normal vectors of the three edges
+ * \param **tv the unit tangential vectors of the three edges
+ * \param **tij the tangential vectors from vertex i to vertex j
+ * \param index the indicator of the basis function
+ * \param *phi basis function
+ * \return void
+ */
+void divS_huangzhou_basis(double *lambda, double s, double **nv, double **tv, double **tij, int index, double phi[3])
+{
+	phi[0]=0;
+	phi[1]=0;
+	phi[2]=0;
+	if(index>= 21 || index<0)
+		return;
+
+	double val, c1[2], c2[2], phi0[3];
+	double nn[3][3], nt[3][3], tt[3][3];
+	int i, j, k, ii;
+	for(i=0;i<3;i++){
+		nn[i][0]=nv[i][0]*nv[i][0]; nn[i][1]=nv[i][1]*nv[i][1]; nn[i][2]=nv[i][0]*nv[i][1];
+		nt[i][0]=nv[i][0]*tv[i][0]; nt[i][1]=nv[i][1]*tv[i][1]; nt[i][2]=(nv[i][0]*tv[i][1]+nv[i][1]*tv[i][0])/2;
+		tt[i][0]=tv[i][0]*tv[i][0]; tt[i][1]=tv[i][1]*tv[i][1]; tt[i][2]=tv[i][0]*tv[i][1];
+	}
+	
+	c1[0] = 36.0; c2[0] = -3.0/(2.0*s*s);
+	c1[1] = -24.0; c2[1] = 3.0/(2.0*s*s);
+
+	if(index<9){
+		i = index%3;
+		// val = lambda[i]*lambda[i];
+		lagrange_basis(lambda, i, 2, &val);
+		phi[index/3] = val;
+	}
+	else if(index<15){
+		// i=index-9;
+		ii = (index-9)%2;
+		i = (index-9)/2;
+		j = (i+1)%3; k = (i+2)%3;
+
+		val = lambda[j]*lambda[k];
+		axy_array(3, c1[ii]*val, nn[i], phi);
+		
+		divS_huangzhou_prebasis(lambda, tij, i, phi0);
+		axpy_array(3, c2[ii], phi0, phi);
+	}
+	else if(index<18){
+		i=index-15;
+		// j = (i+1)%3; k = (i+2)%3;
+		// val = lambda[j]*lambda[k];
+		lagrange_basis(lambda, 3+i, 2, &val);
+		axy_array(3, val, nt[i], phi);
+	}
+	else{
+		i=index-18;
+		// j = (i+1)%3; k = (i+2)%3;
+		// val = lambda[j]*lambda[k];
+		lagrange_basis(lambda, 3+i, 2, &val);
+		axy_array(3, val, tt[i], phi);
+	}
+}
+
+/** 
+ * \fn void divS_huangzhou_basisDIV(double *lambda, double **gradLambda, double s, double **nv, double **tv, double **tij, int index, double phi[2])
+ * \brief divergence of basis function of Huang-Zhou element
+ * \param *lambda pointer to the area coordiante
+ * \param gradLambda gradient of the barycentric coordinate
+ * \param **nv the unit normal vectors of the three edges
+ * \param **tv the unit tangential vectors of the three edges
+ * \param index the indicator of the basis function
+ * \param *phi divergence of basis function
+ * \return void
+ */
+void divS_huangzhou_basisDIV(double *lambda, double **gradLambda, double s, double **nv, double **tv, double **tij, int index, double phi[2])
+{
+	phi[0]=0;
+	phi[1]=0;
+	if(index>= 21 || index<0)
+		return;
+
+	double val[2], c1[2], c2[2], phi0[2];
+	double nn[3][3], nt[3][3], tt[3][3];
+	int i, j, k, ii;
+	for(i=0;i<3;i++){
+		nn[i][0]=nv[i][0]*nv[i][0]; nn[i][1]=nv[i][1]*nv[i][1]; nn[i][2]=nv[i][0]*nv[i][1];
+		nt[i][0]=nv[i][0]*tv[i][0]; nt[i][1]=nv[i][1]*tv[i][1]; nt[i][2]=(nv[i][0]*tv[i][1]+nv[i][1]*tv[i][0])/2;
+		tt[i][0]=tv[i][0]*tv[i][0]; tt[i][1]=tv[i][1]*tv[i][1]; tt[i][2]=tv[i][0]*tv[i][1];
+	}
+
+	c1[0] = 36.0; c2[0] = -3.0/(2.0*s*s);
+	c1[1] = -24.0; c2[1] = 3.0/(2.0*s*s);
+
+	if(index<3){
+		i = index;
+		// axy_array(2, 2.0*lambda[i], gradLambda[i], val);
+		lagrange_basis1(lambda, gradLambda, i, 2, val);
+		phi[0] = val[0];
+		phi[1] = 0;
+	}
+	else if(index<6){
+		i = index%3;
+		// axy_array(2, 2.0*lambda[i], gradLambda[i], val);
+		lagrange_basis1(lambda, gradLambda, i, 2, val);
+		phi[0] = 0;
+		phi[1] = val[1];
+	}
+	else if(index<9){
+		i = index%3;
+		// axy_array(2, 2.0*lambda[i], gradLambda[i], val);
+		lagrange_basis1(lambda, gradLambda, i, 2, val);
+		phi[0] = val[1];
+		phi[1] = val[0];
+	}
+	else if(index<15){
+		// i=index-9;
+		ii = (index-9)%2;
+		i = (index-9)/2;
+		j = (i+1)%3; k = (i+2)%3;
+
+		axpbyz_array(2, lambda[j], gradLambda[k], lambda[k], gradLambda[j], val);
+		phi[0]= (val[0]*nn[i][0]+val[1]*nn[i][2]) * c1[ii];
+		phi[1]= (val[0]*nn[i][2]+val[1]*nn[i][1]) * c1[ii];
+
+		divS_huangzhou_prebasisDIV(lambda, tij, i, phi0);
+		axpy_array(2, c2[ii], phi0, phi);
+	}
+	else if(index<18){
+		i=index-15;
+		// j = (i+1)%3; k = (i+2)%3;
+		// axpbyz_array(2, lambda[j], gradLambda[k], lambda[k], gradLambda[j], val);
+		lagrange_basis1(lambda, gradLambda, 3+i, 2, val);
+		phi[0]=val[0]*nt[i][0]+val[1]*nt[i][2];
+		phi[1]=val[0]*nt[i][2]+val[1]*nt[i][1];
+	}
+	else{
+		i=index-18;
+		// j = (i+1)%3; k = (i+2)%3;
+		// axpbyz_array(2, lambda[j], gradLambda[k], lambda[k], gradLambda[j], val);
+		lagrange_basis1(lambda, gradLambda, 3+i, 2, val);
+		phi[0]=val[0]*tt[i][0]+val[1]*tt[i][2];
+		phi[1]=val[0]*tt[i][2]+val[1]*tt[i][1];
+	}
+}
+
 /**
  * \fn double area(double **tri)
  * \brief get area for triangle p1(x1,y1),p2(x2,y2),p3(x3,y3)

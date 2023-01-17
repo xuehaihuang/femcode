@@ -32,7 +32,7 @@
 * \param mu Lame constant or Poisson ratio of plate
 * \return void
 */
-void postprocess2newDisplacement(dvector *uhstar, dvector *sigmah, dvector *uh, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu)
+void postprocess2newDisplacementHuZhang2d(dvector *uhstar, dvector *sigmah, dvector *uh, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu)
 {
 	int dop1 = elementDOF[1].dop;
 	int dop2 = elementDOF[2].dop;
