@@ -283,6 +283,32 @@ void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 }
 
 /**
+ * \fn void getElementDOF_CrouzeixRaviart2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges)
+ * \brief get the degrees of freedom of Crouzeix-Raviart element
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elements pointer to triangulation: the first 3 columns store the indexes of vertices
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements the fourth column stores -1 if the edge is on boundary
+ */
+void getElementDOF_CrouzeixRaviart2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges)
+{
+	int i,j,k;
+	int nt=elements->row;
+	int ne=edges->row;
+	// int nn=nvertices;
+	
+	create_elementDOF(1, ne, nt, 3, elementDOF);
+
+	int edge;
+	for(k=0;k<nt;k++){	
+		for(j=0;j<3;j++){
+			edge=elementEdge->val[k][j];
+			elementDOF->val[k][j] = edge;
+		}
+	}
+}
+
+/**
  * \fn void getElementDOF_Morley2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices)
  * \brief get the degrees of freedom of Morley element
  * \param *elementDOF pointer to relation between elements and DOFs
@@ -451,7 +477,7 @@ void getElementDOF_HuangZhou(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat
 
 /**
 * \fn void getFreenodesInfoLagrange2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
-* \brief get freenodes information of Lagrange element in t2o dimensions
+* \brief get freenodes information of Lagrange element in two dimensions
 * \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
 the fourth column stores -1 if the edge is on boundary
 * \param *nodes pointer to nodes: the first column stores the x coordinate of points, the second column stores the y coordinate of points
@@ -495,6 +521,61 @@ void getFreenodesInfoLagrange2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elemen
 				nfFlag->val[nn + j*estride + i] = 1;
 			}
 			nnf += estride;
+		}
+	}
+
+	create_ivector(nnf, nfreenodes);
+	create_ivector(dof - nnf, freenodes);
+
+	j = 0; k = 0;
+	for (i = 0; i<dof; i++)
+	{
+		if (nfFlag->val[i] == 1) //  non-free node
+		{
+			nfreenodes->val[k] = i;
+			index->val[i] = k;
+			k++;
+		}
+		else // free variable
+		{
+			freenodes->val[j] = i;
+			index->val[i] = j;
+			j++;
+		}
+	}
+}
+
+/**
+* \fn void getFreenodesInfoCrouzeixRaviart2d(EDGE *edges, ELEMENT_DOF *elementDOF)
+* \brief get freenodes information of Crouzeix-Raviart element in two dimensions
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to nodes: the first column stores the x coordinate of points, the second column stores the y coordinate of points
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void getFreenodesInfoCrouzeixRaviart2d(EDGE *edges, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k, estride, fstride, nnf;
+
+	// int nn = nodes->row;
+	int ne = edges->row;
+	int dof = elementDOF->dof;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	create_ivector(dof, nfFlag);
+	create_ivector(dof, index);
+
+	nnf = 0; // number of non-free nodes
+	for (j = 0; j<ne; j++){
+		if (edges->bdFlag[j] == 1 || edges->bdFlag[j] == 2 || edges->bdFlag[j] == 3 || edges->bdFlag[j] == 4) // Dirichlet boundary
+		{
+			nfFlag->val[j] = 1;
+			nnf++;
 		}
 	}
 
@@ -582,6 +663,38 @@ void getFreenodesInfoMorley2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementD
 			index->val[i] = j;
 			j++;
 		}
+	}
+}
+
+/**
+* \fn void getFreenodesInfoDG(ELEMENT_DOF *elementDOF)
+* \brief get freenodes information of no non-free nodes
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to nodes: the first column stores the x coordinate of points, the second column stores the y coordinate of points
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void getFreenodesInfoDG(ELEMENT_DOF *elementDOF)
+{
+	int i;
+
+	int dof = elementDOF->dof;
+	// int dop = elementDOF->dop;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	create_ivector(dof, nfFlag);
+	create_ivector(dof, index);
+	create_ivector(0, nfreenodes);
+	create_ivector(dof, freenodes);
+
+	for (i = 0; i<dof; i++){
+		freenodes->val[i] = i;
+		index->val[i] = i;
 	}
 }
 
@@ -764,7 +877,185 @@ void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDO
 }
 
 /**
-* \fn void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+* \fn void assembleBiGradCrouzeixRaviart2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu)
+* \brief assemble stiffness matrix
+* \param *A pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \param mu Lame constant or Poisson ratio of plate
+* \return void
+*/
+void assembleBiGradCrouzeixRaviart2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu)
+{
+	int i, j, k, l;
+
+	//	create_dvector(A->row, b);
+
+	int nvertices = nodes->row;
+	int nedges = edges->row;
+	int element, edge, node;
+
+	double phi, phi1[2], phi2[2];
+	int k1, k2, i1, j1, l1, l2, ej;
+	double val, s, **gradLambda;
+	int count;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF->col*elementDOF->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+
+	num_qp=getNumQuadPoints(elementDOF->dop * 2 - 2, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF->col; k2++)
+			{
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					cr_basis1(2, gradLambda, k1, phi1);
+					cr_basis1(2, gradLambda, k2, phi2);
+					val += s*weight[i1] * (phi1[0] * phi2[0] + phi1[1] * phi2[1]) * 2 * mu;
+				}
+				lA.val[k1][k2] += val;
+			} // k2
+		} // k1
+
+		l = elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++)
+		{
+			for (j = 0; j<elementDOF->col; j++)
+			{
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
+	} // k
+	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+	free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
+}
+
+/**
+ * \fn void assembleRHSCrouzeixRaviart2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras)
+ * \brief assemble stiffness matrix (f, v)
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \return void
+ */
+void assembleRHSCrouzeixRaviart2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras)
+{
+	int i,j,k,k1,i1;
+	
+	double phi;
+	double x[2], **gradLambda, **vertices;
+	double s;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+			
+	dvector lb;
+	create_dvector(elementDOF->col, &lb);
+	/************************************************** right hand side b *****************************************************************/
+	create_dvector(elementDOF->dof, b);
+	num_qp = 49; 
+	init_Gauss2d(num_qp, lambdas, weight);
+
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		s = elements->vol[k];
+		vertices = elements->vertices[k];
+		// end set parameters
+
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOF->col; i++)
+		{
+			for (i1 = 0; i1<num_qp; i1++)
+			{
+				cr_basis(2, lambdas[i1], i, &phi);
+				baryToCart2d(lambdas[i1], x, vertices);
+				lb.val[i] += s*weight[i1] * f(x, paras)*phi;
+			} // i1
+		} // k1
+
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			i = elementDOF->val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1
+	} // k
+	free_dvector(&lb);
+}
+
+/**
+* \fn void assembleBiGradMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
 * \brief assemble stiffness matrix
 * \param *A pointer to stiffness matrix
 * \param *b pointer to right hand side
@@ -777,7 +1068,123 @@ the fourth column stores -1 if the edge is on boundary
 * \param *elementdofTran pointer to transpose of elementDOF
 * \return void
 */
-void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+void assembleBiGradMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k, l;
+
+	//	create_dvector(A->row, b);
+
+	int nvertices = nodes->row;
+	int nedges = edges->row;
+	int element, edge, node;
+
+	double phi, phi1[3], phi2[3];
+	int k1, k2, i1, j1, l1, l2, ej;
+	double val, s, **gradLambda, *nve[3];
+	int count;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF->col*elementDOF->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+
+	num_qp=getNumQuadPoints(elementDOF->dop * 2 - 2, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		for(i=0;i<3;i++){
+			j = elementEdge->val[k][i];
+			nve[i] = edges->nvector[j];
+		}
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF->col; k1++){
+			for (k2 = 0; k2<elementDOF->col; k2++){
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					morley_basis1(lambdas[i1], gradLambda, nve, k1, phi1);
+					morley_basis1(lambdas[i1], gradLambda, nve, k2, phi2);
+					val += s*weight[i1] * (phi1[0] * phi2[0] + phi1[1] * phi2[1]);
+				}
+				lA.val[k1][k2] += val;
+			} // k2
+		} // k1
+
+		l = elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++)
+		{
+			for (j = 0; j<elementDOF->col; j++)
+			{
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
+	} // k
+	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+	free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
+}
+
+/**
+* \fn void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+* \brief assemble stiffness matrix
+* \param *A pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \return void
+*/
+void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
 {
 	int i, j, k, l;
 
@@ -1213,6 +1620,437 @@ void assembleBiHessC0ipdg2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
 		free(Ia); free(Ja); free(Va);
 	}
+}
+
+/**
+* \fn void assembleBiGradCrouzeixRaviartDiagBlockRepeat2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu)
+* \brief assemble stiffness matrix
+* \param *A pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \param mu Lame constant or Poisson ratio of plate
+* \return void
+*/
+void assembleBiGradCrouzeixRaviartDiagBlockRepeat2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu)
+{
+	int i, j, k, l;
+
+	//	create_dvector(A->row, b);
+
+	int nvertices = nodes->row;
+	int nedges = edges->row;
+	int element, edge, node;
+
+	double phi, phi1[2], phi2[2];
+	int k1, k2, i1, j1, l1, l2, ej;
+	double val, s, **gradLambda;
+	int count;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF->col*elementDOF->col*elements->row;
+	ia = (int*)malloc(2*N * sizeof(int));
+	ja = (int*)malloc(2*N * sizeof(int));
+	va = (double*)malloc(2*N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+
+	num_qp=getNumQuadPoints(elementDOF->dop * 2 - 2, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF->col; k1++)
+		{
+			for (k2 = 0; k2<elementDOF->col; k2++)
+			{
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++)
+				{
+					cr_basis1(2, gradLambda, k1, phi1);
+					cr_basis1(2, gradLambda, k2, phi2);
+					val += s*weight[i1] * (phi1[0] * phi2[0] + phi1[1] * phi2[1]) * 2 * mu;
+				}
+				lA.val[k1][k2] += val;
+			} // k2
+		} // k1
+
+		l = elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++)
+		{
+			for (j = 0; j<elementDOF->col; j++)
+			{
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
+	} // k
+	free_dden_matrix(&lA);
+
+	for(i=0;i<N;i++){
+		ia[i+N] = ia[i] + elementDOF->dof;
+		ja[i+N] = ja[i] + elementDOF->dof;
+		va[i+N] = va[i];
+	}
+   N *= 2;
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+	free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
+}
+
+/**
+* \fn void assembleDivCrouzeixRaviartL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
+* \brief assemble stiffness matrix
+* \param *A pointer to stiffness matrix
+* \param *BT pointer to stiffness matrix
+* \param *C pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \return void
+*/
+void assembleDivCrouzeixRaviartL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
+{
+	int i, j, k, l;
+
+	int element[2], edge, node;
+
+	double phi, phi1[3], phi2[3], val[2];
+	int k1, k2, i1, j1, l1, l2, ej;
+	double x, y, xs[3], ys[3], s, **gradLambda;
+
+	int num_qp;
+	double lambdas[100][3], weight[100], gauss[100][3];
+
+	/***************** matrix A *****************/
+	int *ia, *ja;
+	double *va;
+	int N = 2*elementDOF0->col*elementDOF1->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA[2]; // local A
+	create_dden_matrix(elementDOF0->col, elementDOF1->col, lA);
+	create_dden_matrix(elementDOF0->col, elementDOF1->col, lA+1);
+	
+	// num_qp = getNumQuadPoints_ShunnWilliams(elementDOF->dop * 2, 2); // the number of numerical intergation points
+	// init_ShunnWilliams2d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
+	num_qp = getNumQuadPoints(elementDOF0->dop + elementDOF1->dop - 1, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		// end set parameters
+
+		init_dden_matrix(&lA[0], 0.0);init_dden_matrix(&lA[1], 0.0);
+		for (k1 = 0; k1<elementDOF0->col; k1++){
+			for (k2 = 0; k2<elementDOF1->col; k2++){
+				val[0] = 0; val[1] = 0;
+				for (i1 = 0; i1<num_qp; i1++){
+					// huzhang_basisDIV(lambdas[i1], gradLambda, elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, phi1);
+					cr_basis1(2, gradLambda, k1, phi1);
+					val[0] += s*weight[i1] * phi1[0];
+					val[1] += s*weight[i1] * phi1[1];
+				}
+				lA[0].val[k1][k2] += val[0]; lA[1].val[k1][k2] += val[1];
+			} // k2
+		} // k1
+
+		l = 2*elementDOF0->col*elementDOF1->col * k;
+		for (i = 0; i<elementDOF0->col; i++)
+		{
+			for (j = 0; j<elementDOF1->col; j++)
+			{
+				ia[l] = elementDOF0->val[k][i];
+				ja[l] = elementDOF1->val[k][j];
+				va[l] = lA[0].val[i][j];
+				l++;
+				ia[l] = elementDOF0->val[k][i] + elementDOF0->dof;
+				ja[l] = elementDOF1->val[k][j];
+				va[l] = lA[1].val[i][j];
+				l++;
+			} // i
+		} // j
+	} // k
+	free_dden_matrix(&lA[0]);
+	free_dden_matrix(&lA[1]);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	double eps = 0;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+		free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
+}
+
+/**
+ * \fn void assembleRHScurlMorleyCrouzeixRaviart2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOFm, ELEMENT_DOF *elementDOFcr, dvector *uh)
+ * \brief assemble stiffness matrix (f, v)
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \return void
+ */
+void assembleRHScurlMorleyCrouzeixRaviart2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOFm, ELEMENT_DOF *elementDOFcr, dvector *uh)
+{
+	int i,j,k,i1,j1,k1;
+	
+// write_dvector4Matlab(uh, "output/uh.dat");//////////
+// printf("elementDOFm:\n");
+// for(i=0;i<elementDOFm->row;i++)
+// {
+// for(j=0;j<elementDOFm->col;j++)
+// printf("%d, ", elementDOFm->val[i][j]);
+// printf("\n");
+// }
+// printf("elementDOFcr:\n");
+// for(i=0;i<elementDOFcr->row;i++)
+// {
+// for(j=0;j<elementDOFcr->col;j++)
+// printf("%d, ", elementDOFcr->val[i][j]);
+// printf("\n");
+// }
+
+	double phi, phi1[2], val[2];
+	double x[2], **gradLambda, *nve[3], **vertices;
+	double s;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+			
+	dvector lb;
+	create_dvector(2*elementDOFcr->col, &lb);
+	/************************************************** right hand side b *****************************************************************/
+	create_dvector(2*elementDOFcr->dof, b);
+	num_qp = getNumQuadPoints(2, 2); // elementDOFm->dop+elementDOFcr->dop-1
+	init_Gauss2d(num_qp, lambdas, weight);
+
+// printf("dsdfsfsdfdsfds\n");////////////////////////
+
+	for (k = 0; k<elements->row; k++){
+		// set parameters
+		vertices = elements->vertices[k];
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		for(i=0;i<3;i++){
+			j = elementEdge->val[k][i];
+			nve[i] = edges->nvector[j];
+		}
+		// end set parameters
+        
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOFcr->col; i++){
+			for (i1 = 0; i1<num_qp; i1++){
+				cr_basis(2, lambdas[i1], i, &phi);
+				val[0]=0; val[1]=0;
+				for (j = 0; j<elementDOFm->col; j++){
+					morley_basis1(lambdas[i1], gradLambda, nve, j, phi1);
+					j1 = elementDOFm->val[k][j];
+					val[0] += phi1[1] * uh->val[j1];
+					val[1] -= phi1[0] * uh->val[j1];
+				}
+				lb.val[i] += s*weight[i1]*val[0]*phi;
+				lb.val[i+elementDOFcr->col] += s*weight[i1]*val[1]*phi;
+			} // i1
+		} // k1
+
+		for (k1 = 0; k1<elementDOFcr->col; k1++){
+			i = elementDOFcr->val[k][k1];
+			b->val[i] += lb.val[k1];
+			b->val[i+elementDOFcr->dof] += lb.val[k1+elementDOFcr->col];
+		} // k1
+	} // k
+	free_dvector(&lb);
+}
+
+/**
+ * \fn void assembleRHSCrouzeixRaviartcurlMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOFcr, ELEMENT_DOF *elementDOFm, dvector *uh)
+ * \brief assemble stiffness matrix (f, v)
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \return void
+ */
+void assembleRHSCrouzeixRaviartcurlMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOFcr, ELEMENT_DOF *elementDOFm, dvector *uh)
+{
+	int i,j,k,i1,j1,k1;
+	
+	double phi, phi1[2], val[2];
+	double x[2], **gradLambda, *nve[3], **vertices;
+	double s;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+			
+	dvector lb;
+	create_dvector(elementDOFm->col, &lb);
+	/************************************************** right hand side b *****************************************************************/
+	create_dvector(elementDOFm->dof, b);
+	num_qp = getNumQuadPoints(2, 2); // elementDOFm->dop+elementDOFcr->dop-1
+	init_Gauss2d(num_qp, lambdas, weight);
+
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		vertices = elements->vertices[k];
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		for(i=0;i<3;i++){
+			j = elementEdge->val[k][i];
+			nve[i] = edges->nvector[j];
+		}
+		// end set parameters
+        
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOFm->col; i++)
+		{
+			for (i1 = 0; i1<num_qp; i1++)
+			{
+				morley_basis1(lambdas[i1], gradLambda, nve, i, phi1);
+				val[0]=0; val[1]=0;
+				for (j = 0; j<elementDOFcr->col; j++){
+					cr_basis(2, lambdas[i1], j, &phi);
+					j1 = elementDOFcr->val[k][j];
+					val[0] += phi * uh->val[j1];
+					val[1] += phi * uh->val[j1+elementDOFcr->dof];
+				}
+				lb.val[i] += s*weight[i1] * (val[0]*phi1[1]-val[1]*phi1[0]);
+			} // i1
+		} // k1
+
+		for (k1 = 0; k1<elementDOFm->col; k1++)
+		{
+			i = elementDOFm->val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1
+	} // k
+	free_dvector(&lb);
+}
+
+/**
+* \fn void assemblePressMassmatrixStokesNcP1P02d(dCSRmat *M, ELEMENT *elements, ELEMENT_DOF *elementDOF)
+* \brief assemble mass matrix
+* \param *M pointer to mass matrix
+* \param *elements pointer to the structure of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void assemblePressMassmatrixStokesNcP1P02d(dCSRmat *M, ELEMENT *elements, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k;
+
+	M->row = elementDOF->dof;
+	M->col = elementDOF->dof;
+	M->IA = (int*)calloc(M->row + 1, sizeof(int));
+	M->JA = NULL;
+	M->val = NULL;
+	for (i = 0; i<M->row; i++)
+		M->IA[i + 1] = 1;
+	for (i = 0; i<M->row; i++)
+		M->IA[i + 1] += M->IA[i];
+	M->nnz = M->IA[M->row];
+	M->JA = (int*)calloc(M->nnz, sizeof(int));
+	for (i = 0; i<M->nnz; i++)
+		M->JA[i] = i;
+	M->val = (double*)calloc(M->nnz, sizeof(double));
+	for (k = 0; k < elements->row; k++)
+		M->val[k] = elements->vol[k];
 }
 
 /**

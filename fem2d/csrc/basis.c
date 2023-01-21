@@ -982,6 +982,33 @@ void lagrange_basis2(double *lambda, double **gradLambda, int index, int dop, do
 	}
 }
 
+/** 
+ * \fn void cr_basis(int n, double *lambda, int index, double *phi)
+ * \brief basis function of Crouzeix–Raviart element
+ * \param n the dimension of space
+ * \param *lambda pointer to the area coordiante
+ * \param index the indicator of the basis function
+ * \param *phi basis function
+ * \return void
+ */
+void cr_basis(int n, double *lambda, int index, double *phi)
+{
+	*phi=1-n*lambda[index];
+}
+
+/** 
+ * \fn void cr_basis1(int n, double **gradLambda, int index, double *phi)
+ * \brief the gradient of Crouzeix–Raviart element basis function
+ * \param n the dimension of space
+ * \param **gradLambda pointer to the gradient of the barycentric coordinate
+ * \param index the indicator of the basis function
+ * \param phi the gradient of Crouzeix–Raviart element basis function
+ * \return void
+ */
+void cr_basis1(int n, double **gradLambda, int index, double *phi)
+{
+	axy_array(n, -1.0*n, gradLambda[index], phi);
+}
 
 /** 
  * \fn void rt_basis(double x, double y, double (*T)[2], double s, double elen[3], double eta[3], double xi[3], double orient[3], int index, int dop, double phi[2])

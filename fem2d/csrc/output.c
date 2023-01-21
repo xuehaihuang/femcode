@@ -185,6 +185,28 @@ void write_dvector4Matlab(dvector *vec, char *fname)
 }
 
 /**
+* \fn void write_ivector4Matlab(ivector *vec, char *fname)
+* \brief Write dvector *vec to disk files
+*/
+void write_ivector4Matlab(ivector *vec, char *fname)
+{
+	int i;
+	FILE *outputFile;
+
+	outputFile = fopen(fname, "w");
+	if (outputFile == NULL)
+	{
+		printf("write_dvector4Matlab: opening file %s fails!\n", fname);
+		return;
+	}
+
+	for (i = 0; i<vec[0].row; i++){
+		fprintf(outputFile, "%d\n", vec[0].val[i]+1);
+	}
+	fclose(outputFile);
+}
+
+/**
 * \fn void read_dvector4Matlab(dvector *vec, char *fname)
 * \brief Read dvector *vec from disk files
 */

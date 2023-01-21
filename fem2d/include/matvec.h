@@ -97,6 +97,8 @@ int sparse_mv0(double alpha, dCSRmat *A, double *x, double *y);
 int sparse_mv(double alpha, dCSRmat *A, double *x, double *y);
 int sparse_mv2b(double alpha, dCSRmat *A, dvector *x, dvector *y);
 int denmat_mv(double alpha, ddenmat *A, double *x, double *y);
+int dBDmat_mv(double alpha, dBDmat *A, dvector *x, dvector *y);
+int dBDmat_mv0(double alpha, dBDmat *A, dvector *x, dvector *y);
 int dBDMultiplydvector(double alpha, dBDmat *A, dvector *x, dvector *y);
 int getdiag(int n, dCSRmat *A, dvector *diag);
 

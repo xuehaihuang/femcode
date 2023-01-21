@@ -414,6 +414,67 @@ void uniformrefine(dennode *Cnodes, ELEMENT *Celements, EDGE *Cedges, iCSRmat *C
 }
 
 /**
+* \fn void repeatElementDoF(ELEMENT_DOF *elementDOFs, ELEMENT_DOF *elementDOFv, int n)
+* \brief repeat elementDOFs n times to generate elementDOFv
+* \param *elementDOFs pointer to the salar elementDOF
+* \param *elementDOFv pointer to the vector elementDOF
+* \param n time of repeat
+* \return void
+*/
+void repeatElementDoF(ELEMENT_DOF *elementDOFs, ELEMENT_DOF *elementDOFv, int n)
+{
+	int i, j, k;
+    int dof = elementDOFs->dof;
+	int dop = elementDOFs->dop;
+	int row = elementDOFs->row;
+	int col = elementDOFs->col;
+	create_elementDOF(dop, n*dof, row, n*col, elementDOFv);
+	for(k=0;k<row;k++){
+		for(j=0;j<n;j++){
+			for(i=0;i<col;i++)
+				elementDOFv->val[k][i+j*col] = elementDOFs->val[k][i] + j*dof;
+		}
+	}
+
+	ivector *nfFlagS = &elementDOFs->nfFlag;
+	ivector *freenodesS = &elementDOFs->freenodes;
+	ivector *nfreenodesS = &elementDOFs->nfreenodes;
+	ivector *indexS = &elementDOFs->index;
+	int nnf = nfreenodesS->row;
+
+	ivector *nfFlagV = &elementDOFv->nfFlag;
+	ivector *freenodesV = &elementDOFv->freenodes;
+	ivector *nfreenodesV = &elementDOFv->nfreenodes;
+	ivector *indexV = &elementDOFv->index;
+
+	create_ivector(n*dof, nfFlagV);
+	create_ivector(n*dof, indexV);
+	create_ivector(n*nnf, nfreenodesV);
+	create_ivector(n*dof - n*nnf, freenodesV);
+	for(j=0;j<n;j++){
+		for(i=0;i<dof;i++)
+			nfFlagV->val[i+j*dof]=nfFlagS->val[i];
+	}
+
+	j = 0; k = 0;
+	for (i = 0; i<n*dof; i++)
+	{
+		if (nfFlagV->val[i] == 1) //  non-free node
+		{
+			nfreenodesV->val[k] = i;
+			indexV->val[i] = k;
+			k++;
+		}
+		else // free variable
+		{
+			freenodesV->val[j] = i;
+			indexV->val[i] = j;
+			j++;
+		}
+	}
+}
+
+/**
 * \fn void extractNondirichletMatrixVector(dCSRmat *A, dvector *b, dCSRmat *A11, dvector *b1, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index, dvector *uh)
 * \brief extract stiffness matrix by removing the corresponding dirichlet boundary condition
 * \param *A pointer to the stiffness matrix with dirichelt boundary condition(without removed)
@@ -800,7 +861,7 @@ void extractFreenodesVector(dCSRmat *A, dvector *b, dvector *b1, ELEMENT_DOF *el
 }
 
 /**
-* \fn void updateFreenodesRHS(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *elementDOF)
+* \fn void updateFreenodesRHS(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc, int flag)
 * \brief update right hand side b in Ax = b when some elements of x are given
 * \param *A pointer to matrix
 * \param *b pointer to the right hand side
@@ -808,7 +869,84 @@ void extractFreenodesVector(dCSRmat *A, dvector *b, dvector *b1, ELEMENT_DOF *el
 * \param *x pointer to the solution
 * \return void
 */
-void updateFreenodesRHS(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *elementDOF)
+void updateFreenodesRHS(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc, int flag)
+{
+	if (x == NULL) return;
+
+	int i, j, k, i1, j1;
+
+	ivector *freenodesr = &elementDOFr->freenodes;
+	ivector *nfreenodesr = &elementDOFr->nfreenodes;
+	ivector *freenodesc = &elementDOFc->freenodes;
+	ivector *nfreenodesc = &elementDOFc->nfreenodes;
+	ivector *nfFlagc = &elementDOFc->nfFlag;
+	
+	if(flag==1){
+		if(nfreenodesr->row != nfreenodesc->row) return;
+	}
+
+	// set b = x for non-freenodes
+	if(flag==1){
+    	for (i1 = 0; i1<nfreenodesr->row; i1++){
+			i = nfreenodesr->val[i1];
+			j = nfreenodesc->val[i1];
+			b->val[i] = x->val[j];
+		}
+	}
+
+	// update b for freenodes
+	for (i1 = 0; i1<freenodesr->row; i1++){
+		i = freenodesr->val[i1];
+		for (j1 = A->IA[i]; j1 < A->IA[i + 1]; j1++){
+			j = A->JA[j1];
+			if (nfFlagc->val[j] == 1){
+				b->val[i] -= A->val[j1] * x->val[j];
+				break;
+			}
+		}
+	}
+	// for (i1 = 0; i1<freenodesr->row; i1++){
+	// 	i = freenodesr->val[i1];
+	// 	for (j1 = 0; j1 < nfreenodesc->row; j1++){
+	// 		j = nfreenodesc->val[j1];
+	// 		for (k = A->IA[i]; k < A->IA[i + 1]; k++){
+	// 			if (A->JA[k] == j){
+	// 				b->val[i] -= A->val[k] * x->val[j];
+	// 				break;
+	// 			}
+	// 		}
+	// 	}
+	// }
+}
+
+/**
+* \fn void updateFreenodes2bRHS(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
+* \brief update right hand side b in Ax = b when some elements of x are given
+* \param *A pointer to matrix
+* \param *b pointer to the right hand side
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *x pointer to the solution
+* \return void
+*/
+void updateFreenodes2bRHS(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
+{
+
+	updateFreenodesRHS(&A[0], &b[0], &x[0], elementDOF0, elementDOF0, 1);
+	updateFreenodesRHS(&A[1], &b[0], &x[1], elementDOF0, elementDOF1, 0);
+	updateFreenodesRHS(&A[2], &b[1], &x[0], elementDOF1, elementDOF0, 0);
+	updateFreenodesRHS(&A[3], &b[1], &x[1], elementDOF1, elementDOF1, 1);
+}
+
+/**
+* \fn void updateFreenodesRHS0(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *elementDOF)
+* \brief update right hand side b in Ax = b when some elements of x are given
+* \param *A pointer to matrix
+* \param *b pointer to the right hand side
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *x pointer to the solution
+* \return void
+*/
+void updateFreenodesRHS0(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *elementDOF)
 {
 	if (x == NULL) return;
 
@@ -830,7 +968,7 @@ void updateFreenodesRHS(dCSRmat *A, dvector *b, dvector *x, ELEMENT_DOF *element
 			j = nfreenodes->val[j1];
 			for (k = A->IA[i]; k < A->IA[i + 1]; k++){
 				if (A->JA[k] == j){
-					b->val[i] -= A->val[k] * b->val[j];
+					b->val[i] -= A->val[k] * x->val[j];
 					break;
 				}
 			}
@@ -906,14 +1044,14 @@ void extractFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr
 }
 
 /**
-* \fn void updateFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
+* \fn void updateFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc, int flag)
 * \brief extract stiffness matrix A11 according to freenodes
 * \param *A pointer to the original matrix
 * \param *A11 pointer to the extracted matrix according to freenodes
 * \param *elementDOF pointer to relation between elements and DOFs
 * \return void
 */
-void updateFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc)
+void updateFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr, ELEMENT_DOF *elementDOFc, int flag)
 {
 	// achiveve A11 due to dirichlet boundary condition
 	int i, j, k, l;
@@ -938,16 +1076,15 @@ void updateFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr,
 	A11->val = NULL;
 
 	// form A11->IA
-	for (i = 0; i < nfreenodesr->row; i++)
-	{
-		l = nfreenodesr->val[i];
-		A11->IA[l + 1] = 1;
+	if(flag==1){
+		for (i = 0; i < nfreenodesr->row; i++){
+			l = nfreenodesr->val[i];
+			A11->IA[l + 1] = 1;
+		}
 	}
-	for (i = 0; i < freenodesr->row; i++)
-	{
+	for (i = 0; i < freenodesr->row; i++){
 		l = freenodesr->val[i];
-		for (k = A->IA[l]; k<A->IA[l + 1]; k++)
-		{
+		for (k = A->IA[l]; k<A->IA[l + 1]; k++){
 			j = A->JA[k];
 			if (nfFlagc->val[j] == 0)
 				A11->IA[l + 1]++;
@@ -963,12 +1100,13 @@ void updateFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr,
 	A11->JA = (int*)calloc(A11->nnz, sizeof(int));
 	A11->val = (double*)calloc(A11->nnz, sizeof(double));
 	count = 0;
-	for (i = 0; i<A11->row; i++)
-	{
+	for (i = 0; i<A11->row; i++){
 		if(nfFlagr->val[i] == 1){
-			A11->JA[count] = i;
-			A11->val[count] = 1.0;
-			count++;
+			if(flag==1){
+				A11->JA[count] = i;
+				A11->val[count] = 1.0;
+				count++;
+			}
 		}
 		else{
 			for (k = A->IA[i]; k<A->IA[i + 1]; k++)
@@ -983,6 +1121,22 @@ void updateFreenodesMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOFr,
 			}		
 		}
 	}
+}
+
+/**
+* \fn void updateFreenodes2bMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
+* \brief extract stiffness matrix A11 according to freenodes
+* \param *A pointer to the original matrix
+* \param *A11 pointer to the extracted matrix according to freenodes
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void updateFreenodes2bMatrix11(dCSRmat *A, dCSRmat *A11, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
+{
+	updateFreenodesMatrix11(&A[0], &A11[0], elementDOF0, elementDOF0, 1);
+	updateFreenodesMatrix11(&A[1], &A11[1], elementDOF0, elementDOF1, 0);
+	updateFreenodesMatrix11(&A[2], &A11[2], elementDOF1, elementDOF0, 0);
+	updateFreenodesMatrix11(&A[3], &A11[3], elementDOF1, elementDOF1, 1);
 }
 
 /**

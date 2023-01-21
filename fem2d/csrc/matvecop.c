@@ -34,10 +34,19 @@ int create_csr_matrix(int m, int n, int nnz, dCSRmat *A)
 {		
 	A->row=m;
 	A->col=n;
+	if(nnz<0) nnz=0;
 	A->nnz=nnz;
+
 	A->IA=(int*)calloc(m+1, sizeof(int));
-	A->JA=(int*)calloc(nnz, sizeof(int));
-	A->val=(double*)calloc(nnz, sizeof(double));
+
+	if(nnz==0){
+		A->JA=NULL;
+		A->val=NULL;
+	}
+	else{
+		A->JA=(int*)calloc(nnz, sizeof(int));
+		A->val=(double*)calloc(nnz, sizeof(double));
+	}
 	return 1;
 }
 
@@ -518,8 +527,15 @@ int free_elementDOF(ELEMENT_DOF *A)
  */
 int create_dvector(int m, dvector *u)
 {		
+	if(m < 0) m=0;
+
 	u->row=m;
-	u->val=(double*)calloc(m, sizeof(double)); 	
+
+	if(m==0)
+		u->val= NULL;	
+	else
+		u->val=(double*)calloc(m, sizeof(double));
+
 	return 1;
 }
 
@@ -532,9 +548,16 @@ int create_dvector(int m, dvector *u)
  * \return 1 if succeed
  */
 int create_ivector(int m, ivector *u)
-{		
-	u->row=m;
-	u->val=(int*)calloc(m, sizeof(int)); 	
+{	
+	if(m < 0) m=0;
+
+	u->row = m;
+
+	if(m==0)
+		u->val= NULL;	
+	else
+		u->val=(int*)calloc(m, sizeof(int));
+
 	return 1;
 }
 
@@ -1216,6 +1239,90 @@ int denmat_mv(double alpha, ddenmat *A, double *x, double *y)
 	return 1;
 }
 
+/**
+* \fn int dBDmat_mv(double alpha, dBDmat *A, dvector *x, dvector *y)
+* \brief Matrix-vector multiplication y = alpha*A*x + y
+* \param alpha real number
+* \param *A pointer to dBDmat matrix
+* \param *x pointer to dvector
+* \param *y pointer to dvector
+* \return 1 if succeed
+*/
+int dBDmat_mv(double alpha, dBDmat *A, dvector *x, dvector *y)
+{
+	if (A->row != y->row || A->col != x->row)
+		return 0;
+
+	int i, j, i1, j1, nblk;
+	double temp;
+	ddenmat *blk;
+
+	int rcount = 0;
+	int lcount = 0;
+	for (nblk = 0; nblk<A->nb; nblk++)
+	{
+		blk = A->blk + nblk;
+		for (i1 = 0; i1<blk->row; i1++)
+		{
+			i = rcount + i1;
+			temp = 0.0;
+			for (j1 = 0; j1<blk->col; j1++)
+			{
+				j = lcount + j1;
+				temp += blk->val[i1][j1] * x->val[j];
+			}
+			y->val[i] += temp*alpha;
+		}
+
+		rcount += blk->row;
+		lcount += blk->col;
+	}
+
+	return 1;
+}
+
+/**
+* \fn int dBDmat_mv0(double alpha, dBDmat *A, dvector *x, dvector *y)
+* \brief Matrix-vector multiplication y = alpha*A*x
+* \param alpha real number
+* \param *A pointer to dBDmat matrix
+* \param *x pointer to dvector
+* \param *y pointer to dvector
+* \return 1 if succeed
+*/
+int dBDmat_mv0(double alpha, dBDmat *A, dvector *x, dvector *y)
+{
+	if (A->row != y->row || A->col != x->row)
+		return 0;
+
+	int i, j, i1, j1, nblk;
+	double temp;
+	ddenmat *blk;
+
+	int rcount = 0;
+	int lcount = 0;
+
+	for (nblk = 0; nblk<A->nb; nblk++)
+	{
+		blk = A->blk + nblk;
+		for (i1 = 0; i1<blk->row; i1++)
+		{
+			i = rcount + i1;
+			temp = 0.0;
+			for (j1 = 0; j1<blk->col; j1++)
+			{
+				j = lcount + j1;
+				temp += blk->val[i1][j1] * x->val[j];
+			}
+			y->val[i] = temp*alpha;
+		}
+
+		rcount += blk->row;
+		lcount += blk->col;
+	}
+
+	return 1;
+}
 
 /**
  * \fn int dBDMultiplydvector(double alpha, dBDmat *A, dvector *x, dvector *y) 

@@ -29,9 +29,11 @@ typedef struct {
 	int     max_iter; /**< solve params, max number of iterations */
 	int     max_levels; /**< max number of levels */
 
+	int     mass_precond_type; /**< type of preconditioning mass matrix: 1 diagonal; 2 full  */
 	int     precond_type; /**< type of precondition in ASP: 1 additive; 2 multiplicative  */
 	double  *precond_scale; /**< scale for the preconditioned variables in precondition  */
 	int     smoother; /**< type of smoother */
+	int     schwarz_type; /**< type of Schwarz smoother */
 	int     smooth_iter; /**< number of smoothing */
 	int     mg_smoother; /**< type of smoother */
 	int     mg_smooth_iter; /**< number of smoothing in mg */
@@ -42,6 +44,8 @@ typedef struct {
 	dvector  *diag; /**< preconditioning diagonal data */
 	
 	dCSRmat  *precA[4]; /**< preconditioning data, the sparse matrix */
+	dBDmat  *Minv; /**< preconditioning data, the dBDmat matrix */
+	dOBDmat *swzB; /**< block diagonal matrix for Schwarz smoother, the dOBDmat matrix */
 
 	dCSRmat  *As; /**< problem data, the sparse matrix */
 	dCSRmat  *Rs; /**< auxiliary restriction matrix */
@@ -102,8 +106,12 @@ void precond_null(dCSRmat *A, double *r, double *z, void *data);
 void precond_diag(dCSRmat *A, double *r, double *z, void *data);
 void precond_classicAMG(dCSRmat *A, double *r, double *z, void *data);
 void precond_asP1ElasDG(dCSRmat *A, double *r, double *z, void *data);
+void precond_aspLaplaceVec2(dCSRmat *A, double *r, double *z, void *data);
 void precond_TriAsP1ElasDG(dvector *r, dvector *z, void *data);
 void precond_DiagAsP1ElasDG(dvector *r, dvector *z, void *data);
+void precond_AbfpAsP1Stokes(dvector *r, dvector *z, void *data);
+void precond_DiagAsP1StokesNcP1_P0(dvector *r, dvector *z, void *data);
+
 
 /* gmres.c */
 int gmres(dCSRmat *A, dvector *b, dvector *u, int restart, int MaxIt, double tol, precond *pre, int print_level);

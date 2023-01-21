@@ -20,6 +20,753 @@
 #include "checkmat.h"
 
 
+ /**
+ * \fn void interpP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg)
+ * \brief the interpolation matrix from the 1st order Lagrange element to piecewise kth order polynomial in 2d
+ * \param *P pointer to the vector-version interpolation matrix
+ * \param *elementDOFp1 pointer to the relation between elements and degrees of freedom of the 1st order Lagrange element
+ * \param *elementDOFdg pointer to the relation between elements and degrees of freedom of the piecewise kth order polynomial
+ */
+void interpP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg)
+{
+	int i, j, ie, ii, k;
+	int curnode;
+	int dop = elementDOFdg->dop;
+
+	if (elementDOFp1->dop != 1)
+	{
+		P = NULL;
+		return;
+	}
+
+	P->row = elementDOFdg->dof;
+	P->col = elementDOFp1->dof;
+	P->IA = (int*)malloc((P->row + 1) * sizeof(int));
+	P->JA = NULL;
+	P->val = NULL;
+
+	// step 1P: Find first the structure IA of the interpolation matrix P
+	P->IA[0] = 0;
+	for (k = 0; k < elementDOFdg->row; k++)
+	{
+		if (dop == 0)
+		{
+			for (i = 0; i < elementDOFdg->col; i++) //  for each node
+			{
+				curnode = elementDOFdg->val[k][i];
+				P->IA[curnode + 1] = elementDOFp1->col;
+			}
+			continue;
+		}
+
+		for (i = 0; i < 3; i++) //  for each vertex
+		{
+			curnode = elementDOFdg->val[k][i];
+			P->IA[curnode + 1] = 1;
+		}
+		for (i = 3; i < 3 * dop; i++) //  for each node in edge
+		{
+			curnode = elementDOFdg->val[k][i];
+			P->IA[curnode + 1] = 2;
+		}
+		for (i = 3 * dop; i < elementDOFdg->col; i++) //  for each node in element
+		{
+			curnode = elementDOFdg->val[k][i];
+			P->IA[curnode + 1] = elementDOFp1->col;
+		}
+	}
+	for (i = 0; i<P->row; i++)
+		P->IA[i + 1] += P->IA[i];
+	P->nnz = P->IA[P->row];
+
+	// step 2P: Find the structure JA of the interpolation matrix P
+	P->JA = (int*)malloc(P->nnz * sizeof(int));
+	for (k = 0; k < elementDOFdg->row; k++)
+	{
+		if (dop == 0)
+		{
+			for (i = 0; i < elementDOFdg->col; i++) //  for each node
+			{
+				curnode = elementDOFdg->val[k][i];
+				for (j = 0; j < elementDOFp1->col; j++)
+				{
+					P->JA[P->IA[curnode] + j] = elementDOFp1->val[k][j];
+				}
+			}
+			continue;
+		}
+
+		for (i = 0; i < 3; i++) //  for each vertex
+		{
+			curnode = elementDOFdg->val[k][i];
+			P->JA[P->IA[curnode]] = elementDOFp1->val[k][i];
+		}
+		for (i = 3; i < 3 * dop; i++) //  for each node in edge
+		{
+			curnode = elementDOFdg->val[k][i];
+			ie = (i - 3) / (dop - 1);
+			for (j = 0; j < 2; j++)
+			{
+				P->JA[P->IA[curnode] + j] = elementDOFp1->val[k][(ie + j) % 3];
+			}
+		}
+		for (i = 3 * dop; i < elementDOFdg->col; i++) //  for each node in element
+		{
+			curnode = elementDOFdg->val[k][i];
+			for (j = 0; j < elementDOFp1->col; j++)
+			{
+				P->JA[P->IA[curnode] + j] = elementDOFp1->val[k][j];
+			}
+		}
+	}
+
+	// step 3P: Loop element by element and compute the actual entries storing them in P
+	P->val = (double*)malloc(P->nnz * sizeof(double));
+	for (k = 0; k < elementDOFdg->row; k++)
+	{
+		if (elementDOFdg->dop == 0)
+		{
+			curnode = elementDOFdg->val[k][0];
+			for (j = 0; j < 3; j++)
+				P->val[P->IA[curnode] + j] = 1.0 / 3.0;
+			continue;
+		}
+
+		for (i = 0; i < 3; i++) //  for each vertex
+		{
+			curnode = elementDOFdg->val[k][i];
+			P->val[P->IA[curnode]] = 1.0;
+		}
+
+		for (ie = 0; ie < 3; ie++) //  for each dof in edge
+		{
+			for (ii = 0; ii < elementDOFdg->dop - 1; ii++)
+			{
+				curnode = elementDOFdg->val[k][3 + ie*(elementDOFdg->dop - 1) + ii];
+				P->val[P->IA[curnode]] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
+				P->val[P->IA[curnode] + 1] = (1.0 + ii) / (double)elementDOFdg->dop;
+				/*				P->val[P->IA[curnode] + ie] = 0;
+				P->val[P->IA[curnode] + (ie + 1) % 3] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
+				P->val[P->IA[curnode] + (ie + 2) % 3] = (1.0 + ii) / (double)elementDOFdg->dop;*/
+			}
+		}
+
+		if (elementDOFdg->dop > 2) //  for each dof in element
+		{
+			if (elementDOFdg->dop == 3)
+			{
+				curnode = elementDOFdg->val[k][3 * elementDOFdg->dop];
+				for (j = 0; j < 3; j++)
+					P->val[P->IA[curnode] + j] = 1.0 / 3.0;
+			}
+			else if (elementDOFdg->dop == 4)
+			{
+				for (i = 0; i < 3; i++)
+				{
+					curnode = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
+					for (j = 0; j < 3; j++)
+						P->val[P->IA[curnode] + j] = 1.0 / 4.0;
+					P->val[P->IA[curnode] + i] = 2.0 / 4.0;
+				}
+			}
+			else if (elementDOFdg->dop == 5)
+			{
+				for (i = 0; i < 3; i++)
+				{
+					curnode = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
+					for (j = 0; j < 3; j++)
+						P->val[P->IA[curnode] + j] = 1.0 / 5.0;
+					P->val[P->IA[curnode] + i] = 3.0 / 5.0;
+				}
+
+				for (ie = 0; ie < 3; ie++)
+				{
+					curnode = elementDOFdg->val[k][3 * elementDOFdg->dop + 3 + ie];
+					for (j = 0; j < 3; j++)
+						P->val[P->IA[curnode] + j] = 2.0 / 5.0;
+					P->val[P->IA[curnode] + ie] = 1.0 / 5.0;
+				}
+			}
+		} // elementDOFdg->dop > 2
+	} // k
+}
+
+ /**
+ * \fn void interpP1toP2_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFp2, EDGE *edges)
+ * \brief the interpolation matrix from the 1st order Lagrange element to 2nd order Lagrange element in 2d
+ * \param *P pointer to the vector-version interpolation matrix
+ * \param *elementDOFp1 pointer to the relation between elements and degrees of freedom of the 1st order Lagrange element
+ * \param *elementDOFcr pointer to the relation between elements and degrees of freedom of the Crouzeix–Raviart element
+ * \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+ the fourth column stores -1 if the edge is on boundary
+ */
+void interpP1toP2_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFp2, EDGE *edges)
+{
+	int i, j, ie, ii, k;
+	//	int curnode[2];
+
+	if (elementDOFp1->dop != 1 || elementDOFp2->dop != 2)
+	{
+		P = NULL;
+		return;
+	}
+
+	int nn = elementDOFp1->dof;
+	int ne = edges->row;
+
+	P->row = elementDOFp2->dof;
+	P->col = elementDOFp1->dof;
+	P->IA = (int*)malloc((P->row + 1) * sizeof(int));
+	P->JA = NULL;
+	P->val = NULL;
+
+	// step 1P: Find first the structure IA of the interpolation matrix P
+	P->IA[0] = 0;
+	for (i = 0; i < nn; i++)
+		P->IA[i + 1] = 1;
+	for (i = nn; i < nn + ne; i++)
+		P->IA[i + 1] = 2;
+	for (i = 0; i<P->row; i++)
+		P->IA[i + 1] += P->IA[i];
+	P->nnz = P->IA[P->row];
+
+	// step 2P&3P: Find the structure JA and the actual entries val of the interpolation matrix P
+	P->JA = (int*)malloc(P->nnz * sizeof(int));
+	P->val = (double*)malloc(P->nnz * sizeof(double));
+	for (i = 0; i < nn; i++)
+	{
+		P->JA[P->IA[i]] = i;
+		P->val[P->IA[i]] = 1;
+	}
+	for (i = nn; i < nn + ne; i++)
+	{
+		for (j = 0; j < 2; j++)
+		{
+			P->JA[P->IA[i] + j] = edges->val[i - nn][j];
+			P->val[P->IA[i] + j] = 0.5;
+		}
+	}
+}
+
+/**
+* \fn void interpVecP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg)
+* \brief the vector-version interpolation matrix from the 1st order Lagrange element to piecewise kth order polynomial in 2d
+* \param *P pointer to the vector-version interpolation matrix
+* \param *elementDOFp1 pointer to the relation between elements and degrees of freedom of the 1st order Lagrange element
+* \param *elementDOFdg pointer to the relation between elements and degrees of freedom of the piecewise kth order polynomial
+*/
+void interpVecP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg)
+{
+	int i, j, ie, ii, k;
+	int curnode[2];
+	int dop = elementDOFdg->dop;
+
+	if (elementDOFp1->dop != 1)
+	{
+		P = NULL;
+		return;
+	}
+
+	P->row = elementDOFdg->dof * 2;
+	P->col = elementDOFp1->dof * 2;
+	P->IA = (int*)malloc((P->row + 1) * sizeof(int));
+	P->JA = NULL;
+	P->val = NULL;
+
+	// step 1P: Find first the structure IA of the interpolation matrix P
+	P->IA[0] = 0;
+	for (k = 0; k < elementDOFdg->row; k++)
+	{
+		if (dop == 0)
+		{
+			for (i = 0; i < elementDOFdg->col; i++) //  for each node
+			{
+				curnode[0] = elementDOFdg->val[k][i];
+				curnode[1] = curnode[0] + elementDOFdg->dof;
+				P->IA[curnode[0] + 1] = elementDOFp1->col;
+				P->IA[curnode[1] + 1] = elementDOFp1->col;
+			}
+			continue;
+		}
+
+		for (i = 0; i < 3; i++) //  for each vertex
+		{
+			curnode[0] = elementDOFdg->val[k][i];
+			curnode[1] = curnode[0] + elementDOFdg->dof;
+			P->IA[curnode[0] + 1] = 1;
+			P->IA[curnode[1] + 1] = 1;
+		}
+		for (i = 3; i < 3 * dop; i++) //  for each node in edge
+		{
+			curnode[0] = elementDOFdg->val[k][i];
+			curnode[1] = curnode[0] + elementDOFdg->dof;
+			P->IA[curnode[0] + 1] = 2;
+			P->IA[curnode[1] + 1] = 2;
+		}
+		for (i = 3 * dop; i < elementDOFdg->col; i++) //  for each node in element
+		{
+			curnode[0] = elementDOFdg->val[k][i];
+			curnode[1] = curnode[0] + elementDOFdg->dof;
+			P->IA[curnode[0] + 1] = elementDOFp1->col;
+			P->IA[curnode[1] + 1] = elementDOFp1->col;
+		}
+	}
+	for (i = 0; i<P->row; i++)
+		P->IA[i + 1] += P->IA[i];
+	P->nnz = P->IA[P->row];
+
+	// step 2P: Find the structure JA of the interpolation matrix P
+	P->JA = (int*)malloc(P->nnz * sizeof(int));
+	for (k = 0; k < elementDOFdg->row; k++)
+	{
+		if (dop == 0)
+		{
+			for (i = 0; i < elementDOFdg->col; i++) //  for each node
+			{
+				curnode[0] = elementDOFdg->val[k][i];
+				curnode[1] = curnode[0] + elementDOFdg->dof;
+				for (j = 0; j < elementDOFp1->col; j++)
+				{
+					P->JA[P->IA[curnode[0]] + j] = elementDOFp1->val[k][j];
+					P->JA[P->IA[curnode[1]] + j] = elementDOFp1->val[k][j] + elementDOFp1->dof;
+				}
+			}
+			continue;
+		}
+
+		for (i = 0; i < 3; i++) //  for each vertex
+		{
+			curnode[0] = elementDOFdg->val[k][i];
+			curnode[1] = curnode[0] + elementDOFdg->dof;
+			P->JA[P->IA[curnode[0]]] = elementDOFp1->val[k][i];
+			P->JA[P->IA[curnode[1]]] = elementDOFp1->val[k][i] + elementDOFp1->dof;
+		}
+		for (i = 3; i < 3 * dop; i++) //  for each node in edge
+		{
+			curnode[0] = elementDOFdg->val[k][i];
+			curnode[1] = curnode[0] + elementDOFdg->dof;
+			ie = (i - 3) / (dop - 1);
+			for (j = 0; j < 2; j++)
+			{
+				P->JA[P->IA[curnode[0]] + j] = elementDOFp1->val[k][(ie + j) % 3];
+				P->JA[P->IA[curnode[1]] + j] = elementDOFp1->val[k][(ie + j) % 3] + elementDOFp1->dof;
+			}
+		}
+		for (i = 3 * dop; i < elementDOFdg->col; i++) //  for each node in element
+		{
+			curnode[0] = elementDOFdg->val[k][i];
+			curnode[1] = curnode[0] + elementDOFdg->dof;
+			for (j = 0; j < elementDOFp1->col; j++)
+			{
+				P->JA[P->IA[curnode[0]] + j] = elementDOFp1->val[k][j];
+				P->JA[P->IA[curnode[1]] + j] = elementDOFp1->val[k][j] + elementDOFp1->dof;
+			}
+		}
+	}
+
+	// step 3P: Loop element by element and compute the actual entries storing them in P
+	P->val = (double*)malloc(P->nnz * sizeof(double));
+	for (k = 0; k < elementDOFdg->row; k++)
+	{
+		if (elementDOFdg->dop == 0)
+		{
+			curnode[0] = elementDOFdg->val[k][0];
+			curnode[1] = curnode[0] + elementDOFdg->dof;
+			for (j = 0; j < 3; j++)
+			{
+				P->val[P->IA[curnode[0]] + j] = 1.0 / 3.0;
+				P->val[P->IA[curnode[1]] + j] = 1.0 / 3.0;
+			}
+			continue;
+		}
+
+		for (i = 0; i < 3; i++) //  for each vertex
+		{
+			curnode[0] = elementDOFdg->val[k][i];
+			curnode[1] = curnode[0] + elementDOFdg->dof;
+			P->val[P->IA[curnode[0]]] = 1.0;
+			P->val[P->IA[curnode[1]]] = 1.0;
+		}
+
+		for (ie = 0; ie < 3; ie++) //  for each dof in edge
+		{
+			for (ii = 0; ii < elementDOFdg->dop - 1; ii++)
+			{
+				curnode[0] = elementDOFdg->val[k][3 + ie*(elementDOFdg->dop - 1) + ii];
+				curnode[1] = curnode[0] + elementDOFdg->dof;
+
+				P->val[P->IA[curnode[0]]] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
+				P->val[P->IA[curnode[0]] + 1] = (1.0 + ii) / (double)elementDOFdg->dop;
+				/*				P->val[P->IA[curnode[0]] + ie] = 0;
+				P->val[P->IA[curnode[0]] + (ie + 1) % 3] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
+				P->val[P->IA[curnode[0]] + (ie + 2) % 3] = (1.0 + ii) / (double)elementDOFdg->dop;*/
+
+				for (j = 0; j < 3; j++)
+					P->val[P->IA[curnode[1]] + j] = P->val[P->IA[curnode[0]] + j];
+			}
+		}
+
+		if (elementDOFdg->dop > 2) //  for each dof in element
+		{
+			if (elementDOFdg->dop == 3)
+			{
+				curnode[0] = elementDOFdg->val[k][3 * elementDOFdg->dop];
+				curnode[1] = curnode[0] + elementDOFdg->dof;
+
+				for (j = 0; j < 3; j++)
+				{
+					P->val[P->IA[curnode[0]] + j] = 1.0 / 3.0;
+					P->val[P->IA[curnode[1]] + j] = 1.0 / 3.0;
+				}
+			}
+			else if (elementDOFdg->dop == 4)
+			{
+				for (i = 0; i < 3; i++)
+				{
+					curnode[0] = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
+					curnode[1] = curnode[0] + elementDOFdg->dof;
+
+					for (j = 0; j < 3; j++)
+						P->val[P->IA[curnode[0]] + j] = 1.0 / 4.0;
+
+					P->val[P->IA[curnode[0]] + i] = 2.0 / 4.0;
+
+					for (j = 0; j < 3; j++)
+						P->val[P->IA[curnode[1]] + j] = P->val[P->IA[curnode[0]] + j];
+				}
+			}
+			else if (elementDOFdg->dop == 5)
+			{
+				for (i = 0; i < 3; i++)
+				{
+					curnode[0] = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
+					curnode[1] = curnode[0] + elementDOFdg->dof;
+
+					for (j = 0; j < 3; j++)
+						P->val[P->IA[curnode[0]] + j] = 1.0 / 5.0;
+
+					P->val[P->IA[curnode[0]] + i] = 3.0 / 5.0;
+
+					for (j = 0; j < 3; j++)
+						P->val[P->IA[curnode[1]] + j] = P->val[P->IA[curnode[0]] + j];
+				}
+
+				for (ie = 0; ie < 3; ie++)
+				{
+					curnode[0] = elementDOFdg->val[k][3 * elementDOFdg->dop + 3 + ie];
+					curnode[1] = curnode[0] + elementDOFdg->dof;
+
+					for (j = 0; j < 3; j++)
+						P->val[P->IA[curnode[0]] + j] = 2.0 / 5.0;
+
+					P->val[P->IA[curnode[0]] + ie] = 1.0 / 5.0;
+
+					for (j = 0; j < 3; j++)
+						P->val[P->IA[curnode[1]] + j] = P->val[P->IA[curnode[0]] + j];
+				}
+			}
+		} // elementDOFdg->dop > 2
+
+	} // k
+}
+
+/**
+* \fn void interpVecP1toNcP1_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFcr, EDGE *edges)
+* \brief the vector-version interpolation matrix from the 1st order Lagrange element to nonconforming P1 element in 2d
+* \param *P pointer to the vector-version interpolation matrix
+* \param *elementDOFp1 pointer to the relation between elements and degrees of freedom of the 1st order Lagrange element
+* \param *elementDOFcr pointer to the relation between elements and degrees of freedom of the nonconforming P1 element
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+*/
+void interpVecP1toNcP1_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFcr, EDGE *edges)
+{
+	int i, j, ie, ii, k;
+	int curnode[2];
+
+	if (elementDOFp1->dop != 1)
+	{
+		P = NULL;
+		return;
+	}
+
+	P->row = elementDOFcr->dof * 2;
+	P->col = elementDOFp1->dof * 2;
+	P->IA = (int*)malloc((P->row + 1) * sizeof(int));
+	P->JA = NULL;
+	P->val = NULL;
+
+	// step 1P: Find first the structure IA of the interpolation matrix P
+	P->IA[0] = 0;
+	for (i = 0; i<P->row; i++)
+		P->IA[i + 1] = 2;
+
+	for (i = 0; i<P->row; i++)
+		P->IA[i + 1] += P->IA[i];
+
+	P->nnz = P->IA[P->row];
+
+	// step 2P: Find the structure JA of the interpolation matrix P
+	P->JA = (int*)malloc(P->nnz * sizeof(int));
+	for (i = 0; i < elementDOFcr->dof; i++)
+	{
+		curnode[0] = i;
+		curnode[1] = curnode[0] + elementDOFcr->dof;
+		for (j = 0; j < 2; j++)
+		{
+			P->JA[P->IA[curnode[0]] + j] = edges->val[i][j];
+			P->JA[P->IA[curnode[1]] + j] = edges->val[i][j] + elementDOFp1->dof;
+		}
+	}
+
+	// step 3P: Loop element by element and compute the actual entries storing them in P
+	P->val = (double*)malloc(P->nnz * sizeof(double));
+	for (i = 0; i<P->nnz; i++)
+		P->val[i] = 0.5;
+}
+
+/**
+* \fn void interpVecP1toMINI_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFmini)
+* \brief the vector-version interpolation matrix from the 1st order Lagrange element to MINI element for Stokes equation in 2d
+* \param *P pointer to the vector-version interpolation matrix
+* \param *elementDOFp1 pointer to the relation between elements and degrees of freedom of the 1st order Lagrange element
+* \param *elementDOFmini pointer to the relation between elements and degrees of freedom of the MINI element
+*/
+void interpVecP1toMINI_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFmini)
+{
+	int i, j, ie, ii, k;
+	int curnode[2];
+
+	if (elementDOFp1->dop != 1)
+	{
+		P = NULL;
+		return;
+	}
+
+	int nn = elementDOFp1->dof;
+
+	P->row = elementDOFmini->dof * 2;
+	P->col = elementDOFp1->dof * 2;
+	P->IA = (int*)malloc((P->row + 1) * sizeof(int));
+	P->JA = NULL;
+	P->val = NULL;
+
+	// step 1P: Find first the structure IA of the interpolation matrix P
+	P->IA[0] = 0;
+	for (i = 0; i < nn; i++)
+	{
+		P->IA[i + 1] = 1;
+		P->IA[i + 1 + elementDOFmini->dof] = 1;
+	}
+	for (i = nn; i < elementDOFmini->dof; i++)
+	{
+		P->IA[i + 1] = 3;
+		P->IA[i + 1 + elementDOFmini->dof] = 3;
+	}
+
+	for (i = 0; i<P->row; i++)
+		P->IA[i + 1] += P->IA[i];
+
+	P->nnz = P->IA[P->row];
+
+	// step 2P&3P: Find the structure JA and the actual entries val of the interpolation matrix P
+	P->JA = (int*)malloc(P->nnz * sizeof(int));
+	P->val = (double*)malloc(P->nnz * sizeof(double));
+	for (i = 0; i < nn; i++)
+	{
+		curnode[0] = i;
+		curnode[1] = curnode[0] + elementDOFmini->dof;
+
+		P->JA[P->IA[curnode[0]]] = i;
+		P->JA[P->IA[curnode[1]]] = i + nn;
+		P->val[P->IA[curnode[0]]] = 1;
+		P->val[P->IA[curnode[1]]] = 1;
+	}
+	for (i = nn; i < elementDOFmini->dof; i++)
+	{
+		curnode[0] = i;
+		curnode[1] = curnode[0] + elementDOFmini->dof;
+		for (j = 0; j < 3; j++)
+		{
+			P->JA[P->IA[curnode[0]] + j] = elementDOFp1->val[i - nn][j];
+			P->JA[P->IA[curnode[1]] + j] = elementDOFp1->val[i - nn][j] + nn;
+			P->val[P->IA[curnode[0]] + j] = 1.0 / 3.0;
+			P->val[P->IA[curnode[1]] + j] = 1.0 / 3.0;
+		}
+	}
+}
+
+/**
+* \fn void interpVecP1toCR_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFcr, EDGE *edges)
+* \brief the vector-version interpolation matrix from the 1st order Lagrange element to Crouzeix–Raviart element for Stokes equation in 2d
+* \param *P pointer to the vector-version interpolation matrix
+* \param *elementDOFp1 pointer to the relation between elements and degrees of freedom of the 1st order Lagrange element
+* \param *elementDOFcr pointer to the relation between elements and degrees of freedom of the Crouzeix–Raviart element
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+*/
+void interpVecP1toCR_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFcr, EDGE *edges)
+{
+	int i, j, ie, ii, k;
+	int curnode[2];
+
+	if (elementDOFp1->dop != 1)
+	{
+		P = NULL;
+		return;
+	}
+
+	int nn = elementDOFp1->dof;
+	int ne = edges->row;
+
+	P->row = elementDOFcr->dof * 2;
+	P->col = elementDOFp1->dof * 2;
+	P->IA = (int*)malloc((P->row + 1) * sizeof(int));
+	P->JA = NULL;
+	P->val = NULL;
+
+	// step 1P: Find first the structure IA of the interpolation matrix P
+	P->IA[0] = 0;
+	for (i = 0; i < nn; i++)
+	{
+		P->IA[i + 1] = 1;
+		P->IA[i + 1 + elementDOFcr->dof] = 1;
+	}
+	for (i = nn; i < nn + ne; i++)
+	{
+		P->IA[i + 1] = 2;
+		P->IA[i + 1 + elementDOFcr->dof] = 2;
+	}
+	for (i = nn + ne; i < elementDOFcr->dof; i++)
+	{
+		P->IA[i + 1] = 3;
+		P->IA[i + 1 + elementDOFcr->dof] = 3;
+	}
+
+	for (i = 0; i<P->row; i++)
+		P->IA[i + 1] += P->IA[i];
+
+	P->nnz = P->IA[P->row];
+
+	// step 2P&3P: Find the structure JA and the actual entries val of the interpolation matrix P
+	P->JA = (int*)malloc(P->nnz * sizeof(int));
+	P->val = (double*)malloc(P->nnz * sizeof(double));
+	for (i = 0; i < nn; i++)
+	{
+		curnode[0] = i;
+		curnode[1] = curnode[0] + elementDOFcr->dof;
+
+		P->JA[P->IA[curnode[0]]] = i;
+		P->JA[P->IA[curnode[1]]] = i + nn;
+		P->val[P->IA[curnode[0]]] = 1;
+		P->val[P->IA[curnode[1]]] = 1;
+	}
+	for (i = nn; i < nn + ne; i++)
+	{
+		curnode[0] = i;
+		curnode[1] = curnode[0] + elementDOFcr->dof;
+		for (j = 0; j < 2; j++)
+		{
+			P->JA[P->IA[curnode[0]] + j] = edges->val[i - nn][j];
+			P->JA[P->IA[curnode[1]] + j] = edges->val[i - nn][j] + nn;
+			P->val[P->IA[curnode[0]] + j] = 0.5;
+			P->val[P->IA[curnode[1]] + j] = 0.5;
+		}
+	}
+	for (i = nn + ne; i < elementDOFcr->dof; i++)
+	{
+		curnode[0] = i;
+		curnode[1] = curnode[0] + elementDOFcr->dof;
+		for (j = 0; j < 3; j++)
+		{
+			P->JA[P->IA[curnode[0]] + j] = elementDOFp1->val[i - nn - ne][j];
+			P->JA[P->IA[curnode[1]] + j] = elementDOFp1->val[i - nn - ne][j] + nn;
+			P->val[P->IA[curnode[0]] + j] = 1.0 / 3.0;
+			P->val[P->IA[curnode[1]] + j] = 1.0 / 3.0;
+
+		}
+	}
+}
+
+/**
+* \fn void interpVecP2toCR_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp2, ELEMENT_DOF *elementDOFcr)
+* \brief the vector-version interpolation matrix from the 2st order Lagrange element to Crouzeix–Raviart element for Stokes equation in 2d
+* \param *P pointer to the vector-version interpolation matrix
+* \param *elementDOFp1 pointer to the relation between elements and degrees of freedom of the 1st order Lagrange element
+* \param *elementDOFcr pointer to the relation between elements and degrees of freedom of the Crouzeix–Raviart element
+*/
+void interpVecP2toCR_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp2, ELEMENT_DOF *elementDOFcr)
+{
+	int i, j, ie, ii, k;
+	int curnode[2];
+
+	if (elementDOFp2->dop != 2)
+	{
+		P = NULL;
+		return;
+	}
+
+	//	int nn = elementDOFp2->dof;
+	//	int ne = edges->row;
+
+	P->row = elementDOFcr->dof * 2;
+	P->col = elementDOFp2->dof * 2;
+	P->IA = (int*)malloc((P->row + 1) * sizeof(int));
+	P->JA = NULL;
+	P->val = NULL;
+
+	// step 1P: Find first the structure IA of the interpolation matrix P
+	P->IA[0] = 0;
+	for (i = 0; i < elementDOFp2->dof; i++)
+	{
+		P->IA[i + 1] = 1;
+		P->IA[i + 1 + elementDOFcr->dof] = 1;
+	}
+	for (i = elementDOFp2->dof; i < elementDOFcr->dof; i++)
+	{
+		P->IA[i + 1] = 6;
+		P->IA[i + 1 + elementDOFcr->dof] = 6;
+	}
+
+	for (i = 0; i<P->row; i++)
+		P->IA[i + 1] += P->IA[i];
+
+	P->nnz = P->IA[P->row];
+
+	// step 2P&3P: Find the structure JA and the actual entries val of the interpolation matrix P
+	P->JA = (int*)malloc(P->nnz * sizeof(int));
+	P->val = (double*)malloc(P->nnz * sizeof(double));
+	for (i = 0; i < elementDOFp2->dof; i++)
+	{
+		curnode[0] = i;
+		curnode[1] = curnode[0] + elementDOFcr->dof;
+
+		P->JA[P->IA[curnode[0]]] = i;
+		P->JA[P->IA[curnode[1]]] = i + elementDOFp2->dof;
+		P->val[P->IA[curnode[0]]] = 1;
+		P->val[P->IA[curnode[1]]] = 1;
+	}
+	for (i = elementDOFp2->dof; i < elementDOFcr->dof; i++)
+	{
+		curnode[0] = i;
+		curnode[1] = curnode[0] + elementDOFcr->dof;
+		for (j = 0; j < 3; j++)
+		{
+			P->JA[P->IA[curnode[0]] + j] = elementDOFp2->val[i - elementDOFp2->dof][j];
+			P->JA[P->IA[curnode[1]] + j] = elementDOFp2->val[i - elementDOFp2->dof][j] + elementDOFp2->dof;
+			P->val[P->IA[curnode[0]] + j] = -1.0 / 9.0;
+			P->val[P->IA[curnode[1]] + j] = -1.0 / 9.0;
+		}
+		for (j = 3; j < 6; j++)
+		{
+			P->JA[P->IA[curnode[0]] + j] = elementDOFp2->val[i - elementDOFp2->dof][j];
+			P->JA[P->IA[curnode[1]] + j] = elementDOFp2->val[i - elementDOFp2->dof][j] + elementDOFp2->dof;
+			P->val[P->IA[curnode[0]] + j] = 4.0 / 9.0;
+			P->val[P->IA[curnode[1]] + j] = 4.0 / 9.0;
+		}
+	}
+}
+
 /**
  * \fn void interpolation(dCSRmat *A, ivector *vertices, dCSRmat *P, AMG_param *param)
  * \brief Generate interpolation P 
