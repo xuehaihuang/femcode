@@ -6,8 +6,8 @@
  *
  */
 
-/*! \file poisson.c
- *  \brief Poisson equation
+/*! \file biharmonic.c
+ *  \brief Biharmonic equation
  */
 
 #include <stdio.h>

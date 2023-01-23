@@ -99,6 +99,11 @@ int main(int argc, const char * argv[])
 		// quadcurlperturbfem(&elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
 		exit(0);
 	}
+	else if(problem_num == 5) // Triharmonic equation
+	{
+		// triharmonicfem2d(&elements[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
+		triharmonicfem2d(elements, elementEdge, edges, nodes, &Input);
+	}
 	else
 	{
 		printf("Please set problem_num = 1 or 2!\n");

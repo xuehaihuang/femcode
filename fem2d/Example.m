@@ -1,4 +1,4 @@
-% This example is defined on the square domain (-1, 1)\items (-1,1)
+% This example is defined on the square domain (-1, 1)\times (-1,1)
 clear all;
 syms x y mu lambda;
 %mu=1;

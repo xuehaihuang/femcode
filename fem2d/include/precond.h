@@ -106,12 +106,13 @@ void precond_null(dCSRmat *A, double *r, double *z, void *data);
 void precond_diag(dCSRmat *A, double *r, double *z, void *data);
 void precond_classicAMG(dCSRmat *A, double *r, double *z, void *data);
 void precond_asP1ElasDG(dCSRmat *A, double *r, double *z, void *data);
-void precond_aspLaplaceVec2(dCSRmat *A, double *r, double *z, void *data);
+void precond_aspLaplaceVec(dCSRmat *A, double *r, double *z, int n, void *data);
 void precond_TriAsP1ElasDG(dvector *r, dvector *z, void *data);
 void precond_DiagAsP1ElasDG(dvector *r, dvector *z, void *data);
 void precond_AbfpAsP1Stokes(dvector *r, dvector *z, void *data);
-void precond_DiagAsP1StokesNcP1_P0(dvector *r, dvector *z, void *data);
-
+void precond_DiagAsP1Stokes(dvector *r, dvector *z, void *data);
+void precond_AbfpAsP1symStokes(dvector *r, dvector *z, void *data);
+void precond_DiagAsP1symStokes(dvector *r, dvector *z, void *data);
 
 /* gmres.c */
 int gmres(dCSRmat *A, dvector *b, dvector *u, int restart, int MaxIt, double tol, precond *pre, int print_level);

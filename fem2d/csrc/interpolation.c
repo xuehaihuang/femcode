@@ -597,6 +597,85 @@ void interpVecP1toMINI_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *el
 }
 
 /**
+* \fn void interpStensorP1toMINI_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFmini)
+* \brief the vector-version interpolation matrix from the 1st order Lagrange element to MINI element for Stokes equation in 2d
+* \param *P pointer to the vector-version interpolation matrix
+* \param *elementDOFp1 pointer to the relation between elements and degrees of freedom of the 1st order Lagrange element
+* \param *elementDOFmini pointer to the relation between elements and degrees of freedom of the MINI element
+*/
+void interpStensorP1toMINI_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFmini)
+{
+	int i, j, ie, ii, k;
+	int curnode[3];
+
+	if (elementDOFp1->dop != 1)
+	{
+		P = NULL;
+		return;
+	}
+
+	int nn = elementDOFp1->dof;
+
+	P->row = elementDOFmini->dof * 3;
+	P->col = elementDOFp1->dof * 3;
+	P->IA = (int*)malloc((P->row + 1) * sizeof(int));
+	P->JA = NULL;
+	P->val = NULL;
+
+	// step 1P: Find first the structure IA of the interpolation matrix P
+	P->IA[0] = 0;
+	for (i = 0; i < nn; i++)
+	{
+		P->IA[i + 1] = 1;
+		P->IA[i + 1 + elementDOFmini->dof] = 1;
+		P->IA[i + 1 + elementDOFmini->dof*2] = 1;
+	}
+	for (i = nn; i < elementDOFmini->dof; i++)
+	{
+		P->IA[i + 1] = 3;
+		P->IA[i + 1 + elementDOFmini->dof] = 3;
+		P->IA[i + 1 + elementDOFmini->dof*2] = 3;
+	}
+
+	for (i = 0; i<P->row; i++)
+		P->IA[i + 1] += P->IA[i];
+
+	P->nnz = P->IA[P->row];
+
+	// step 2P&3P: Find the structure JA and the actual entries val of the interpolation matrix P
+	P->JA = (int*)malloc(P->nnz * sizeof(int));
+	P->val = (double*)malloc(P->nnz * sizeof(double));
+	for (i = 0; i < nn; i++)
+	{
+		curnode[0] = i;
+		curnode[1] = curnode[0] + elementDOFmini->dof;
+		curnode[2] = curnode[1] + elementDOFmini->dof;
+
+		P->JA[P->IA[curnode[0]]] = i;
+		P->JA[P->IA[curnode[1]]] = i + nn;
+		P->JA[P->IA[curnode[2]]] = i + nn*2;
+		P->val[P->IA[curnode[0]]] = 1;
+		P->val[P->IA[curnode[1]]] = 1;
+		P->val[P->IA[curnode[2]]] = 1;
+	}
+	for (i = nn; i < elementDOFmini->dof; i++)
+	{
+		curnode[0] = i;
+		curnode[1] = curnode[0] + elementDOFmini->dof;
+		curnode[2] = curnode[1] + elementDOFmini->dof;
+		for (j = 0; j < 3; j++)
+		{
+			P->JA[P->IA[curnode[0]] + j] = elementDOFp1->val[i - nn][j];
+			P->JA[P->IA[curnode[1]] + j] = elementDOFp1->val[i - nn][j] + nn;
+			P->JA[P->IA[curnode[2]] + j] = elementDOFp1->val[i - nn][j] + nn*2;
+			P->val[P->IA[curnode[0]] + j] = 1.0 / 3.0;
+			P->val[P->IA[curnode[1]] + j] = 1.0 / 3.0;
+			P->val[P->IA[curnode[2]] + j] = 1.0 / 3.0;
+		}
+	}
+}
+
+/**
 * \fn void interpVecP1toCR_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFcr, EDGE *edges)
 * \brief the vector-version interpolation matrix from the 1st order Lagrange element to Crouzeix–Raviart element for Stokes equation in 2d
 * \param *P pointer to the vector-version interpolation matrix
