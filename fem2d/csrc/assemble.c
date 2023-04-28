@@ -863,35 +863,7 @@ void assembleMassmatrixLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elemen
 	free_dden_matrix(&lA);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -983,36 +955,8 @@ void assembleMassmatrixLagrangeDiagBlockRepeat2d(dCSRmat *A, ELEMENT *elements, 
 		va[i+N] = va[i];
 	}
 	N *= 2;
-// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -1099,35 +1043,7 @@ void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdg
 	free_dden_matrix(&lA);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -1277,35 +1193,7 @@ void assembleBiGradCrouzeixRaviart2d(dCSRmat *A, ELEMENT *elements, idenmat *ele
 	free_dden_matrix(&lA);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -1456,35 +1344,7 @@ void assembleBiGradMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 	free_dden_matrix(&lA);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -1574,35 +1434,7 @@ void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 	free_dden_matrix(&lA);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -1908,35 +1740,7 @@ void assembleBiHessC0ipdg2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
 	free(index);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -2029,35 +1833,7 @@ void assembleBiGradCrouzeixRaviartDiagBlockRepeat2d(dCSRmat *A, ELEMENT *element
 	}
 	N *= 2;
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -2145,35 +1921,7 @@ void assembleDivCrouzeixRaviartL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_D
 	free_dden_matrix(&lA[1]);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-		free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -2465,35 +2213,7 @@ void assembleBiGradMINIsymtensorDiagBlockRepeat2d(dCSRmat *A, ELEMENT *elements,
 	}
 	N *= 3;
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -2589,35 +2309,7 @@ void assembleRotSMINILagrange2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elem
 	free_dden_matrix(&lA[1]);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-		free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -2872,35 +2564,7 @@ void assembleweightedMassmatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_
 	free_dden_matrix(&lA);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -2988,35 +2652,7 @@ void assembleDivHuZhangL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elem
 	free_dden_matrix(&lA[1]);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-		free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -3262,35 +2898,7 @@ void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, E
 	} // edge
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, 2*N, 0, 0);
-		free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<2*N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<2*N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 2*elementDOF->dof, 2*elementDOF->dof);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -3376,35 +2984,7 @@ void assembleweightedMassmatrixHuangZhou2d(dCSRmat *A, ELEMENT *elements, ELEMEN
 	free_dden_matrix(&lA);
 	
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -3492,35 +3072,7 @@ void assembleDivHuangZhouL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 	free_dden_matrix(&lA[1]);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-		free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -3650,35 +3202,7 @@ void assembleStiffmatrixElasLagrange(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF 
 	free_dden_matrix(&lA);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	double eps = 0;
-	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
-	free(ia); free(ja); free(va);
-	}
-	else{
-		int nzmax = 0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ) nzmax++;
-		}
-
-		int *Ia, *Ja;
-		double *Va;
-		Ia = (int*)malloc(nzmax * sizeof(int));
-		Ja = (int*)malloc(nzmax * sizeof(int));
-		Va = (double*)malloc(nzmax * sizeof(double));
-		int cur=0;
-		for(i=0; i<N; i++){
-			if(fabs(va[i]) > eps ){
-				Ia[cur] = ia[i];
-				Ja[cur] = ja[i];
-				Va[cur] = va[i];
-				cur++;
-			}
-		}
-		free(ia); free(ja); free(va);
-		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
-		free(Ia); free(Ja); free(Va);
-	}
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**

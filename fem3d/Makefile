@@ -18,6 +18,7 @@ AR = ar ruc
 #COPTS     = -g -cc=icc -config=icc -O3
 #COPTS     = -g -config=icc -O3
 #COPTS     = -g -O3
+#BOPT      = -std=c99
 
 COPTS     = $(BOPT)
 CINCLUDES = -I./include
@@ -81,11 +82,11 @@ $(AMGLIB): $(OBJSC) $(OBJSF)
 	ranlib $(AMGLIB)
 
 test: 
-	$(CC) $(CFLAGS) -c main/test.c  -o main/test.o
+	$(CC) $(CFLAGS) -c main/test.c -o main/test.o
 	$(FC) main/test.o $(AMGLIB) $(FLFLAGS) -o test.ex
 
 testmat: 
-	$(CC) $(CFLAGS) -c main/testmat.c  -o main/testmat.o
+	$(CC) $(CFLAGS) -c main/testmat.c -o main/testmat.o
 	$(FC) main/testmat.o $(AMGLIB) $(FLFLAGS) -o testmat.ex
 
 

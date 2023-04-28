@@ -13,6 +13,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <time.h>
 #include "header.h"
 #include "matvec.h"
@@ -2464,6 +2465,53 @@ int dIJtoCSR(dCSRmat *A, int *ia, int *ja, double *val, int N, int row, int col)
 	return 1;
 }
 
+/**
+ * \fn int dIJtoCSReps(dCSRmat *A, int *ia, int *ja, double *val, int N, int row, int col, double eps)
+ * \brief Transform a double matrix from its IJ format to its CSR format, and remove zero elements with epsilon.
+ * \param *A pointer to CSR matrix
+ * \param *ia pointer to the row indcies of IJ matrix
+ * \param *ja pointer to the column indcies of IJ matrix
+ * \param *val pointer to the values of IJ matrix
+ * \param N the first N data of IJ matrix
+ * \param row row of CSR matrix
+ * \param col column of CSR matrix
+ * \param eps epsilon
+ * \return 1 if succeed, 0 if fail 
+ */
+int dIJtoCSReps(dCSRmat *A, int *ia, int *ja, double *va, int N, int row, int col, double eps)
+{
+	int i;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+	free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
+
+	return 1;
+}
 
 /**
  * \fn int dCSRtoIJ(dCSRmat *A, dIJmat *B)

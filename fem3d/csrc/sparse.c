@@ -13,6 +13,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <time.h>
 #include "header.h"
 #include "matvec.h"
@@ -2401,13 +2402,13 @@ void sparseTripleMultiplication3(dCSRmat *R, dCSRmat *A, dCSRmat *P, dCSRmat *B)
 
 
 /**
- * \fn int dIJtoCSR(dIJmat *A, dCSRmat *B)
+ * \fn int sorteddIJtoCSR(dIJmat *A, dCSRmat *B)
  * \brief Transform a double matrix from its IJ format to its CSR format.
  * \param *A pointer to IJ matrix
  * \param *B pointer to CSR matrix
  * \return 1 if succeed, 0 if fail 
  */
-int dIJtoCSR(dIJmat *A, dCSRmat *B)
+int sorteddIJtoCSR(dIJmat *A, dCSRmat *B)
 {
 	int i, m=A->row, n=A->col, nnz=A->nnz;
 	
@@ -2434,6 +2435,193 @@ int dIJtoCSR(dIJmat *A, dCSRmat *B)
 	return 1;
 }
 
+/**
+ * \fn int dIJtoCSR(dCSRmat *A, int *ia, int *ja, double *val, int N, int row, int col)
+ * \brief Transform a double matrix from its IJ format to its CSR format.
+ * \param *A pointer to CSR matrix
+ * \param *ia pointer to the row indcies of IJ matrix
+ * \param *ja pointer to the column indcies of IJ matrix
+ * \param *val pointer to the values of IJ matrix
+ * \param N the first N data of IJ matrix
+ * \param row row of CSR matrix
+ * \param col column of CSR matrix
+ * \return 1 if succeed, 0 if fail 
+ */
+int dIJtoCSR(dCSRmat *A, int *ia, int *ja, double *val, int N, int row, int col)
+{
+	if(N<1){
+		A = NULL;
+		return -1;
+	}
+
+	int i, j, k, l, m, n;
+	int count;
+
+	if(row<1 || col<1){
+		m = ia[0]; n = ja[0];
+		for(i=1; i<N; i++){
+			if(ia[i]>m) m = ia[i];
+			if(ja[i]>n) n = ja[i];
+		}
+		m++; n++;
+	}
+	else{
+		m=row, n=col;
+	}
+
+	int *curi, r, c;
+	dCSRmat B;
+	B.row = m;
+	B.col = n;
+	B.IA = (int*)calloc(B.row + 1, sizeof(int));
+	for (i = 0; i< N; i++) {
+		if(ia[i]<B.row && ja[i]<B.col) B.IA[ia[i] + 1]++;
+	}
+
+	for (i = 0; i<B.row; i++)
+		B.IA[i + 1] += B.IA[i];
+	B.nnz = B.IA[B.row];
+	
+	B.JA = (int*)calloc(B.nnz + 1, sizeof(int));
+	B.val = (double*)calloc(B.nnz + 1, sizeof(double));
+	curi = (int*)calloc(B.row, sizeof(int));
+	for (i = 0; i < N; i++){
+		r = ia[i]; c = ja[i];
+		if(r<B.row && c<B.col){
+			j = B.IA[r]+curi[r];
+			B.JA[j] = c;
+			B.val[j] = val[i];
+			curi[r]++;
+		}
+	}
+	free(curi);
+	
+	A->row = B.row;
+	A->col = B.col;
+	A->IA = (int*)calloc(A->row + 1, sizeof(int));
+
+	int *index;
+	int istart;
+	index = (int*)calloc(A->col, sizeof(int));
+	for (i = 0; i<A->col; i++)
+		index[i] = -1;
+	// step 1A: Find first the structure IA of the stiffness matrix A
+	for (i = 0; i<A->row; i++)
+	{
+		count = 0;
+		istart = -2;
+		for (j = B.IA[i]; j<B.IA[i + 1]; j++)
+		{
+			k = B.JA[j];
+			if (index[k] == -1)
+			{
+				index[k] = istart;
+				istart = k;
+				count++;
+			}
+		}
+		A->IA[i + 1] = count;
+
+		for (j = 0; j<count; j++)
+		{
+			l = istart;
+			istart = index[l];
+			index[l] = -1;
+		}
+	} // i
+	for (i = 0; i<A->row; i++)
+		A->IA[i + 1] += A->IA[i];
+	A->nnz = A->IA[A->row];
+
+// step 2A: Find the structure JA of the stiffness matrix A
+	int *curj;
+	curj = (int*)calloc(B.col, sizeof(int));
+	A->JA = (int*)calloc(A->nnz, sizeof(int));
+	A->val = (double*)calloc(A->nnz, sizeof(double));
+	for (i = 0; i<A->row; i++)
+	{
+		istart = -2;
+		count = A->IA[i + 1]-1;
+		for (j = B.IA[i]; j<B.IA[i + 1]; j++)
+		{
+			k = B.JA[j];
+			if (index[k] == -1)
+			{
+				index[k] = istart;
+				istart = k;
+				curj[k]=count;
+				count--;
+			}
+		}
+
+		for (j = A->IA[i]; j < A->IA[i + 1]; j++)
+		{
+			A->JA[j] = istart;
+			istart = index[istart];
+			index[A->JA[j]] = -1;
+		}
+
+		for (j = B.IA[i]; j < B.IA[i + 1]; j++)
+		{
+			k = B.JA[j];
+			A->val[curj[k]] += B.val[j];
+		}
+	} // i
+	free(index);
+	free(curj);
+
+	free_csr_matrix(&B);
+	
+	return 1;
+}
+
+/**
+ * \fn int dIJtoCSReps(dCSRmat *A, int *ia, int *ja, double *val, int N, int row, int col, double eps)
+ * \brief Transform a double matrix from its IJ format to its CSR format, and remove zero elements with epsilon.
+ * \param *A pointer to CSR matrix
+ * \param *ia pointer to the row indcies of IJ matrix
+ * \param *ja pointer to the column indcies of IJ matrix
+ * \param *val pointer to the values of IJ matrix
+ * \param N the first N data of IJ matrix
+ * \param row row of CSR matrix
+ * \param col column of CSR matrix
+ * \param eps epsilon
+ * \return 1 if succeed, 0 if fail 
+ */
+int dIJtoCSReps(dCSRmat *A, int *ia, int *ja, double *va, int N, int row, int col, double eps)
+{
+	int i;
+	if(eps<1e-20){
+		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+	free(ia); free(ja); free(va);
+	}
+	else{
+		int nzmax = 0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ) nzmax++;
+		}
+
+		int *Ia, *Ja;
+		double *Va;
+		Ia = (int*)malloc(nzmax * sizeof(int));
+		Ja = (int*)malloc(nzmax * sizeof(int));
+		Va = (double*)malloc(nzmax * sizeof(double));
+		int cur=0;
+		for(i=0; i<N; i++){
+			if(fabs(va[i]) > eps ){
+				Ia[cur] = ia[i];
+				Ja[cur] = ja[i];
+				Va[cur] = va[i];
+				cur++;
+			}
+		}
+		free(ia); free(ja); free(va);
+		dIJtoCSR(A, Ia, Ja, Va, nzmax, 0, 0);
+		free(Ia); free(Ja); free(Va);
+	}
+
+	return 1;
+}
 
 /**
  * \fn int dCSRtoIJ(dCSRmat *A, dIJmat *B)

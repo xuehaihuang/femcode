@@ -1033,90 +1033,18 @@ void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 	// double *lambdaConst;
 
 	int num_qp;
-	double lambdas[100][4], weight[100];
-	
-	int *index;
-	int istart;
-	
+	double lambdas[100][4], weight[100];	
 
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF->dof;
-	A->col = A->row;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran->IA[i];j < elementdofTran->IA[i+1];j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF->col; k++)
-			{
-				node = elementDOF->val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF->col; k++)
-			{
-				node = elementDOF->val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[0].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lA);
+
 	num_qp = getNumQuadPoints_ShunnWilliams(2*elementDOF->dop, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
@@ -1126,6 +1054,7 @@ void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 		// gradLambda = elements->gradLambda[k];
 		// end set parameters
 
+		init_dden_matrix(&lA, 0.0);
 		for (k1 = 0; k1<elementDOF->col; k1++)
 		{
 			for (k2 = 0; k2<elementDOF->col; k2++)
@@ -1141,24 +1070,23 @@ void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF->col; k1++)
+		l = elementDOF[0].col*elementDOF[0].col * k;
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF->val[k][k1];
-			for (k2 = 0; k2<elementDOF->col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF->val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
 	} // k
 	free_dden_matrix(&lA);	
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
+	
 }
 
 /**
@@ -1231,89 +1159,17 @@ void assembleBiGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFac
 	int num_qp;
 	double lambdas[100][4], lambdas2[100][3], weight[100];
 	
-	int *index;
-	int istart;
-	
-
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF->dof;
-	A->col = A->row;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran->IA[i];j < elementdofTran->IA[i+1];j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF->col; k++)
-			{
-				node = elementDOF->val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF->col; k++)
-			{
-				node = elementDOF->val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[0].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
-	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF->dop - 1), 3); // the number of numerical intergation points
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lA);
+	
+	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop - 1), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
 	{
@@ -1323,39 +1179,37 @@ void assembleBiGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFac
 		// end set parameters
 
 		init_dden_matrix(&lA, 0.0);
-		for (k1 = 0; k1<elementDOF->col; k1++)
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
 		{
-			for (k2 = 0; k2<elementDOF->col; k2++)
+			for (k2 = 0; k2<elementDOF[0].col; k2++)
 			{
 				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
-					lagrange3d_basis1(lambdas[i1], gradLambda, k1, elementDOF->dop, phi1);
-					lagrange3d_basis1(lambdas[i1], gradLambda, k2, elementDOF->dop, phi2);
+					lagrange3d_basis1(lambdas[i1], gradLambda, k1, elementDOF[0].dop, phi1);
+					lagrange3d_basis1(lambdas[i1], gradLambda, k2, elementDOF[0].dop, phi2);
 					val1 += vol * weight[i1] * dot_array(3, phi1, phi2);
 				}
 				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 		
-		for (k1 = 0; k1<elementDOF->col; k1++)
+		l = elementDOF[0].col*elementDOF[0].col * k;
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF->val[k][k1];
-			for (k2 = 0; k2<elementDOF->col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF->val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // j
+		} // i
 	} // k	
 	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -1763,89 +1617,17 @@ void assembleBiCurlNedelec1st3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 
 	int num_qp;
 	double lambdas[100][4], lambdas2[100][3], weight[100];
-	
-	int *index;
-	int istart;
-	
-	
+		
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[0].dof;
-	A->col = A->row;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[0].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lA);
+
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
@@ -1882,24 +1664,22 @@ void assembleBiCurlNedelec1st3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		l = elementDOF[0].col*elementDOF[0].col * k;
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // j
+		} // i
 	} // k
 	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -1952,88 +1732,17 @@ void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 
 	int num_qp;
 	double lambdas[100][4], weight[100];
-	
-	int *index;
-	int istart;	
-	
+		
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[1].dof;
-	A->col = elementDOF[0].dof;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1B: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran[1].IA[i];j<elementdofTran[1].IA[i+1];j++)
-		{
-			element = elementdofTran[1].JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran[1].IA[i]; j<elementdofTran[1].IA[i + 1]; j++)
-		{
-			element = elementdofTran[1].JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[1].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
 	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+
 	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
@@ -2077,24 +1786,22 @@ void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		l = elementDOF[0].col*elementDOF[1].col * k;
+		for (i = 0; i<elementDOF[1].col; i++)
 		{
-			i = elementDOF[1].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[1].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // j
+		} // i
 	} // k
-	free_dden_matrix(&lA);	
+	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -2245,88 +1952,16 @@ void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 	int num_qp;
 	double lambdas[100][4], weight[100];
 	
-	int *index;
-	int istart;
-	
-	
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[0].dof;
-	A->col = A->row;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[0].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lA);
+
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
@@ -2364,24 +1999,22 @@ void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		l = elementDOF[0].col*elementDOF[0].col * k;
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // j
+		} // i
 	} // k	
 	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -2428,88 +2061,18 @@ void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 
 	int num_qp;
 	double lambdas[100][4], weight[100];
-	
-	int *index;
-	int istart;
-	
+		
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[1].dof;
-	A->col = elementDOF[0].dof;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran[1].IA[i];j<elementdofTran[1].IA[i+1];j++)
-		{
-			element = elementdofTran[1].JA[j];
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[1].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran[1].IA[i]; j<elementdofTran[1].IA[i + 1]; j++)
-		{
-			element = elementdofTran[1].JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
 	ddenmat lA; // local A
 	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+
 	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
@@ -2554,24 +2117,22 @@ void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		l = elementDOF[0].col*elementDOF[1].col * k;
+		for (i = 0; i<elementDOF[1].col; i++)
 		{
-			i = elementDOF[1].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[1].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // j
+		} // i
 	} // k
-	free_dden_matrix(&lA);	
+	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -2727,88 +2288,16 @@ void assembleBiCurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elem
 	int num_qp;
 	double lambdas[100][4], lambdas2[100][3], weight[100];
 	
-	int *index;
-	int istart;
-	
-	
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[0].dof;
-	A->col = A->row;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[0].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA, lB; // local A: lA = C lB C^T
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lB);
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lA);
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lB);
 	// step 3A: Loop element by element and compute the actual entries storing them in A
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
@@ -2850,25 +2339,23 @@ void assembleBiCurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elem
 		lbC.row=basisCoeffs->row; lbC.col=basisCoeffs->col; lbC.val=basisCoeffs->val[k];
 		ABAt_ddenmat(1.0, &lbC, &lB, &lA);
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		l = elementDOF[0].col*elementDOF[0].col * k;
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // j
+		} // i
 	} // k
 	free_dden_matrix(&lA);
 	free_dden_matrix(&lB);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -2916,89 +2403,17 @@ void assembleBiGradcurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *
 	int num_qp;
 	double lambdas[100][4], lambdas2[100][3], weight[100];
 	
-	int *index;
-	int istart;
-	
-	
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[0].dof;
-	A->col = A->row;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[0].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA, lB; // local A: lA = C lB C^T
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lB);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lA);
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lB);
+
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-2), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
@@ -3039,25 +2454,23 @@ void assembleBiGradcurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *
 		lbC.row=basisCoeffs->row; lbC.col=basisCoeffs->col; lbC.val=basisCoeffs->val[k];
 		ABAt_ddenmat(1.0, &lbC, &lB, &lA);
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		l = elementDOF[0].col*elementDOF[0].col * k;
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // j
+		} // i
 	} // k	
 	free_dden_matrix(&lA);
 	free_dden_matrix(&lB);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -3108,89 +2521,17 @@ void assembleBiGradcurlperturbHuangZhang3d(dCSRmat *A, double paraeps, short nit
 	double lambdas1[100][4], weight1[100];
 	double lambdas2[100][3], weight2[100];
 	
-	int *index;
-	int istart;
-	
-	
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[0].dof;
-	A->col = A->row;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[0].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA, lB; // local A: lA = C lB C^T
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lB);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lA);
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lB);
+	
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-2), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	num_qp1 = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 3); // the number of numerical intergation points
@@ -3272,25 +2613,23 @@ void assembleBiGradcurlperturbHuangZhang3d(dCSRmat *A, double paraeps, short nit
 		lbC.row=basisCoeffs->row; lbC.col=basisCoeffs->col; lbC.val=basisCoeffs->val[k];
 		ABAt_ddenmat(1.0, &lbC, &lB, &lA);
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		l = elementDOF[0].col*elementDOF[0].col * k;
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
 	} // k	
 	free_dden_matrix(&lA);
 	free_dden_matrix(&lB);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -3335,89 +2674,18 @@ void assembleHuangZhangGradLagrange3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT
 
 	int num_qp;
 	double lambdas[100][4], weight[100];
-	
-	int *index;
-	int istart;
-	
+		
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[1].dof;
-	A->col = elementDOF[0].dof;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran[1].IA[i];j<elementdofTran[1].IA[i+1];j++)
-		{
-			element = elementdofTran[1].JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran[1].IA[i]; j<elementdofTran[1].IA[i + 1]; j++)
-		{
-			element = elementdofTran[1].JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[1].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA, lB; // local A: lA = lB C^T
 	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lA);
 	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lB);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+
 	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
@@ -3466,25 +2734,23 @@ void assembleHuangZhangGradLagrange3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT
 		lbC.row=basisCoeffs->row; lbC.col=basisCoeffs->col; lbC.val=basisCoeffs->val[k];
 		ABt_ddenmat(1.0, &lB, &lbC, &lA);
 
-		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		l = elementDOF[0].col*elementDOF[1].col * k;
+		for (i = 0; i<elementDOF[1].col; i++)
 		{
-			i = elementDOF[1].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[1].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
 	} // k
 	free_dden_matrix(&lA);
-	free_dden_matrix(&lB);	
+	free_dden_matrix(&lB);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -3646,90 +2912,18 @@ void assembleBiCurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, 
 	double *lambdaConst;
 
 	int num_qp;
-	double lambdas[100][4], lambdas2[100][3], weight[100];
-	
-	int *index;
-	int istart;
-	
+	double lambdas[100][4], lambdas2[100][3], weight[100];	
 	
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[0].dof;
-	A->col = A->row;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[0].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lA);
+
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-1), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
@@ -3766,24 +2960,22 @@ void assembleBiCurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, 
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		l = elementDOF[0].col*elementDOF[0].col * k;
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // j
+		} // i
 	} // k
 	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -3830,89 +3022,18 @@ void assembleBiGradcurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFa
 
 	int num_qp;
 	double lambdas[100][4], lambdas2[100][3], weight[100];
-	
-	int *index;
-	int istart;
-	
+		
 	
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[0].dof;
-	A->col = A->row;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran->IA[i];j<elementdofTran->IA[i+1];j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran->IA[i]; j<elementdofTran->IA[i + 1]; j++)
-		{
-			element = elementdofTran->JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[0].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
-	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+	create_dden_matrix(elementDOF[0].col, elementDOF[0].col, &lA);
+
 	num_qp = getNumQuadPoints_ShunnWilliams(2*(elementDOF[0].dop-2), 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
@@ -3949,24 +3070,22 @@ void assembleBiGradcurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFa
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		l = elementDOF[0].col*elementDOF[0].col * k;
+		for (i = 0; i<elementDOF[0].col; i++)
 		{
-			i = elementDOF[0].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // j
+		} // i
 	} // k	
 	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**
@@ -4013,88 +3132,17 @@ void assembleHuangGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *element
 
 	int num_qp;
 	double lambdas[100][4], weight[100];
-	
-	int *index;
-	int istart;
-	
+		
 	/************************************************** stiffness matrix A *****************************************************************/
-	A->row = elementDOF[1].dof;
-	A->col = elementDOF[0].dof;
-	A->IA=(int*)calloc(A->row+1, sizeof(int));
-	A->JA=NULL;
-	A->val=NULL;
-	
-	index=(int*)calloc(A->col, sizeof(int));
-	for(i=0;i<A->col;i++)
-		index[i]=-1;
-	// step 1A: Find first the structure IA of the stiffness matrix A
-	for(i=0;i<A->row;i++)
-	{
-		count=0;
-		istart=-2;
-		for(j=elementdofTran[1].IA[i];j<elementdofTran[1].IA[i+1];j++)
-		{
-			element = elementdofTran[1].JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-					count++;
-				}
-			}
-		}
-		A->IA[i+1]=count;
-
-		for(j=0;j<count;j++)
-		{
-			l=istart;
-			istart=index[l];
-			index[l]=-1;
-		}		
-	} // i
-	
-	for(i=0;i<A->row;i++)
-		A->IA[i+1]+=A->IA[i];
-	
-	A->nnz=A->IA[A->row];
-	
-	// step 2A: Find the structure JA of the stiffness matrix A
-	A->JA=(int*)calloc(A->nnz,sizeof(int));
-	for (i = 0; i<A->row; i++)
-	{
-		istart = -2;
-		for (j = elementdofTran[1].IA[i]; j<elementdofTran[1].IA[i + 1]; j++)
-		{
-			element = elementdofTran[1].JA[j];
-
-			for (k = 0; k<elementDOF[0].col; k++)
-			{
-				node = elementDOF[0].val[element][k];
-				if (index[node] == -1)
-				{
-					index[node] = istart;
-					istart = node;
-				}
-			}
-		}
-
-		for (j = A->IA[i]; j<A->IA[i + 1]; j++)
-		{
-			A->JA[j] = istart;
-			istart = index[istart];
-			index[A->JA[j]] = -1;
-		}
-	} // i
-	free(index);
-	
-	A->val = (double*)calloc(A->nnz, sizeof(double));
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[1].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
 	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lA);
-	// step 3A: Loop element by element and compute the actual entries storing them in A
+
 	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
@@ -4142,24 +3190,22 @@ void assembleHuangGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *element
 			} // k2
 		} // k1
 
-		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		l = elementDOF[0].col*elementDOF[1].col * k;
+		for (i = 0; i<elementDOF[1].col; i++)
 		{
-			i = elementDOF[1].val[k][k1];
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (j = 0; j<elementDOF[0].col; j++)
 			{
-				j = elementDOF[0].val[k][k2];
-				for (j1 = A->IA[i]; j1<A->IA[i + 1]; j1++)
-				{
-					if (A->JA[j1] == j)
-					{
-						A->val[j1] += lA.val[k1][k2];
-						break;
-					}
-				} // j1
-			} // k2
-		} // k1
+				ia[l] = elementDOF[1].val[k][i];
+				ja[l] = elementDOF[0].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // j
+		} // i
 	} // k
-	free_dden_matrix(&lA);	
+	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
 }
 
 /**

@@ -3165,7 +3165,8 @@ void huangQuadcurl3d_facebasisGradCurl(double **grd_lambda, double *nvf[4], int 
 {
 	double v0[3];
 	cross_array(nvf[l], grd_lambda[li], v0);
-	for(int i=0;i<3;i++)
+	int i;
+	for(i=0;i<3;i++)
 		axy_array(3, -6*v0[i], grd_lambda[l], phi+3*i);
 }
 

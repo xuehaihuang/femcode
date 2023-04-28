@@ -619,6 +619,7 @@ void sparseTripleMultiplication2(dCSRmat *R, dCSRmat *A, dCSRmat *P, dCSRmat *B)
 void sparseTripleMultiplication3(dCSRmat *R, dCSRmat *A, dCSRmat *P, dCSRmat *B);
 int sorteddIJtoCSR(dIJmat *A, dCSRmat *B);
 int dIJtoCSR(dCSRmat *A, int *ia, int *ja, double *val, int N, int row, int col);
+int dIJtoCSReps(dCSRmat *A, int *ia, int *ja, double *val, int N, int row, int col, double eps);
 int dCSRtoIJ(dCSRmat *A, dIJmat *B);
 
 /* poisson2d.c */

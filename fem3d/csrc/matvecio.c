@@ -288,7 +288,7 @@ int read_IJ_matrix(char *filename, dCSRmat *A)
 		Atmp.I[k]=i; Atmp.J[k]=j; Atmp.val[k]=value; k++;
 	}
 	
-	dIJtoCSR(&Atmp,A);
+	sorteddIJtoCSR(&Atmp,A);
 	
 	fclose(fp);
 	
