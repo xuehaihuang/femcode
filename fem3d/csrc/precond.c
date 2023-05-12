@@ -82,18 +82,19 @@ void precond_classicAMG(dCSRmat *A, double *r, double *z, void *data)
 }
 
 /**
-* \fn void precond_aspLaplaceVec3(dCSRmat *A, double *r, double *z, void *data)
+* \fn void precond_aspLaplaceVec(dCSRmat *A, double *r, double *z, int n, void *data)
 * \brief get z from r by auxiliary space preconditioner of vector Laplacian operator
 * \param *A pointer to the stiffness matrix
 * \param *r pointer to residual
 * \param *z pointer to preconditioned residual
+* \param n number of blocks
 * \param *data pointer to precondition data
 */
-void precond_aspLaplaceVec3(dCSRmat *A, double *r, double *z, void *data)
+void precond_aspLaplaceVec(dCSRmat *A, double *r, double *z, int n, void *data)
 {
-	int i, m = A->row;
+	int i, j, m = A->row;
 	dvector rr, zz, z1, z2, r2;
-	dvector z2s[3], r2s[3];
+	dvector zs[n], rs[n];
 	precond_data *aspdata = data;
 
 	int smoother = aspdata->smoother;
@@ -107,18 +108,18 @@ void precond_aspLaplaceVec3(dCSRmat *A, double *r, double *z, void *data)
 	dCSRmat *As = aspdata->As;
 	dCSRmat *Rs = aspdata->Rs;
 	dCSRmat *Ps = aspdata->Ps;
-	dOBDmat *swzB = aspdata->swzB;
+	// dOBDmat *swzB = aspdata->swzB;
 	
 	int precond_type = aspdata->precond_type; // 1 additive; 2 multiplicative  
 
-	int m1[levelNum], m2[levelNum];
-	m1[0] = smooth_iter;
-	m2[0] = smooth_iter;
-	for (i = 1; i < levelNum; i++)
-	{
-		m1[i] = mg_smooth_iter;
-		m2[i] = mg_smooth_iter;
-	}
+	// int m1[levelNum], m2[levelNum];
+	// m1[0] = smooth_iter;
+	// m2[0] = smooth_iter;
+	// for (i = 1; i < levelNum; i++)
+	// {
+	// 	m1[i] = mg_smooth_iter;
+	// 	m2[i] = mg_smooth_iter;
+	// }
 
 	zz.row = rr.row = m;
 	rr.val = r; zz.val = z;
@@ -128,18 +129,24 @@ void precond_aspLaplaceVec3(dCSRmat *A, double *r, double *z, void *data)
 	create_dvector(m, &z1);
 	create_dvector(R->row, &z2);
 	create_dvector(R->row, &r2);
-	z2s[0].row = R->row / 3;
-	z2s[1].row = R->row / 3;
-	z2s[2].row = R->row / 3;
-	r2s[0].row = R->row / 3;
-	r2s[1].row = R->row / 3;
-	r2s[2].row = R->row / 3;
-	z2s[0].val = z2.val;
-	z2s[1].val = z2.val + z2s[0].row;
-	z2s[2].val = z2.val + z2s[0].row*2;
-	r2s[0].val = r2.val;
-	r2s[1].val = r2.val + r2s[0].row;
-	r2s[2].val = r2.val + r2s[0].row*2;
+	for(i=0;i<n;i++){
+		zs[i].row = R->row / n;
+		rs[i].row = R->row / n;
+		zs[i].val = z2.val + zs[0].row*i;
+		rs[i].val = r2.val + rs[0].row*i;
+	}
+	// z2s[0].row = R->row / 3;
+	// z2s[1].row = R->row / 3;
+	// z2s[2].row = R->row / 3;
+	// r2s[0].row = R->row / 3;
+	// r2s[1].row = R->row / 3;
+	// r2s[2].row = R->row / 3;
+	// z2s[0].val = z2.val;
+	// z2s[1].val = z2.val + z2s[0].row;
+	// z2s[2].val = z2.val + z2s[0].row*2;
+	// r2s[0].val = r2.val;
+	// r2s[1].val = r2.val + r2s[0].row;
+	// r2s[2].val = r2.val + r2s[0].row*2;
 
 	// additive
 	if (precond_type == 1)
@@ -152,26 +159,15 @@ void precond_aspLaplaceVec3(dCSRmat *A, double *r, double *z, void *data)
 			gs(&z1, 0, m - 1, 1, A, &rr, smooth_iter);
 			gs(&z1, m - 1, 0, -1, A, &rr, smooth_iter);
 		}
-		else if (smoother == SMSWZ) {
-			mulschwarz(&z1, 0, swzB->nb - 1, 1, A, &rr, swzB, smooth_iter);
-			mulschwarz(&z1, swzB->nb - 1, 0, -1, A, &rr, swzB, smooth_iter);
-		}
+		// else if (smoother == SMSWZ) {
+		// 	mulschwarz(&z1, 0, swzB->nb - 1, 1, A, &rr, swzB, smooth_iter);
+		// 	mulschwarz(&z1, swzB->nb - 1, 0, -1, A, &rr, swzB, smooth_iter);
+		// }
 
 		sparse_mv0(1.0, R, r, r2.val);
-		for (i = 0; i < maxit; i++)
-		{
-			multigrid(As, &r2s[0], &z2s[0], Rs, Ps, 0, levelNum, mg_smoother, mg_smooth_iter, mg_smooth_iter, 1);
-		//	multigridvar(As, &r2s[0], &z2s[0], Rs, Ps, 0, levelNum, mg_smoother, m1, m2, 1);
-		}
-		for (i = 0; i < maxit; i++)
-		{
-			multigrid(As, &r2s[1], &z2s[1], Rs, Ps, 0, levelNum, mg_smoother, mg_smooth_iter, mg_smooth_iter, 1);
-		//	multigridvar(As, &r2s[1], &z2s[1], Rs, Ps, 0, levelNum, mg_smoother, m1, m2, 1);
-		}
-		for (i = 0; i < maxit; i++)
-		{
-			multigrid(As, &r2s[2], &z2s[2], Rs, Ps, 0, levelNum, mg_smoother, mg_smooth_iter, mg_smooth_iter, 1);
-		//	multigridvar(As, &r2s[2], &z2s[2], Rs, Ps, 0, levelNum, mg_smoother, m1, m2, 1);
+		for(i=0;i<n;i++){
+			for (j = 0; j < maxit; j++)
+				multigrid(As, &rs[i], &zs[i], Rs, Ps, 0, levelNum, mg_smoother, mg_smooth_iter, mg_smooth_iter, 1);
 		}
 		sparse_mv0(1.0, P, z2.val, zz.val);
 
@@ -190,13 +186,13 @@ void precond_aspLaplaceVec3(dCSRmat *A, double *r, double *z, void *data)
 			gs(&zz, 0, m - 1, 1, A, &rr, smooth_iter);
 			gs(&zz, m - 1, 0, -1, A, &rr, smooth_iter);
 		}
-		else if (smoother == MSWZ) {
-			mulschwarz(&zz, 0, swzB->nb - 1, 1, A, &rr, swzB, smooth_iter);
-		}
-		else if (smoother == SMSWZ) {
-			mulschwarz(&zz, 0, swzB->nb - 1, 1, A, &rr, swzB, smooth_iter);
-			mulschwarz(&zz, swzB->nb - 1, 0, -1, A, &rr, swzB, smooth_iter);
-		}
+		// else if (smoother == MSWZ) {
+		// 	mulschwarz(&zz, 0, swzB->nb - 1, 1, A, &rr, swzB, smooth_iter);
+		// }
+		// else if (smoother == SMSWZ) {
+		// 	mulschwarz(&zz, 0, swzB->nb - 1, 1, A, &rr, swzB, smooth_iter);
+		// 	mulschwarz(&zz, swzB->nb - 1, 0, -1, A, &rr, swzB, smooth_iter);
+		// }
 
 		/** form residual z1 = rr - A zz */
 		copy_dvector(&rr, &z1);
@@ -204,20 +200,9 @@ void precond_aspLaplaceVec3(dCSRmat *A, double *r, double *z, void *data)
 
 		sparse_mv0(1.0, R, z1.val, r2.val);
 
-		for (i = 0; i < maxit; i++)
-		{
-			//	multigridvar(As, &r2s[0], &z2s[0], Rs, Ps, 0, levelNum, mg_smoother, m1, m2, 1);
-			multigrid(As, &r2s[0], &z2s[0], Rs, Ps, 0, levelNum, mg_smoother, mg_smooth_iter, mg_smooth_iter, 1);
-		}
-		for (i = 0; i < maxit; i++)
-		{
-			//	multigridvar(As, &r2s[1], &z2s[1], Rs, Ps, 0, levelNum, mg_smoother, m1, m2, 1);
-			multigrid(As, &r2s[1], &z2s[1], Rs, Ps, 0, levelNum, mg_smoother, mg_smooth_iter, mg_smooth_iter, 1);
-		}
-		for (i = 0; i < maxit; i++)
-		{
-			//	multigridvar(As, &r2s[2], &z2s[2], Rs, Ps, 0, levelNum, mg_smoother, m1, m2, 1);
-			multigrid(As, &r2s[2], &z2s[2], Rs, Ps, 0, levelNum, mg_smoother, mg_smooth_iter, mg_smooth_iter, 1);
+		for(i=0;i<n;i++){
+			for (j = 0; j < maxit; j++)
+				multigrid(As, &rs[i], &zs[i], Rs, Ps, 0, levelNum, mg_smoother, mg_smooth_iter, mg_smooth_iter, 1);
 		}
 
 		sparse_mv(1.0, P, z2.val, zz.val);
@@ -233,13 +218,13 @@ void precond_aspLaplaceVec3(dCSRmat *A, double *r, double *z, void *data)
 			gs(&zz, 0, m - 1, 1, A, &rr, smooth_iter);
 			gs(&zz, m - 1, 0, -1, A, &rr, smooth_iter);
 		}
-		else if (smoother == MSWZ) {
-			mulschwarz(&zz, swzB->nb - 1, 0, -1, A, &rr, swzB, smooth_iter);
-		}
-		else if (smoother == SMSWZ) {
-			mulschwarz(&zz, 0, swzB->nb - 1, 1, A, &rr, swzB, smooth_iter);
-			mulschwarz(&zz, swzB->nb - 1, 0, -1, A, &rr, swzB, smooth_iter);
-		}
+		// else if (smoother == MSWZ) {
+		// 	mulschwarz(&zz, swzB->nb - 1, 0, -1, A, &rr, swzB, smooth_iter);
+		// }
+		// else if (smoother == SMSWZ) {
+		// 	mulschwarz(&zz, 0, swzB->nb - 1, 1, A, &rr, swzB, smooth_iter);
+		// 	mulschwarz(&zz, swzB->nb - 1, 0, -1, A, &rr, swzB, smooth_iter);
+		// }
 	}
 
 	free_dvector(&z1);
@@ -303,7 +288,7 @@ void precond_AbfpAsP1Stokes(dvector *r, dvector *z, void *data)
 		init_dvector(&z[0], 0);
 	else
 	{
-		precond_aspLaplaceVec3(A, tempVec.val, z[0].val, data);
+		precond_aspLaplaceVec(A, tempVec.val, z[0].val, 3, data);
 		/****  asP1ElasDG_PCG  ****
 		precond *prec = (precond *)malloc(sizeof(precond));
 		prec->data = data;
@@ -339,14 +324,14 @@ void precond_AbfpAsP1Stokes(dvector *r, dvector *z, void *data)
 }
 
 /**
-* \fn void precond_DiagAsP1StokesNcP1_P0(dvector *r, dvector *z, void *data)
+* \fn void precond_DiagAsP1Stokes(dvector *r, dvector *z, void *data)
 * \brief get z from r by block diagonal preconditioner with auxiliary space method of linear elasticity
 * \param *A pointer to the stiffness matrix
 * \param *r pointer to residual
 * \param *z pointer to preconditioned residual
 * \param *data pointer to precondition data
 */
-void precond_DiagAsP1StokesNcP1_P0(dvector *r, dvector *z, void *data)
+void precond_DiagAsP1Stokes(dvector *r, dvector *z, void *data)
 {
 	int i;
 	precond_data *aspdata = data;
@@ -356,11 +341,16 @@ void precond_DiagAsP1StokesNcP1_P0(dvector *r, dvector *z, void *data)
 	double *scale = aspdata->precond_scale;
 
 	// preconditioning r[1] by diagonal preconditioner
-	for (i = 0; i < z[1].row; i++)
-		z[1].val[i] = r[1].val[i] / diag->val[i];
+	if (aspdata->Minv == NULL){
+		//	for (i = 0; i < z[1].row; i++)
+	//		z[1].val[i] = r[1].val[i] / diag->val[i];
 
-	//	gs(&z[0], 0, z[0].row - 1, 1, M, &r[0], 3);
-	//	gs(&z[0], z[0].row - 1, 0, -1, M, &r[0], 3);
+	// preconditioning r[1] by symmetric Gaussian smoother
+		gs(&z[1], 0, z[1].row - 1, 1, M, &r[1], 3);
+		gs(&z[1], z[1].row - 1, 0, -1, M, &r[1], 3);
+	}
+	else
+		dBDmat_mv0(1.0, aspdata->Minv, &r[1], &z[1]);
 
 	// preconditioning r[0] by ASP
 	//	copy_dvector(&r[1], &z[1]);
@@ -373,7 +363,7 @@ void precond_DiagAsP1StokesNcP1_P0(dvector *r, dvector *z, void *data)
 		init_dvector(&z[0], 0);
 	else
 	{
-		precond_aspLaplaceVec3(A, r[0].val, z[0].val, data);
+		precond_aspLaplaceVec(A, r[0].val, z[0].val, 3, data);
 
 		/****  asP1ElasDG_PCG  ****
 		precond *prec = (precond *)malloc(sizeof(precond));

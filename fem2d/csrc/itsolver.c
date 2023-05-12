@@ -158,7 +158,7 @@ int classicAMG_PCG(dCSRmat *A, dvector *b, dvector *x, AMG_param *param, int pri
 	amgData.smoother = param->smoother;
 	amgData.presmooth_iter  = param->presmooth_iter;
 	amgData.postsmooth_iter = param->postsmooth_iter;
-	amgData.postsmooth_iter = param->coarsening_type;
+	amgData.coarsening_type = param->coarsening_type;
 	amgData.Aarray    = (dCSRmat **)malloc(3*sizeof(dCSRmat*));
 	amgData.Aarray[0] = AA;
 	amgData.Aarray[1] = PT;

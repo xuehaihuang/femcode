@@ -105,9 +105,9 @@ int den_pcg(ddenmat *A, dvector *b, dvector *u, int MaxIt, double tol, den_preco
 void precond_null(dCSRmat *A, double *r, double *z, void *data);
 void precond_diag(dCSRmat *A, double *r, double *z, void *data);
 void precond_classicAMG(dCSRmat *A, double *r, double *z, void *data);
-void precond_aspLaplaceVec3(dCSRmat *A, double *r, double *z, void *data);
+void precond_aspLaplaceVec(dCSRmat *A, double *r, double *z, int n, void *data);
 void precond_AbfpAsP1Stokes(dvector *r, dvector *z, void *data);
-void precond_DiagAsP1StokesNcP1_P0(dvector *r, dvector *z, void *data);
+void precond_DiagAsP1Stokes(dvector *r, dvector *z, void *data);
 
 /* gmres.c */
 int gmres(dCSRmat *A, dvector *b, dvector *u, int restart, int MaxIt, double epsilon, precond *pre, int print_level);

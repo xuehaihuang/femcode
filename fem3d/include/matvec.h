@@ -88,6 +88,7 @@ int axpy_dvector2b(double a, dvector *x, dvector *y);
 int axpyz_dvector(double a, dvector *x, dvector *y, dvector *z);
 int axy_dvector(double a, dvector *x, dvector *y);
 int axy_dvector2b(double a, dvector *x, dvector *y);
+int dotdiv_dvector(dvector *x, dvector *y);
 double dot_dvector(dvector *x, dvector *y);
 double dot_dvector2b(dvector *x, dvector *y);
 double maxnorm_dvector(dvector *x);

@@ -35,17 +35,24 @@ int pcg(dCSRmat *A, dvector *b, dvector *u, int MaxIt, double tol, precond *pre,
 	double alpha, beta, error, temp1, temp2, tempb;
 	double *p, *z, *r, *t;
 
-	p=(double *)calloc(m,sizeof(double));
-	z=(double *)calloc(m,sizeof(double));
-	r=(double *)calloc(m,sizeof(double));
-	t=(double *)calloc(m,sizeof(double));
-
 	// (b,b)
 	tempb=dot_array(m,b->val,b->val);
 	
 	// r = b-A*u
+	r=(double *)calloc(m,sizeof(double));
 	copy_array(m,b->val,r);
 	sparse_mv(-1.0,A,u->val,r);
+
+	if(dot_array(m,r,r)<1e-30){
+		iter=0;
+		free(r);
+		return iter;
+	}
+
+	p=(double *)calloc(m,sizeof(double));
+	z=(double *)calloc(m,sizeof(double));
+	t=(double *)calloc(m,sizeof(double));
+
 	
 	// z = B*r
 	if (pre == NULL)

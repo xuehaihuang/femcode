@@ -37,8 +37,12 @@ int create_csr_matrix(int m, int n, int nnz, dCSRmat *A)
 	A->col=n;
 	A->nnz=nnz;
 	A->IA=(int*)calloc(m+1, sizeof(int));
-	A->JA=(int*)calloc(nnz, sizeof(int));
-	A->val=(double*)calloc(nnz, sizeof(double));
+	A->JA=NULL;
+	A->val=NULL;
+	if(nnz>0){
+		A->JA=(int*)calloc(nnz, sizeof(int));
+		A->val=(double*)calloc(nnz, sizeof(double));
+	}
 	return 1;
 }
 
@@ -649,8 +653,10 @@ int free_elementDOF(ELEMENT_DOF *A)
  */
 int create_dvector(int m, dvector *u)
 {		
+	if(m<0) m=0;
 	u->row=m;
-	u->val=(double*)calloc(m, sizeof(double)); 	
+	u->val=NULL;
+	if(m>0) u->val=(double*)calloc(m, sizeof(double)); 	
 	return 1;
 }
 
@@ -663,9 +669,11 @@ int create_dvector(int m, dvector *u)
  * \return 1 if succeed
  */
 int create_ivector(int m, ivector *u)
-{		
+{	
+	if(m<0) m=0;	
 	u->row=m;
-	u->val=(int*)calloc(m, sizeof(int)); 	
+	u->val=NULL;
+	if(m>0) u->val=(int*)calloc(m, sizeof(int)); 	
 	return 1;
 }
 
@@ -1141,6 +1149,25 @@ double dot_dvector2b(dvector *x, dvector *y)
 	for (i = 0; i<x[1].row; i++)
 		value += x[1].val[i] * y[1].val[i];
 	return value;
+}
+
+/**
+ * \fn int dotdiv_dvector(dvector *x, dvector *y)
+ * \brief y = y / x 
+ * \param *x pointer to dvector
+ * \param *y pointer to dvector
+ * \return 1 if succeed, 0 if fail
+ */
+int dotdiv_dvector(dvector *x, dvector *y)
+{
+	int i;
+	if (y->row == x->row) {
+		for (i=0; i<y->row; i++) y->val[i] /= x->val[i];
+		return 1;
+	}
+	else {
+		return 0;
+	}
 }
 
 /**

@@ -97,6 +97,10 @@ int main (int argc, const char * argv[])
 	{
 		quadcurlperturbfem(&elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
 	}
+	else if(problem_num == 5) // Maxwell equation
+	{
+		stokesfem3d(&elements[glevelNum - 1], &elementFace[glevelNum - 1], &faces[glevelNum - 1], &elementEdge[glevelNum - 1], &edges[glevelNum - 1], &nodes[glevelNum - 1], &Input);
+	}
 	else
 	{
 		printf("Please set problem_num = 1 or 2!\n");

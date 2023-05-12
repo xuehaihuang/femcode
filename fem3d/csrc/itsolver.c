@@ -158,7 +158,7 @@ int classicAMG_PCG(dCSRmat *A, dvector *b, dvector *x, AMG_param *param, int pri
 	amgData.smoother = param->smoother;
 	amgData.presmooth_iter  = param->presmooth_iter;
 	amgData.postsmooth_iter = param->postsmooth_iter;
-	amgData.postsmooth_iter = param->coarsening_type;
+	amgData.coarsening_type = param->coarsening_type;
 	amgData.Aarray    = (dCSRmat **)malloc(3*sizeof(dCSRmat*));
 	amgData.Aarray[0] = AA;
 	amgData.Aarray[1] = PT;
@@ -402,44 +402,46 @@ int DiagAsP1StokesNcP1P0_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *p
 
 
 	getElementDOF_Lagrange3d(&elementDOFas, elements, elementFace, faces, elementEdge, edges, nodes->row, 1);
-	getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
+	// getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, &elementDOFas);
-	assembleBiGradLagrange3d(&tempA, elements, elementFace, faces, elementEdge, edges, nodes, &elementDOFas, &elementdofTranas);
-	extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
+	assembleBiGradLagrange3d(&tempA, elements, elementFace, faces, elementEdge, edges, nodes, &elementDOFas);
+	updateFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas, 1);
+	// extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
 	free_csr_matrix(&tempA);
 	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
 
-	interpVecP1toNcP1_3d(&tempA, &elementDOFas, elementDOFcr, faces);
-	extractFreenodesMatrix11cBlock3d(&tempA, &P, elementDOFcr, &elementDOFas);
-	free_csr_matrix(&tempA);
+	// interpVecP1toNcP1_3d(&tempA, &elementDOFas, elementDOFcr, faces);
+	// extractFreenodesMatrix11cBlock3d(&tempA, &P, elementDOFcr, &elementDOFas);
+	// free_csr_matrix(&tempA);
+	interpVecP1toNcP1_3d(&P, &elementDOFas, elementDOFcr, faces);
 	getTransposeOfSparse(&P, &PT);
 
-	dOBDmat swzB;
-	if (param->smoother == MSWZ || param->smoother == ASWZ ||  param->smoother == SMSWZ)
-	{
-		if (param->schwarz_type == 1)
-			getSchwarzblocksVec2_vertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
-		else if (param->schwarz_type == 2)
-			getSchwarzblocksVec2_edge(&swzB, &A[0], edges, elementDOFcr);
-		else if (param->schwarz_type == 3)
-			getSchwarzblocksVec2_element(&swzB, &A[0], elementEdge, edges, elementDOFcr);
-		else if (param->schwarz_type == 4)
-			getSchwarzblocksVec2_edgevertex(&swzB, &A[0], elements, edges, nodes->row, elementDOFcr);
-		else if (param->schwarz_type == 5)
-			getSchwarzblocksVec2_elementvertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
-		else
-			getSchwarzblocksVec2_vertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
+	// dOBDmat swzB;
+	// if (param->smoother == MSWZ || param->smoother == ASWZ ||  param->smoother == SMSWZ)
+	// {
+	// 	if (param->schwarz_type == 1)
+	// 		getSchwarzblocksVec2_vertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
+	// 	else if (param->schwarz_type == 2)
+	// 		getSchwarzblocksVec2_edge(&swzB, &A[0], edges, elementDOFcr);
+	// 	else if (param->schwarz_type == 3)
+	// 		getSchwarzblocksVec2_element(&swzB, &A[0], elementEdge, edges, elementDOFcr);
+	// 	else if (param->schwarz_type == 4)
+	// 		getSchwarzblocksVec2_edgevertex(&swzB, &A[0], elements, edges, nodes->row, elementDOFcr);
+	// 	else if (param->schwarz_type == 5)
+	// 		getSchwarzblocksVec2_elementvertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
+	// 	else
+	// 		getSchwarzblocksVec2_vertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
 
-	}
-	else
-	{
-		swzB.row = 0;
-		swzB.col = 0;
-		swzB.nb = 0;
-		swzB.blk = NULL;
-		swzB.rindices = NULL;
-		swzB.cindices = NULL;
-	}
+	// }
+	// else
+	// {
+	// 	swzB.row = 0;
+	// 	swzB.col = 0;
+	// 	swzB.nb = 0;
+	// 	swzB.blk = NULL;
+	// 	swzB.rindices = NULL;
+	// 	swzB.cindices = NULL;
+	// }
 
 	/**************************************************
 	dvector uh;
@@ -465,7 +467,7 @@ int DiagAsP1StokesNcP1P0_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *p
 	aspData.precond_type = param->precond_type;
 	aspData.precond_scale = param->precond_scale;
 	aspData.smoother = param->smoother;
-	aspData.schwarz_type = param->schwarz_type;
+	// aspData.schwarz_type = param->schwarz_type;
 	aspData.smooth_iter = param->smooth_iter;
 	aspData.mg_smoother = param->mg_smoother;
 	aspData.mg_smooth_iter = param->mg_smooth_iter;
@@ -480,11 +482,11 @@ int DiagAsP1StokesNcP1P0_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *p
 	aspData.R = &PT;
 	aspData.P = &P;
 	aspData.Minv = NULL;
-	aspData.swzB = &swzB;
+	// aspData.swzB = &swzB;
 
 	precond *prec = (precond *)malloc(sizeof(precond));
 	prec->data = &aspData;
-	prec->fct_dvec = precond_DiagAsP1StokesNcP1_P0;
+	prec->fct_dvec = precond_DiagAsP1Stokes;
 
 	// solver part
 	solve_start = clock();
@@ -510,14 +512,14 @@ int DiagAsP1StokesNcP1P0_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *p
 		free_csr_matrix(&Ps[i]);
 	}
 	free_elementDOF(&elementDOFas);
-	free_icsr_matrix(&elementdofTranas);
+	// free_icsr_matrix(&elementdofTranas);
 
 	//	free_elementDOF(&elementDOFdg);
 	free_csr_matrix(&M);
 	free_dvector(&diag);
 	free_csr_matrix(&P);
 	free_csr_matrix(&PT);
-	free_dobd_matrix(&swzB);
+	// free_dobd_matrix(&swzB);
 
 	//	free(amgData.Aarray);
 	free(prec);
@@ -555,7 +557,7 @@ int AbfpAsP1StokesNcP1P0_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *pa
 	iCSRmat *elementdofTran = param->elementdofTran;
 	ELEMENT_DOF *elementDOFcr = &elementDOF[0];
 	ELEMENT_DOF elementDOFas;
-	iCSRmat elementdofTranas;
+	// iCSRmat elementdofTranas;
 
 //	double lambda = param->lambda;
 //	double mu = param->mu;
@@ -621,44 +623,46 @@ int AbfpAsP1StokesNcP1P0_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *pa
 
 
 	getElementDOF_Lagrange3d(&elementDOFas, elements, elementFace, faces, elementEdge, edges, nodes->row, 1);
-	getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
+	// getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, &elementDOFas);
-	assembleBiGradLagrange3d(&tempA, elements, elementFace, faces, elementEdge, edges, nodes, &elementDOFas, &elementdofTranas);
-	extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
+	assembleBiGradLagrange3d(&tempA, elements, elementFace, faces, elementEdge, edges, nodes, &elementDOFas);
+	updateFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas, 1);
+	// extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
 	free_csr_matrix(&tempA);
 	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
 
-	interpVecP1toNcP1_3d(&tempA, &elementDOFas, elementDOFcr, faces);
-	extractFreenodesMatrix11cBlock3d(&tempA, &P, elementDOFcr, &elementDOFas);
-	free_csr_matrix(&tempA);
+	// interpVecP1toNcP1_3d(&tempA, &elementDOFas, elementDOFcr, faces);
+	// extractFreenodesMatrix11cBlock3d(&tempA, &P, elementDOFcr, &elementDOFas);
+	// free_csr_matrix(&tempA);
+	interpVecP1toNcP1_3d(&P, &elementDOFas, elementDOFcr, faces);
 	getTransposeOfSparse(&P, &PT);
 
-	dOBDmat swzB;
-	if (param->smoother == MSWZ || param->smoother == ASWZ || param->smoother == SMSWZ)
-	{
-		if (param->schwarz_type == 1)
-			getSchwarzblocksVec2_vertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
-		else if (param->schwarz_type == 2)
-			getSchwarzblocksVec2_edge(&swzB, &A[0], edges, elementDOFcr);
-		else if (param->schwarz_type == 3)
-			getSchwarzblocksVec2_element(&swzB, &A[0], elementEdge, edges, elementDOFcr);
-		else if (param->schwarz_type == 4)
-			getSchwarzblocksVec2_edgevertex(&swzB, &A[0], elements, edges, nodes->row, elementDOFcr);
-		else if (param->schwarz_type == 5)
-			getSchwarzblocksVec2_elementvertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
-		else
-			getSchwarzblocksVec2_vertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
+	// dOBDmat swzB;
+	// if (param->smoother == MSWZ || param->smoother == ASWZ || param->smoother == SMSWZ)
+	// {
+	// 	if (param->schwarz_type == 1)
+	// 		getSchwarzblocksVec2_vertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
+	// 	else if (param->schwarz_type == 2)
+	// 		getSchwarzblocksVec2_edge(&swzB, &A[0], edges, elementDOFcr);
+	// 	else if (param->schwarz_type == 3)
+	// 		getSchwarzblocksVec2_element(&swzB, &A[0], elementEdge, edges, elementDOFcr);
+	// 	else if (param->schwarz_type == 4)
+	// 		getSchwarzblocksVec2_edgevertex(&swzB, &A[0], elements, edges, nodes->row, elementDOFcr);
+	// 	else if (param->schwarz_type == 5)
+	// 		getSchwarzblocksVec2_elementvertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
+	// 	else
+	// 		getSchwarzblocksVec2_vertex(&swzB, &A[0], elements, nodes->row, elementDOFcr);
 
-	}
-	else
-	{
-		swzB.row = 0;
-		swzB.col = 0;
-		swzB.nb = 0;
-		swzB.blk = NULL;
-		swzB.rindices = NULL;
-		swzB.cindices = NULL;
-	}
+	// }
+	// else
+	// {
+	// 	swzB.row = 0;
+	// 	swzB.col = 0;
+	// 	swzB.nb = 0;
+	// 	swzB.blk = NULL;
+	// 	swzB.rindices = NULL;
+	// 	swzB.cindices = NULL;
+	// }
 
 	/**************************************************
 	dvector uh;
@@ -684,7 +688,7 @@ int AbfpAsP1StokesNcP1P0_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *pa
 	aspData.precond_type = param->precond_type;
 	aspData.precond_scale = param->precond_scale;
 	aspData.smoother = param->smoother;
-	aspData.schwarz_type = param->schwarz_type;
+	// aspData.schwarz_type = param->schwarz_type;
 	aspData.smooth_iter = param->smooth_iter;
 	aspData.mg_smoother = param->mg_smoother;
 	aspData.mg_smooth_iter = param->mg_smooth_iter;
@@ -699,7 +703,7 @@ int AbfpAsP1StokesNcP1P0_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *pa
 	aspData.R = &PT;
 	aspData.P = &P;
 	aspData.Minv = NULL;
-	aspData.swzB = &swzB;
+	// aspData.swzB = &swzB;
 
 	precond *prec = (precond *)malloc(sizeof(precond));
 	prec->data = &aspData;
@@ -730,7 +734,7 @@ int AbfpAsP1StokesNcP1P0_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *pa
 		free_csr_matrix(&Ps[i]);
 	}
 	free_elementDOF(&elementDOFas);
-	free_icsr_matrix(&elementdofTranas);
+	// free_icsr_matrix(&elementdofTranas);
 
 	//	free_elementDOF(&elementDOFdg);
 	free_csr_matrix(&M);
@@ -739,7 +743,7 @@ int AbfpAsP1StokesNcP1P0_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *pa
 	free_csr_matrix(&Asc);
 	free_csr_matrix(&P);
 	free_csr_matrix(&PT);
-	free_dobd_matrix(&swzB);
+	// free_dobd_matrix(&swzB);
 
 	//	free(amgData.Aarray);
 	free(prec);

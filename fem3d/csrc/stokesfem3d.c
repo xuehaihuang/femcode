@@ -1,12 +1,12 @@
 /*
- *  poissonfem.c
+ *  stokesfem3d.c
  *
- *  Created by Xuehai Huang on Apr 30, 2022.
- *  Copyright 2022 SUFE. All rights reserved.
+ *  Created by Xuehai Huang on May 8, 2023.
+ *  Copyright 2023 SUFE. All rights reserved.
  *
  */
 
-/*! \file poissonfem.c
+/*! \file stokesfem3d.c
  *  \brief Assembling for stiffness matrix and solve it
  */
 
@@ -19,7 +19,7 @@
 #include "checkmat.h"
 
  /**
- * \fn void poisson3dfem(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input)
+ * \fn void stokesfem3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input)
  * \brief finite element methods for Qual-curl equation in three dimensions
  * \param *uh pointer to solution
  * \param *elements pointer to triangulation: the first 3 columns store the indexes of vertices, the last 3 columns store the indexes of edge's midpoints
@@ -33,24 +33,26 @@
  * \param Input input data structure
  * \return void
  */
-void poissonfem3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input)
+void stokesfem3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input)
 {
 	int i;
 	int variationalform_type = Input->variationalform_type;
 	int fem_num = Input->fem_num;
 	if (variationalform_type == 1) // primal formulation
 	{
-		printf("Discretize Poisson equation in primal formulation.\n");
+		printf("Discretize Stokes equation in primal formulation.\n");
 		if(fem_num == 1)
 		{
-			printf("Discretized by Lagrange element.\n");
-			poissonLagrange3d(elements, elementFace, faces, elementEdge, edges, nodes, Input);
+			printf("Discretized by Nonconforming P1-P0 element.\n");
+			stokesNcP1P03d(elements, elementFace, faces, elementEdge, edges, nodes, Input);
 		}
 		
 		if(fem_num == 2)
 		{
 			// printf("Discretized by Lagrange element.\n");
 			// poissonLagrange3d(elements, elementFace, faces, elementEdge, edges, nodes, Input);
+			printf("To be developed!\n");
+			exit(0);
 		}
 	}
 	else if (variationalform_type == 2) // decoupled mixed formulation
@@ -68,7 +70,7 @@ void poissonfem3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat 
 }
 
 /**
-* \fn void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input)
+* \fn void stokesNcP1P03d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input)
 * \brief Second kind of Nedelec element method for Maxwell equation in three dimensions
 * \param *uh pointer to solution
 * \param *elements pointer to triangulation: the first 3 columns store the indexes of vertices, the last 3 columns store the indexes of edge's midpoints
@@ -82,12 +84,12 @@ the third column stores the Dirichlet status of the points(0: nondirichlet, -1: 
 * \param Input input data structure
 * \return void
 */
-void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input)
+void stokesNcP1P03d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input)
 {
 	int i,j;
-	dCSRmat A;
-	dvector b, uh;
-	ELEMENT_DOF elementDOF;
+	dCSRmat A[4];
+	dvector b[2], uh[2];
+	ELEMENT_DOF elementDOF[2];
 		
 	/** Step 0. Read input parameters */
 	int print_level = Input->print_level;
@@ -97,21 +99,26 @@ void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, ide
 	int dop = Input->dop1;
 		
 	/** Step 1. generate degrees of freedom */
-	getElementDOF_Lagrange3d(&elementDOF, elements, elementFace, faces, elementEdge, edges, nodes->row, dop);
-	getFreenodesInfoLagrange3d(faces, edges, nodes, &elementDOF);
-		
+	getElementDOF_NoncfmP13d(&elementDOF[0], elementFace, faces->row);
+	getFreenodesInfoNoncfmP1Vector3d(faces, &elementDOF[0]);
+
+	getElementDOF3d(&elementDOF[1], elements->row, 0);
+	getFreenodesInfo(&elementDOF[1]);
+			
 	/** Step 2. assemble stiffmatrix and right hand side term */
-	assemble_poissonLagrange3d(&A, &b, &uh, elements, elementFace, faces, elementEdge, edges, nodes, &elementDOF);
+	assemble_stokesNcP1P03d(A, b, uh, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
 
 //	print_dcsr_matrix(&A);///////////
 //	print_dvector(0, &b);///////
 	//print_darray(20, A.val);///
 	
 	/** Step 3. Check matrix properties */
-
-	check_symm(&A);
-	check_diagpos(&A);
-	check_diagdom(&A);
+	// check_symm(&A);
+	// check_diagpos(&A);
+	// check_diagdom(&A);
+	printf("A.row=%d, A.col=%d, A.nnz=%d\n", A[0].row, A[0].col, A[0].nnz);
+	printf("B.row=%d, B.col=%d, B.nnz=%d\n", A[2].row, A[2].col, A[2].nnz);
+	
 
 	/** Step 4. Solve the system */
 
@@ -123,8 +130,58 @@ void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, ide
 	// create_dvector(b.row, &_uh);
 	// init_dvector(&_uh, 0.0);
 
-	printf("A.row=%d, A.col=%d, A.nnz=%d\n", A.row, A.col, A.nnz);
+	// printf("A.row=%d, A.col=%d, A.nnz=%d\n", A.row, A.col, A.nnz);
 
+	ASP_param aspparam; /* parameters for ASP */
+
+	aspparam.print_level = Input->print_level;
+	aspparam.max_iter = Input->itsolver_maxit;
+	aspparam.tol = Input->itsolver_tol;
+	aspparam.restart = Input->restart;
+
+	aspparam.precond_type = Input->precond_type;
+	aspparam.precond_scale = Input->precond_scale;
+	aspparam.smoother = Input->smoother;
+	aspparam.schwarz_type = Input->schwarz_type;
+	aspparam.smooth_iter = Input->smooth_iter;
+
+	aspparam.levelNum = Input->glevelNum;
+	aspparam.mg_max_iter = Input->MG_maxit;
+	aspparam.mg_tol = Input->MG_tol;
+	aspparam.mg_smoother = Input->MG_smoother;
+	aspparam.mg_smooth_iter = Input->MG_smooth_iter;
+
+	aspparam.elements = elements;
+	aspparam.elementFace = elementFace;
+	aspparam.faces = faces;
+	aspparam.elementEdge = elementEdge;
+	aspparam.edges = edges;
+	aspparam.nodes = nodes;
+//	aspparam.edgesTran = edgesTran;/////////
+//	aspparam.nodeCEdge = nodeCEdge;/////////
+
+	aspparam.lambda = Input->lambda;
+	aspparam.mu = 0.5;// Input->mu;
+	aspparam.t = Input->t;
+	aspparam.nu = Input->nu;
+	aspparam.problem_num = Input->problem_num;
+	if (aspparam.problem_num == 1)
+		aspparam.mu = 0.5;
+	else
+		aspparam.mu = (1 - aspparam.nu) / 2;
+
+	aspparam.variationalform_type = Input->variationalform_type;
+	aspparam.stress_fem_type = Input->stress_fem_type;
+
+	aspparam.max_levels = Input->AMG_levels;
+	aspparam.AMG_coarsening_type = Input->AMG_coarsening_type;
+	aspparam.AMG_interpolation_type = Input->AMG_interpolation_type;
+	aspparam.AMG_coarse_dof = Input->AMG_coarse_dof;
+	aspparam.AMG_strong_threshold = Input->AMG_strong_threshold;
+	aspparam.AMG_truncation_threshold = Input->AMG_truncation_threshold;
+	aspparam.AMG_max_row_sum = Input->AMG_max_row_sum;
+	aspparam.elementDOF = elementDOF;
+	
 	AMG_param amgparam; /* parameters for AMG */
 
 	amgparam.print_level = Input->print_level;
@@ -145,71 +202,54 @@ void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, ide
 	amgparam.truncation_threshold = Input->AMG_truncation_threshold;
 	amgparam.max_row_sum = Input->AMG_max_row_sum;
 
-	/* PCG+AMG */
-	if (itsolver_type == 1) {
-		printf("AMG preconditioned CG solver\n");
-		classicAMG_PCG(&A, &b, &uh, &amgparam, print_level);
+	if (itsolver_type == 1)
+	{
+		printf("\nASP Approximate Block Factorization preconditioned GMRES solver with auxiliary space method.\n\n");
+		printf("Auxiliary space: P1 Lagrangian element.\n\n");
+		AbfpAsP1StokesNcP1P0_GMRES(A, b, uh, &aspparam, print_level);
+	//	Abfp2AsP1StokesNcP1P0_GMRES(A, b, uh, &aspparam, print_level);
 	}
-
-	/* AMG solver */
-	else if (itsolver_type == 2) {
-        printf("AMG iterative solver\n");
-		classicAMG(&A, &b, &uh, &amgparam);
+	else
+	{
+		printf("\nASP Block diagonal preconditioned MINRES solver with auxiliary space method\n");
+		printf("Auxiliary space: P1 Lagrangian element.\n\n");
+		DiagAsP1StokesNcP1P0_MINRES(A, b, uh, &aspparam, print_level);
+	//	DiagAMGStokesNcP1P0_MINRES(A, b, uh, &aspparam, print_level); // sometimes better
 	}
+////////////////////////////////////////////////
 
-	/* PCG+diag */
-	else if (itsolver_type == 3) {
-		printf("Diagonal preconditioned CG solver\n");
-		diag_PCG(&A, &b, &uh, itsolver_maxit, itsolver_tol, print_level);
-	}
-
-	/* CG */
-	else if (itsolver_type == 4) {
-		printf("Classical CG solver\n");
-		standard_CG(&A, &b, &uh, itsolver_maxit, itsolver_tol, print_level);
-	}
-
-	/* GMRES+AMG */
-	else if (itsolver_type == 5) {
-		printf("AMG preconditioned GMRES solver\n");
-		classicAMG_GMRES(&A, &b, &uh, &amgparam, print_level);
-	}
-
-	// for (i = 0; i < _uh.row; i++)
-	// 	uh.val[elementDOF.freenodes.val[i]] = _uh.val[i];
-
-	// free_dvector(&_uh);
 
 	/* output solution to a diskfile */
 	/*	char *outputfile="output/sol.out";
 	write_IJ_dvector(&uh, outputfile); */
 
 	/** Step 5. Compute the error between numerical solution and exact solution */
-	double errors[3];
+	double errors[4];
 
-	geterrorsPoissonLagrange3d(errors, &uh, elements, elementFace, faces, elementEdge, edges, nodes, &elementDOF);
+	geterrorsStokesNcP1P03d(errors, uh, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
 
 	printf("\nA Priori Errors:\n");
 	printf("L2 norm of u-u_h = %e\n", errors[0]);
 	printf("H1 semi-norm of u-u_h = %e\n", errors[1]);
 	printf("H1 norm of u-u_h = %e\n", errors[2]);
+	printf("L2 norm of p-p_h = %e\n", errors[3]);
 	
 	/*********************************************************************************************/
 	FILE *outputFile;
 	outputFile = fopen("output/error.dat", "w");
-	fprintf(outputFile, "%e\t%e\t%e\n", errors[0], errors[1], errors[2]);
+	fprintf(outputFile, "%e\t%e\t%e\t%e\n", errors[0], errors[1], errors[2], errors[3]);
 	fclose(outputFile);
 	/********************************************************************************************/
 
 	
-	free_csr_matrix(&A);
-	free_dvector(&b);
-	free_dvector(&uh);
-	free_elementDOF(&elementDOF);
+	for(i=0;i<4;i++) free_csr_matrix(&A[i]);
+	free_dvector(&b[0]); free_dvector(&b[1]);
+	free_dvector(&uh[0]); free_dvector(&uh[1]);
+	free_elementDOF(&elementDOF[0]); free_elementDOF(&elementDOF[1]);
 }
 
 /**
- * \fn void assemble_poissonLagrange3d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+ * \fn void assemble_stokesNcP1P03d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
  * \brief assemble stiffness matrix *C and righ hand side *ptr_b
  * \param *ptr_A pointer to stiffness matrix
  * \param *ptr_b pointer to right hand side
@@ -226,26 +266,27 @@ void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, ide
  * \param *elementDOF pointer to relation between elements and DOFs
  * \return void
  */
-void assemble_poissonLagrange3d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+void assemble_stokesNcP1P03d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
 {
 	/**	
-	Ax = b
+	Ax1 + B^Tx2 = b
+	Bx1         = 0
+	where x1: u_h, x2: p_h
 	**/
-	dCSRmat AA;
-	// dvector bb;
+	int i;
+	dCSRmat AA[4];
 
-	assembleBiGradLagrange3d(&AA, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
-	assembleRHSLagrange3d(b, elements, elementDOF, poisson3d_f);
-    // initial solution
-	create_dvector(b->row, uh);
+	assembleBiGradVectorNcP13d(&AA[0], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
+	assembleDivNcP1P03d(&AA[2], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
+	getTransposeOfSparse(&AA[2], &AA[1]);
+	create_csr_matrix(elementDOF[1].dof, elementDOF[1].dof, 0, &AA[3]);
+	assembleRHSVectorNcP13d(b, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, stokes3d_f);
+	assembleRHSdgPoly3d(b+1, elements, elementDOF+1, stokes3d_g);
+	create_dvector(AA[1].row, uh);
+	create_dvector(AA[1].col, uh+1);
 	
 	// Apply boundary condition
-	updateFreenodesRHS(&AA, b, uh, elementDOF, elementDOF, 1);
-	updateFreenodesMatrix11(&AA, A, elementDOF, elementDOF, 1);
-
-	// // extract
-	// extractFreenodesVector(&AA, &bb, b, elementDOF, uh);
-	// free_dvector(&bb);
-	// extractFreenodesMatrix11(&AA, A, elementDOF, elementDOF);
-	free_csr_matrix(&AA);
+	updateFreenodes2bRHS(AA, b, uh, elementDOF, elementDOF+1);
+	updateFreenodes2bMatrix11(AA, A, elementDOF, elementDOF+1);
+	for(i=0;i<4;i++) free_csr_matrix(AA+i);	
 }
