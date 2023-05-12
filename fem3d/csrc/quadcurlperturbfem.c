@@ -101,9 +101,8 @@ void quadcurlperturbHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *
 {
 	int i,j;
 	dCSRmat A;
-	dvector b, uh, _uh;
+	dvector b, uh;
 	ELEMENT_DOF elementDOF[2];
-	iCSRmat elementdofTran[2];
 		
 	/** Step 0. Read input parameters */
 	int print_level = Input->print_level;
@@ -122,10 +121,8 @@ void quadcurlperturbHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *
 		getFreenodesInfoHuangZhang3d(faces, edges, nodes, 1, elementDOF);
 	else
 		getFreenodesInfoHuangZhang3d(faces, edges, nodes, 2, elementDOF);
-	getTransposeOfelementDoF(elementDOF, elementdofTran, 0);
 	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, faces, elementEdge, edges, nodes->row, dop2);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, elementDOF+1);
-	getTransposeOfelementDoF(elementDOF+1, elementdofTran+1, 0);
 
 	/***************************Generate coefficient of basis functions**************************/
 	ddenmat3 basisCoeffs;
@@ -134,12 +131,7 @@ void quadcurlperturbHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *
 	/********************************************************************************************/
 
 	/** Step 2. assemble stiffmatrix and right hand side term */
-	assemble_quadcurlperturbHuangZhang3d(&A, &b, &uh, paraeps, nitsche, &basisCoeffs, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, elementdofTran);
-	for(i=0;i<2;i++)
-	{
-		free(elementdofTran[i].IA);
-		free(elementdofTran[i].JA);
-	}
+	assemble_quadcurlperturbHuangZhang3d(&A, &b, &uh, paraeps, nitsche, &basisCoeffs, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
 
 //	print_dcsr_matrix(&A);///////////
 //	print_dvector(0, &b);///////
@@ -170,8 +162,8 @@ void quadcurlperturbHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *
 		printf("Tolerance for rel. res.  = %e\n", Input->itsolver_tol);
 	}
 
-	create_dvector(b.row, &_uh);
-	init_dvector(&_uh, 0.0);
+	// create_dvector(b.row, &_uh);
+	// init_dvector(&_uh, 0.0);
 
 	printf("A.row=%d, A.col=%d, A.nnz=%d\n", A.row, A.col, A.nnz);
 
@@ -207,44 +199,39 @@ void quadcurlperturbHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *
 		char c;
 		while ( (c = getchar()) != '\n' && c != EOF ) ;
 
-		read_dvector4Matlab(&_uh, outputfileuh);
+		read_dvector4Matlab(&uh, outputfileuh);
 	}
 
 	/* AMG solver */
 	if (itsolver_type == 1) {
 		printf("AMG preconditioned CG solver\n");
-		classicAMG_PCG(&A, &b, &_uh, &amgparam, print_level);
+		classicAMG_PCG(&A, &b, &uh, &amgparam, print_level);
 	}
 
 	
 	/* PCG+diag */
 	else if (itsolver_type == 2) {
 		printf("Diagonal preconditioned CG solver\n");
-		diag_PCG(&A, &b, &_uh, itsolver_maxit, itsolver_tol, print_level);
+		diag_PCG(&A, &b, &uh, itsolver_maxit, itsolver_tol, print_level);
 	}
 
 	/* PCG+AMG */
 	else if (itsolver_type == 3) {
 		printf("AMG iterative solver\n");
-		classicAMG(&A, &b, &_uh, &amgparam);
+		classicAMG(&A, &b, &uh, &amgparam);
 	}
 
 	/* CG */
 	else if (itsolver_type == 4) {
 		printf("Classical CG solver\n");
-		standard_CG(&A, &b, &_uh, itsolver_maxit, itsolver_tol, print_level);
+		standard_CG(&A, &b, &uh, itsolver_maxit, itsolver_tol, print_level);
 	}
 
 	/* GMRES+AMG */
 	else if (itsolver_type == 5) {
 		printf("AMG preconditioned GMRES solver\n");
-		classicAMG_GMRES(&A, &b, &_uh, &amgparam, print_level);
+		classicAMG_GMRES(&A, &b, &uh, &amgparam, print_level);
 	}
-
-	for (i = 0; i < _uh.row; i++)
-		uh.val[elementDOF[0].freenodes.val[i]] = _uh.val[i];
-
-	free_dvector(&_uh);
 
 	/* output solution to a diskfile */
 	/*	char *outputfile="output/sol.out";
@@ -278,7 +265,7 @@ void quadcurlperturbHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *
 }
 
 /**
- * \fn void assemble_quadcurlperturbHuangZhang3d(dCSRmat *A, dvector *b, dvector *uh, double paraeps, short nitsche, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+ * \fn void assemble_quadcurlperturbHuangZhang3d(dCSRmat *A, dvector *b, dvector *uh, double paraeps, short nitsche, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
  * \brief assemble stiffness matrix *C and righ hand side *ptr_b
  * \param *ptr_A pointer to stiffness matrix
  * \param *ptr_b pointer to right hand side
@@ -293,53 +280,53 @@ void quadcurlperturbHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *
  *				 the first column is in ascend order.
  * \param *nodes pointer to the nodes location of the triangulation
  * \param *elementDOF pointer to relation between elements and DOFs
- * \param *elementdofTran pointer to transpose of elementDOF
  * \param lambda Lame constant
  * \param mu Lame constant or Poisson ratio of plate
  * \return void
  */
-void assemble_quadcurlperturbHuangZhang3d(dCSRmat *A, dvector *b, dvector *uh, double paraeps, short nitsche, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran)
+void assemble_quadcurlperturbHuangZhang3d(dCSRmat *A, dvector *b, dvector *uh, double paraeps, short nitsche, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
 {
 	/**	
 	Ax1 + B^Tx2 = b
 	Bx1 - Dx2   = 0
 	where x1: u_h, x2: lambda_h
 	**/
-	dCSRmat AA, BB, CC, tempA;
-	dCSRmat B, BT, C;
-	dvector bb, D;
+	int i;
+	dCSRmat AA[4], AB[4];
+	dvector D, bb[2], wh[2];
+	assembleBiGradcurlperturbHuangZhang3d(&AA[0], paraeps, nitsche, basisCoeffs, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
+	assembleHuangZhangGradLagrange3d(&AA[2], basisCoeffs, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
+	getTransposeOfSparse(&AA[2], &AA[1]);
+	assembleMassmatrixLagrange3d(&AA[3], elements, elementDOF+1);
+	assembleRHSHuangZhang3d(&bb[0], basisCoeffs, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, maxwell3d_f);
+	create_dvector(AA[1].col, bb+1);
+	create_dvector(AA[1].row, wh);
+	create_dvector(AA[1].col, wh+1);
 
-	assembleBiGradcurlperturbHuangZhang3d(&AA, paraeps, nitsche, basisCoeffs, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, elementdofTran);
-	assembleHuangZhangGradLagrange3d(&BB, basisCoeffs, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, elementdofTran);
-	assembleMassmatrixLagrange3d(&CC, elements, elementDOF+1, elementdofTran+1);
-    // assembleRHSHuangZhang3d(&bb, basisCoeffs, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, elementdofTran, quadcurl3d_f);
-	assembleRHSHuangZhang3d(&bb, basisCoeffs, elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, elementdofTran, maxwell3d_f);
-    // initial solution
-	create_dvector(bb.row, uh);
-	
-	// extract
-	extractFreenodesVector(&AA, &bb, b, elementDOF, uh);
-	free_dvector(&bb);
-	extractFreenodesMatrix11(&AA, &tempA, elementDOF, elementDOF);
-	free_csr_matrix(&AA);
-	extractFreenodesMatrix11(&BB, &B, elementDOF+1, elementDOF);
-	free_csr_matrix(&BB);
-	extractFreenodesMatrix11(&CC, &C, elementDOF+1, elementDOF+1);
-	free_csr_matrix(&CC);
-	getdiag(C.row, &C, &D);
-	free_csr_matrix(&C);
-	getTransposeOfSparse(&B, &BT);
-	
-	// reduce: A = tempA + BT Dinv B
-	dDiagVectorInvMultiplydCSR(&D, &B, &BB);
-	free_dvector(&D);
-	free_csr_matrix(&B);
-	sparseMultiplication(&BT, &BB, &AA);
-	free_csr_matrix(&BT);
-	free_csr_matrix(&BB);
-	sparseAddition(&tempA, &AA, A);
-	free_csr_matrix(&tempA);
-	free_csr_matrix(&AA);
+	// Apply boundary condition
+	updateFreenodes2bRHS(AA, bb, wh, elementDOF,elementDOF+1);
+	updateFreenodes2bMatrix11(AA, AB, elementDOF,elementDOF+1);
+	for(i=0;i<4;i++) free_csr_matrix(AA+i);
+	getdiag(AB[3].row, &AB[3], &D);
+	free_csr_matrix(&AB[3]);
+
+	// Schur Complement : A = AB[0] + AB[1] Dinv AB[2]
+	create_dvector(bb[0].row, b);
+	copy_dvector(&bb[0], b);
+	dotdiv_dvector(&D, &bb[1]);
+	sparse_mv(1.0, &AB[1], bb[1].val, b->val);
+	free_dvector(&bb[0]); free_dvector(&bb[1]);
+
+	create_dvector(wh[0].row, uh);
+	copy_dvector(&wh[0], uh);
+	free_dvector(&wh[0]); free_dvector(&wh[1]);
+
+	dDiagVectorInvMultiplydCSR(&D, &AB[2], &AA[2]);
+	free_dvector(&D); free_csr_matrix(&AB[2]);
+	sparseMultiplication(&AB[1], &AA[2], &AA[0]);
+	free_csr_matrix(&AB[1]); free_csr_matrix(&AA[2]);
+	sparseAddition(&AB[0], &AA[0], A);
+	free_csr_matrix(&AB[0]); free_csr_matrix(&AA[0]);
 
 /**********************************
 	double EPS = 1e-300;
