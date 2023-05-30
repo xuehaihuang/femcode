@@ -2,13 +2,13 @@
 # Compiler and external dependences
 ########################################################################
 CC = cc
-FC = ftn
+# FC = ftn
 CC = pgcc
-FC = pgf90
+# FC = pgf90
 CC = icc
-FC = ifort -nofor-main
+# FC = ifort -nofor-main
 CC = gcc
-FC = gfortran -fcray-pointer
+# FC = gfortran -fcray-pointer
 AR = ar ruc
 
 ########################################################################
@@ -24,10 +24,10 @@ CINCLUDES = -I./include
 CDEFS     = 
 CFLAGS    = $(COPTS) $(CINCLUDES) $(CDEFS)
 
-FOPTS     = $(BOPT)
-FINCLUDES = $(CINCLUDES)
-FDEFS     = $(CDEFS)
-FFLAGS    = $(FOPTS) $(FINCLUDES) $(FDEFS)
+# FOPTS     = $(BOPT)
+# FINCLUDES = $(CINCLUDES)
+# FDEFS     = $(CDEFS)
+# FFLAGS    = $(FOPTS) $(FINCLUDES) $(FDEFS)
 
 AMGLIB = lib/libAMG.a
 
@@ -41,21 +41,16 @@ FLFLAGS    = $(LINKOPTS) $(LIBS)
 ########################################################################
 # Rules for compiling the source files
 ########################################################################
-.SUFFIXES: .c .for .f
+.SUFFIXES: .c
 
 CSRCDIR = ./csrc
-FSRCDIR = ./fsrc
 ELASDIR = ./elas
 ELIPDIR = ./ellipticeqn
 
-FSRC := $(foreach dir,$(FSRCDIR),$(wildcard $(FSRCDIR)/*.for))
-FSRC += $(foreach dir,$(FSRCDIR),$(wildcard $(FSRCDIR)/*.f))
 CSRC := $(foreach dir,$(CSRCDIR),$(wildcard $(CSRCDIR)/*.c))
 CSRC += $(foreach dir,$(ELASDIR),$(wildcard $(ELASDIR)/*.c))
 CSRC += $(foreach dir,$(ELIPDIR),$(wildcard $(ELIPDIR)/*.c))
 
-OBJSF := $(patsubst %.for,%.o,$(FSRC))
-OBJSF += $(patsubst %.f,%.o,$(FSRC))
 OBJSC := $(patsubst %.c,%.o,$(CSRC))
 
 ########################################################################
@@ -81,16 +76,16 @@ all: $(ALLPROG)
 
 Default: test
 
-$(AMGLIB): $(OBJSC) $(OBJSF)
+$(AMGLIB): $(OBJSC)
 	ranlib $(AMGLIB)
 
 test: 
 	$(CC) $(CFLAGS) -c main/test.c  -o main/test.o
-	$(FC) main/test.o $(AMGLIB) $(FLFLAGS) -o test.ex
+	$(CC) main/test.o $(AMGLIB) $(FLFLAGS) -o test.ex
 
 testmat: 
 	$(CC) $(CFLAGS) -c main/testmat.c  -o main/testmat.o
-	$(FC) main/testmat.o $(AMGLIB) $(FLFLAGS) -o testmat.ex
+	$(CC) main/testmat.o $(AMGLIB) $(FLFLAGS) -o testmat.ex
 
 
 ########################################################################
@@ -113,15 +108,7 @@ allclean:
 	rm -f main/*.o
 	rm -f *.ex
 
-.SUFFIXES: .c .for .f .o
-
-.for.o:
-	$(FC) $(FFLAGS) -c $<  -o $@
-	$(AR) $(AMGLIB) $@
-
-.f.o:
-	$(FC) $(FFLAGS) -c $<  -o $@
-	$(AR) $(AMGLIB) $@
+.SUFFIXES: .c .o
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<  -o $@
