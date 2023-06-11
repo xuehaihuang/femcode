@@ -401,7 +401,7 @@ int DiagAsP1StokesNcP1P0_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *p
 		diag.val[i] = M.val[i];
 
 
-	getElementDOF_Lagrange3d(&elementDOFas, elements, elementFace, faces, elementEdge, edges, nodes->row, 1);
+	getElementDOF_Lagrange3d(&elementDOFas, elements, elementFace, elementEdge, faces->row, edges->row, nodes->row, 1);
 	// getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, &elementDOFas);
 	assembleBiGradLagrange3d(&tempA, elements, elementFace, faces, elementEdge, edges, nodes, &elementDOFas);
@@ -622,7 +622,7 @@ int AbfpAsP1StokesNcP1P0_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *pa
 	/************ form Shur complement end  *********/
 
 
-	getElementDOF_Lagrange3d(&elementDOFas, elements, elementFace, faces, elementEdge, edges, nodes->row, 1);
+	getElementDOF_Lagrange3d(&elementDOFas, elements, elementFace, elementEdge, faces->row, edges->row, nodes->row, 1);
 	// getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, &elementDOFas);
 	assembleBiGradLagrange3d(&tempA, elements, elementFace, faces, elementEdge, edges, nodes, &elementDOFas);

@@ -490,6 +490,7 @@ int free_dbd_matrix(dBDmat *A)
 	int i;
 	for(i=0;i<A->nb;i++)
 		free_dden_matrix(A->blk+i);
+	free(A->blk);
 	A->blk=NULL;
 	A->row=0;
 	A->col=0;
@@ -785,7 +786,7 @@ int ax_array(int n, double a, double *x)
 }
 
 /**
- * \fn int ax_array(int n, double a, double *x, double *y)
+ * \fn int axy_array(int n, double a, double *x, double *y)
  * \brief y = a*x
  * \param n number of variables
  * \param a a real number

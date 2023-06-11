@@ -114,7 +114,7 @@ void maxwellNedelec1st3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, i
 	getElementDOF_Nedelec1st3d(elementDOF, elements, elementFace, faces, elementEdge, edges, dop1);
 	getFreenodesInfoNedelec1st3d(faces, edges, nodes, elementDOF);
 
-	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, faces, elementEdge, edges, nodes->row, dop2);
+	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, elementEdge, faces->row, edges->row, nodes->row, dop2);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, elementDOF+1);
 		
 	/** Step 2. assemble stiffmatrix and right hand side term */
@@ -253,7 +253,7 @@ void maxwellNedelec2nd3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, i
 	getElementDOF_Nedelec2nd3d(elementDOF, elements, elementFace, faces, elementEdge, edges, dop1);
 	getFreenodesInfoNedelec2nd3d(faces, edges, nodes, elementDOF);
 
-	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, faces, elementEdge, edges, nodes->row, dop2);
+	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, elementEdge, faces->row, edges->row, nodes->row, dop2);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, elementDOF+1);
 		
 	/** Step 2. assemble stiffmatrix and right hand side term */
@@ -392,7 +392,7 @@ void maxwellHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, i
 	getElementDOF_HuangZhang3d(elementDOF, elements, elementFace, faces, elementEdge, edges);
 	getFreenodesInfoHuangZhang3d(faces, edges, nodes, 2, elementDOF);
 	
-	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, faces, elementEdge, edges, nodes->row, dop2);
+	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, elementEdge, faces->row, edges->row, nodes->row, dop2);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, elementDOF+1);
 
 	/***************************Generate coefficient of basis functions**************************/
@@ -537,7 +537,7 @@ void maxwellHuang3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenma
 	getElementDOF_HuangGradcurl3d(elementDOF, elements, elementFace, faces, elementEdge, edges);
 	getFreenodesInfoHuangGradcurl3d(faces, edges, nodes, 2, elementDOF);
 
-	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, faces, elementEdge, edges, nodes->row, dop2);
+	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, elementEdge, faces->row, edges->row, nodes->row, dop2);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, elementDOF+1);
 		
 	/** Step 2. assemble stiffmatrix and right hand side term */
@@ -673,10 +673,11 @@ void assemble_maxwellNedelec1st3d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *
 	dCSRmat AA[4], AB[4];
 	dvector D, bb[2], wh[2];
 	assembleBiCurlNedelec1st3d(&AA[0], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
-	assembleNedelec1stGradLagrange3d(&AA[2], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
+	assembleNedelec1stGradLagrange3d(&AA[2], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, elementDOF+1);
 	getTransposeOfSparse(&AA[2], &AA[1]);
 	assembleMassmatrixLagrange3d(&AA[3], elements, elementDOF+1);
-	assembleRHSNedelec1st3d(&bb[0], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, maxwell3d_f);
+	// assembleRHSNedelec1st3d(&bb[0], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, maxwell3d_f);
+	assembleRHSNedelec3d(&bb[0], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, 0, 1, maxwell3d_f);
 	create_dvector(AA[1].col, bb+1);
 	create_dvector(AA[1].row, wh);
 	create_dvector(AA[1].col, wh+1);
@@ -746,10 +747,11 @@ void assemble_maxwellNedelec2nd3d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *
 	dCSRmat AA[4], AB[4];
 	dvector D, bb[2], wh[2];
 	assembleBiCurlNedelec2nd3d(&AA[0], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
-	assembleNedelec2ndGradLagrange3d(&AA[2], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF);
+	assembleNedelec2ndGradLagrange3d(&AA[2], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, elementDOF+1);
 	getTransposeOfSparse(&AA[2], &AA[1]);
 	assembleMassmatrixLagrange3d(&AA[3], elements, elementDOF+1);
-	assembleRHSNedelec2nd3d(&bb[0], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, maxwell3d_f);
+	// assembleRHSNedelec2nd3d(&bb[0], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, maxwell3d_f);
+	assembleRHSNedelec3d(&bb[0], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, 0, 2, maxwell3d_f);
 	create_dvector(AA[1].col, bb+1);
 	create_dvector(AA[1].row, wh);
 	create_dvector(AA[1].col, wh+1);

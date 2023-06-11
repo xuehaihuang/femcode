@@ -740,16 +740,19 @@ void quadcurlfem(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *
 void quadcurlHuang3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void quadcurlHuang3d_msm(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void quadcurlHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void quadcurlDistribMixedFEM3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void assemble_quadcurlHuang3d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assemble_quadcurl_StokesNcP1P03d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, dvector *wh, ELEMENT_DOF *elementDOFwh);
 void assemble_quadcurl_maxwellHuang3d(dCSRmat *AA, dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, dvector *uhs, ELEMENT_DOF *elementDOFs);
 void assemble_quadcurlHuangZhang3d(dCSRmat *A, dvector *b, dvector *uh, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void assemble_quadcurlDistribMixedFEM3d(dCSRmat *A, dCSRmat *Asigma, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, int curlfemtype);
 void assembleRHSCurlHuangNcP13d4Stokes(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, dvector *wh, ELEMENT_DOF *elementDOFwh);
 void assembleRHSCurlHuangNcP13d4Maxwell(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, dvector *uhs, ELEMENT_DOF *elementDOFs);
 
 /* quadcurlerror.c */
 void geterrorsQuadcurlHuang3d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void geterrorsQuadcurlHuangZhang3d(double *errors, dvector *uh, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void geterrorsQuadcurlDistribMixedFEM3d(double *errors, dvector *sigmah, dvector *uh, dvector *lambdah, dvector *uhstar, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, ELEMENT_DOF *elementDOFstar, int curlfemtype);
 
 /* quadcurlperturbfem.c */
 void quadcurlperturbfem(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
@@ -761,12 +764,10 @@ void geterrorsQuadcurlperturbHuangZhang3d(double *errors, double paraeps, short 
 
 /* assemble.c */
 int getmesh(int domain_num, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, int levelNum);
-void getElementDOF1d(ELEMENT_DOF *elementDOF, int ne, int dop);
+void getElementDOFdg(ELEMENT_DOF *elementDOF, int nt, int ldof, int dop);
 void getElementDOF1d_Continue(ELEMENT_DOF *edgeDOF, ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
-void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop);
-void getElementDOF_Lagrange(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
-void getElementDOF3d(ELEMENT_DOF *elementDOF, int nt, int dop);
-void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
+void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
+void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, idenmat *elementEdge, int nfaces, int nedges, int nvertices, int dop);
 void getElementDOF_NoncfmP13d(ELEMENT_DOF *elementDOF, idenmat *elementFace, int nf);
 void getElementDOF_Morley3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges);
 void getElementDOF_HuZhang(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
@@ -776,6 +777,7 @@ void getElementDOF_Nedelec2nd3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, iden
 void getElementDOF_CHHcurlHermite3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF_HuangGradcurl3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges);
 void getElementDOF_HuangZhang3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges);
+void assembleMassmatrixTracelessDGPk3d(dBDmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF);
 void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF);
 void assembleMassmatrixP03d(dCSRmat *M, ELEMENT *elements, ELEMENT_DOF *elementDOF);
 void assembleBiGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
@@ -785,11 +787,12 @@ void assembleBiGradVectorNcP13d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 void assembleDivNcP1P03d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleRHSVectorNcP13d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, void (*f)(double *, double *));
 void assembleBiCurlNedelec1st3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
-void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1);
 void assembleRHSNedelec1st3d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, void (*f)(double *, double *));
 void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
-void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1);
 void assembleRHSNedelec2nd3d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, void (*f)(double *, double *));
+void assembleRHSNedelec3d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, int nrs, int curlfemtype, void (*f)(double *, double *));
 void assembleBiCurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleBiGradcurlHuangZhang3d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleBiGradcurlperturbHuangZhang3d(dCSRmat *A, double paraeps, short nitsche, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
@@ -799,6 +802,7 @@ void assembleBiCurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, 
 void assembleBiGradcurlHuang3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleHuangGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleRHSHuang3d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, void (*f)(double *, double *));
+void assembleDistribCurldivTracelessDGNedelecHybrid3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, int curlfemtype);
 void jumpOperatorMorley3d(double *prt_lambdas, int face, ELEMENT *elements, idenmat *elementFace, FACE *faces, ELEMENT_DOF *elementDOF, int node, double *jump);
 void averageOperatorNormalDerivativeMorley3d(double *prt_lambdas, int face, ELEMENT *elements, idenmat *elementFace, FACE *faces, ELEMENT_DOF *elementDOF, int node, double *ave);
 void jumpOperatorVectorTensor3d(double *prt_lambdas, int face, ELEMENT *elements, idenmat *elementFace, FACE *faces, ELEMENT_DOF *elementDOF, int node, double *jump);
@@ -806,6 +810,8 @@ void jumpOperatorVector3d(double *prt_lambdas, int face, ELEMENT *elements, iden
 void jumpOperatorVector3dOld(double *prt_lambdas, int face, ELEMENT *elements, idenmat *elementFace, FACE *faces, ELEMENT_DOF *elementDOF, int node, double *jump);
 void getElementFaceEdgeGeoInfo(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes);
 void getFreenodesInfo(ELEMENT_DOF *elementDOF);
+void getFreenodesInfoFaces(FACE *faces, ELEMENT_DOF *elementDOF);
+void getFreenodesInfoFacesVector(FACE *faces, ELEMENT_DOF *elementDOF, int n);
 void getFreenodesInfoLagrange3d(FACE *faces, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void getFreenodesInfoMorley3d(FACE *faces, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void getFreenodesInfoNoncfmP1Vector3d(FACE *faces, ELEMENT_DOF *elementDOF);
@@ -814,6 +820,7 @@ void getFreenodesInfoNedelec2nd3d(FACE *faces, EDGE *edges, dennode *nodes, ELEM
 void getFreenodesInfoCHHcurlHermite3d(FACE *faces, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void getFreenodesInfoHuangGradcurl3d(FACE *faces, EDGE *edges, dennode *nodes, int type, ELEMENT_DOF *elementDOF);
 void getFreenodesInfoHuangZhang3d(FACE *faces, EDGE *edges, dennode *nodes, int type, ELEMENT_DOF *elementDOF);
+void combineFreenodesInfo(ivector *nfFlag1, ivector *nfFlag2, ELEMENT_DOF *elementDOF);
 void getFaceEdgeNTtensor(double **fnv, double **ft1v, double **ft2v, double **etv, double **en1v, double **en2v, double (*fnn)[6], double (*fnt1)[6], double (*fnt2)[6], double (*ft1t1)[6], double (*ft2t2)[6], double (*ft1t2)[6], double (*ett)[6], double (*etn1)[6], double (*etn2)[6], double (*en1n1)[6], double (*en2n2)[6], double (*en1n2)[6]);
 void getBoundaryInfoNormalTrace(EDGE *edges, ELEMENT_DOF *elementDOF, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index);
 void getBoundaryInfoEdge(EDGE *edges, ivector *isInNode, ivector *dirichlet, ivector *nondirichlet, ivector *index);
@@ -861,7 +868,7 @@ void face2vertices3d(int face, int *v);
 /* basiscoeff.c */
 void getHuangZhangBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges);
 
-/* basicData.c */
+/* basis.c */
 void morley_basis(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double *phi);
 void morley_basis1(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double phi[2]);
 void morley_basis2(double lambda1, double lambda2, double lambda3, double s, double elen[3], double eta[3], double xi[3], double sij[3], double orient[3], int index, double phi[3]);
@@ -872,6 +879,8 @@ void lagrange_basis1(double *lambda, double s, double eta[3], double xi[3], int 
 void lagrange_basis2(double *lambda, double s, double eta[3], double xi[3], int index, int dop, double phi[3]);
 void lagrange3d_basis(double *lambda, int index, int dop, double *phi);
 void lagrange3d_basis1(double *lambda, double **grd_lambda, int index, int dop, double phi[3]);
+void bernstein3d_basis(double *lambda, int index, int dop, double *phi);
+void bernstein3d_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[3]);
 void ncp13d_basis(double *lambda, int index, double *phi);
 void ncp13d_basis1(double **grd_lambda, int index, double *phi);
 void morley3d_basis(double *lambda, double v, double **grd_lambda, double **nv, double **nvf, int index, double *phi);
@@ -888,8 +897,10 @@ void huzhang3d_basis(double *lambda, double (*fnn)[6], double (*fnt1)[6], double
 void huzhang3d_basisDIV(double *lambda, double v, double **grd_lambda, double (*fnn)[6], double (*fnt1)[6], double (*fnt2)[6], double (*ft1t1)[6], double (*ft2t2)[6], double (*ft1t2)[6], double (*ett)[6], double (*etn1)[6], double (*etn2)[6], double (*en1n1)[6], double (*en2n2)[6], double (*en1n2)[6], int index, int dop, double phi[3]);
 void nedelec1st3d_basis(double *lambda, double **grd_lambda, short *eorien, int **fpermi, int index, int dop, double phi[3]);
 void nedelec1st3d_basisCurl(double *lambda, double **grd_lambda, short *eorien, int **fpermi, int index, int dop, double phi[3]);
+void nedelec1st3d_basisGradCurl(double *lambda, double **grd_lambda, short *eorien, int **fpermi, int index, int dop, double phi[9]);
 void nedelec2nd3d_basis(double *lambda, double **grd_lambda, int **eperm, int index, int dop, double phi[3]);
 void nedelec2nd3d_basisCurl(double *lambda, double **grd_lambda, int **eperm, int index, int dop, double phi[3]);
+void nedelec2nd3d_basisGradCurl(double *lambda, double **grd_lambda, int **eperm, int index, int dop, double phi[9]);
 void chhcurlHermite3d_basis(double *lambda, double **grd_lambda, double **etv, int index, int dop, double phi[3]);
 void chhcurlHermite3d_basisCurl(double *lambda, double **grd_lambda, double **etv, int index, int dop, double phi[3]);
 void huangQuadcurl3d_facebasis(double *x, double *xK, double *lambda, double **grd_lambda, double **vertices, double *nvf[4], int l, int li, double phi[3]);
@@ -907,11 +918,14 @@ double volume(double **tet);
 int getNumQuadPoints(int dop, int dim);
 int getNumQuadPoints_ShunnWilliams(int dop, int dim);
 void init_quadrature(int num_qp, int ncoor, double (*gauss)[3]);
-void init_Gauss(int num_qp, int ncoor, double (*gauss)[3]);
-void init_Gauss1D(int num_qp, int ncoor, double (*gauss)[2]);
+void init_Gauss2d(int num_qp, double (*gauss)[3], double *weight);
+void init_Gauss1d(int num_qp, double (*gauss)[2], double *weight);
 void init_NewtonCotes1D(int num_qp, int ncoor, double (*newtoncotes)[2]);
 void init_ShunnWilliams2d(int num_qp, double (*lambdas)[3], double *weight);
 void init_ShunnWilliams3d(int num_qp, double (*lambdas)[4], double *weight);
+
+/* postprocessing.c */
+void postprocessQuadcurlDistribMixedFEM3d(dvector *uhstar, dvector *sigmah, dvector *uh, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, ELEMENT_DOF *elementDOFuhstar, int curlfemtype);
 
 /* lu.c */
 int LU_Decomp(double *A, int pivot[], int n);

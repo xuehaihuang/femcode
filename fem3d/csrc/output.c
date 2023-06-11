@@ -9,7 +9,7 @@
  *------------------------------------------------------
  */
 
-/*! \file matvecio.c
+/*! \file output.c
  *  \brief Matrix-vector input/output subroutines
  */
 

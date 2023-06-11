@@ -112,33 +112,25 @@ int getmesh(int domain_num, ELEMENT *elements, idenmat *elementFace, FACE *faces
 	return 1;
 }
 
-
 /**
- * \fn void getElementDOF1d(ELEMENT_DOF *elementDOF, int ne, int dop)
- * \brief get the degrees of freedom of piecewise Lagrange element on edges
- * \param *elementDOF pointer to relation between elements and DOFs
- * \param ne number of edges
+* \fn void getElementDOFdg(ELEMENT_DOF *elementDOF, int nt, int ldof, int dop)
+ * \brief get the degrees of freedom of piecewise element
+ * \param nt number of elements
+ * \param ldof number of local degrees of freedom
  * \param dop degree of polynomial
- */
-void getElementDOF1d(ELEMENT_DOF *elementDOF, int ne, int dop)
+*/
+void getElementDOFdg(ELEMENT_DOF *elementDOF, int nt, int ldof, int dop)
 {
-	int i,j;
+	int i,k;
 	int count;
-	if(dop<0)
-	{
-		elementDOF=NULL;
-		return;
-	}
 
-	create_elementDOF(dop, ne*(dop+1), ne, dop+1, elementDOF);
+	create_elementDOF(dop, nt * ldof, nt, ldof, elementDOF);
 
-	for(j=0;j<ne;j++)
-	{
-		count=j*elementDOF->col;
+	for(k=0;k<nt;k++){
+		count=k*elementDOF->col;
 		for(i=0;i<elementDOF->col;i++)
-			elementDOF->val[j][i]=count+i;
+			elementDOF->val[k][i]=count+i;
 	}
-
 }
 
 /**
@@ -211,31 +203,7 @@ void getElementDOF1d_Continue(ELEMENT_DOF *edgeDOF, ELEMENT_DOF *elementDOF, ELE
 }
 
 /**
- * \fn void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop)
- * \brief get the degrees of freedom of piecewise Lagrange element
- * \param *elementDOF pointer to relation between elements and DOFs
- * \param nt number of elements
- * \param dop degree of polynomial
- */
-void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop)
-{
-	int i,k;
-	int count;
-	if(dop<1)
-		dop=0;
-
-	create_elementDOF(dop, nt*(dop+1)*(dop+2)/2, nt, (dop+1)*(dop+2)/2, elementDOF);
-
-	for(k=0;k<nt;k++)
-	{
-		count=k*elementDOF->col;
-		for(i=0;i<elementDOF->col;i++)
-			elementDOF->val[k][i]=count+i;
-	}
-}
-
-/**
- * \fn void getElementDOF_Lagrange(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, int nedges, int nvertices, int dop)
+ * \fn void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, int nedges, int nvertices, int dop)
  * \brief get the degrees of freedom of Lagrange element
  * \param *elementDOF pointer to relation between elements and DOFs
  * \param *elements pointer to triangulation: the first 3 columns store the indexes of vertices
@@ -245,7 +213,7 @@ void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop)
  * \param nvertices number of vertices
  * \param dop degree of polynomial
  */
-void getElementDOF_Lagrange(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop)
+void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop)
 {
 	int i,j,k;
 	int nt=elements->row;
@@ -294,30 +262,6 @@ void getElementDOF_Lagrange(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat 
 }
 
 /**
- * \fn void getElementDOF3d(ELEMENT_DOF *elementDOF, int nt, int dop)
- * \brief get the degrees of freedom of piecewise Lagrange element in three dimensions
- * \param *elementDOF pointer to relation between elements and DOFs
- * \param nt number of elements
- * \param dop degree of polynomial
- */
-void getElementDOF3d(ELEMENT_DOF *elementDOF, int nt, int dop)
-{
-	int i,k;
-	int count;
-	if(dop<1)
-		dop=0;
-
-	create_elementDOF(dop, nt*(dop+1)*(dop+2)*(dop+3)/6, nt, (dop+1)*(dop+2)*(dop+3)/6, elementDOF);
-
-	for(k=0;k<nt;k++)
-	{
-		count=k*elementDOF->col;
-		for(i=0;i<elementDOF->col;i++)
-			elementDOF->val[k][i]=count+i;
-	}
-}
-
-/**
  * \fn void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, int nvertices, int dop)
  * \brief get the degrees of freedom of Lagrange element in three dimensions
  * \param *elementDOF pointer to relation between elements and DOFs
@@ -330,12 +274,13 @@ void getElementDOF3d(ELEMENT_DOF *elementDOF, int nt, int dop)
  * \param nvertices number of vertices
  * \param dop degree of polynomial
  */
-void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, int nvertices, int dop)
+// void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, int nvertices, int dop)
+void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, idenmat *elementEdge, int nfaces, int nedges, int nvertices, int dop)
 {
 	int i,j,k,l,ii[3];
 	int nt=elements->row;
-	int nf=faces->row;
-	int ne=edges->row;
+	int nf=nfaces;
+	int ne=nedges;
 	int nn=nvertices;
 	if(dop<2)
 		dop=1;
@@ -345,8 +290,7 @@ void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 	int node, edge, face, v[3];
 	int *perm;
 	// int localFaces[4][3];
-	for(k=0;k<nt;k++)
-	{
+	for(k=0;k<nt;k++){
 		// for(i=0;i<4;i++)
 		// {
 		// 	face2vertices3d(i, v);
@@ -361,8 +305,7 @@ void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 		// 	elementDOF->val[k][i]=node;
 		// }
 		
-		for(j=0;j<6;j++)
-		{
+		for(j=0;j<6;j++){
 			// edge2vv3d(j, v);
 			// edge=elementEdge->val[k][j];
 			// if(elements->val[k][v[0]] == edges->val[edge][0])
@@ -378,15 +321,13 @@ void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 			edge = elementEdge->val[k][j];
 			perm = elements->eperm[k][j];
 
-			for(ii[0]=0;ii[0]<dop-1;ii[0]++)
-			{
+			for(ii[0]=0;ii[0]<dop-1;ii[0]++){
 				ii[1]=dop-2-ii[0];
 				elementDOF->val[k][4+(dop-1)*j+ ii[0]] = nn + edge*(dop-1) + ii[perm[0]];
 			}
 		}
 
-		for(j=0;j<4;j++)
-		{
+		for(j=0;j<4;j++){
 			face = elementFace->val[k][j];
 			perm = elements->fperm[k][j];
 			// getPermutation(localFaces[j], faces->val[face], perm, 3);
@@ -400,8 +341,7 @@ void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 			// 		elementDOF->val[k][4+(dop-1)*6+(dop-1)*(dop-2)/2*j+ i] = nn + ne*(dop-1) + face*(dop-1)*(dop-2)/2 + perm[i];
 			// }
 
-			if (dop > 3)
-			{
+			if (dop > 3){
 				int curleft, curright, rotl, roti;
 				curleft = 4 + (dop - 1) * 6 + (dop - 1) * (dop - 2) / 2 * j;
 				curright = nn + ne * (dop - 1) + face * (dop - 1) * (dop - 2) / 2;
@@ -421,8 +361,7 @@ void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 			}
 		}
 
-		for (i = 0; i < (dop - 1) * (dop - 2) * (dop - 3) / 6; i++)
-		{
+		for (i = 0; i < (dop - 1) * (dop - 2) * (dop - 3) / 6; i++){
 			elementDOF->val[k][2 * (dop * dop + 1) + i] = nn + ne * (dop - 1) + nf * (dop - 1) * (dop - 2) / 2 + k * (dop - 1) * (dop - 2) * (dop - 3) / 6 + i;
 		}
 	}
@@ -442,8 +381,7 @@ void getElementDOF_NoncfmP13d(ELEMENT_DOF *elementDOF, idenmat *elementFace, int
 
 	create_elementDOF(1, nf, nt, 4, elementDOF);
 
-	for (k = 0; k<nt; k++)
-	{
+	for (k = 0; k<nt; k++){
 		for (i = 0; i<4; i++)
 			elementDOF->val[k][i] = elementFace->val[k][i];
 	}
@@ -999,6 +937,83 @@ void getElementDOF_HuangZhang3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, iden
 }
 
 /**
+ * \fn void assembleMassmatrixTracelessDGPk3d(dBDmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF)
+ * \brief assemble mass matrix (u, v)
+ * \param *A pointer to mass matrix
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \return void
+ */
+void assembleMassmatrixTracelessDGPk3d(dBDmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF)
+{	
+	int i,j,k,l;
+
+	// int nvertices=nodes->row;
+	// int nedges=edges->row;
+	// int nfaces=faces->row;
+	int element, face, edge, node;
+	
+	double phi, phi1[3], phi2[3], val1;
+	int k1,k2,i1,j1,l1,l2,i2;
+	double x[3];
+	double vol;
+	int count;
+	// double *lambdaConst;
+
+	int num_qp;
+	double lambdas[100][4], weight[100];	
+
+	/************************************************** stiffness matrix A *****************************************************************/
+	int nb = elements->row * 8;
+	create_dbd_matrix(elementDOF[0].col * nb, elementDOF[0].col * nb, nb, A);
+	for(i=0;i<A->nb;i++)
+		create_dden_matrix(elementDOF[0].col, elementDOF[0].col, A->blk+i);
+
+	ddenmat *lA, *lB; // local A
+
+	num_qp = getNumQuadPoints_ShunnWilliams(2*elementDOF->dop, 3); // the number of numerical intergation points
+	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		vol = elements->vol[k];
+		// gradLambda = elements->gradLambda[k];
+		// end set parameters
+
+		// init_dden_matrix(&lA, 0.0);
+		lA = A->blk + k*8;
+		for (k1 = 0; k1<elementDOF->col; k1++){
+			for (k2 = 0; k2<elementDOF->col; k2++){
+				val1 = 0;
+				for (i1 = 0; i1<num_qp; i1++){
+					lagrange3d_basis(lambdas[i1], k1, elementDOF->dop, phi1);
+					lagrange3d_basis(lambdas[i1], k2, elementDOF->dop, phi2);
+					val1 += vol * weight[i1] * phi1[0] * phi2[0];
+				}
+				lA->val[k1][k2] += val1;
+			} // k2
+		} // k1
+
+		for(i=1;i<8;i++){
+			lB = lA+i;
+			for (k1 = 0; k1<elementDOF->col; k1++){
+				for (k2 = 0; k2<elementDOF->col; k2++)
+				lB->val[k1][k2] = lA->val[k1][k2];
+			}
+		} // i
+	} // k
+}
+
+/**
  * \fn void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF)
  * \brief assemble mass matrix (u, v)
  * \param *A pointer to mass matrix
@@ -1054,10 +1069,8 @@ void assembleMassmatrixLagrange3d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 		// end set parameters
 
 		init_dden_matrix(&lA, 0.0);
-		for (k1 = 0; k1<elementDOF->col; k1++)
-		{
-			for (k2 = 0; k2<elementDOF->col; k2++)
-			{
+		for (k1 = 0; k1<elementDOF->col; k1++){
+			for (k2 = 0; k2<elementDOF->col; k2++){
 				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
@@ -1796,7 +1809,7 @@ void assembleBiCurlNedelec1st3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 }
 
 /**
- * \fn void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+ * \fn void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
  * \brief assemble stiffness matrix 
  * \param *A pointer to stiffness matrix
  * \param *BT pointer to stiffness matrix
@@ -1813,18 +1826,16 @@ void assembleBiCurlNedelec1st3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
  *				 the first column is in ascend order.
  * \param *nodes pointer to the nodes location of the triangulation
  * \param *elementDOF pointer to relation between elements and DOFs
- * \param lambda Lame constant
- * \param mu Lame constant or Poisson ratio of plate
  * \return void
  */
-void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
 {
 	/**	
 	Ax1 + B^Tx2 = b
 	Bx1 - Cx2   = 0
 	where x1: u_h, x2: lambda_h
 	**/
-	
+
 	int i,j,k,l;
 
 	int nvertices=nodes->row;
@@ -1848,14 +1859,14 @@ void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 	/************************************************** stiffness matrix A *****************************************************************/
 	int *ia, *ja;
 	double *va;
-	int N = elementDOF[0].col*elementDOF[1].col*elements->row;
+	int N = elementDOF0->col*elementDOF1->col*elements->row;
 	ia = (int*)malloc(N * sizeof(int));
 	ja = (int*)malloc(N * sizeof(int));
 	va = (double*)malloc(N * sizeof(double));
 	ddenmat lA; // local A
-	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lA);
+	create_dden_matrix(elementDOF1->col, elementDOF0->col, &lA);
 
-	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 3); // the number of numerical intergation points
+	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF0->dop+elementDOF1->dop-1, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
 	{
@@ -1883,28 +1894,28 @@ void assembleNedelec1stGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 		// end set parameters
 
 		init_dden_matrix(&lA, 0.0);
-		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		for (k1 = 0; k1<elementDOF1->col; k1++)
 		{
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (k2 = 0; k2<elementDOF0->col; k2++)
 			{
 				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
-					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
-					nedelec1st3d_basis(lambdas[i1], grd_lambda, eorien, fpermi, k2, elementDOF[0].dop, phi2);
+					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF1->dop, phi1);
+					nedelec1st3d_basis(lambdas[i1], grd_lambda, eorien, fpermi, k2, elementDOF0->dop, phi2);
 					val1 += vol*weight[i1] * dot_array(3, phi1, phi2);
 				}
 				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 
-		l = elementDOF[0].col*elementDOF[1].col * k;
-		for (i = 0; i<elementDOF[1].col; i++)
+		l = elementDOF0->col*elementDOF1->col * k;
+		for (i = 0; i<elementDOF1->col; i++)
 		{
-			for (j = 0; j<elementDOF[0].col; j++)
+			for (j = 0; j<elementDOF0->col; j++)
 			{
-				ia[l] = elementDOF[1].val[k][i];
-				ja[l] = elementDOF[0].val[k][j];
+				ia[l] = elementDOF1->val[k][i];
+				ja[l] = elementDOF0->val[k][j];
 				va[l] = lA.val[i][j];
 				l++;
 			} // j
@@ -2128,7 +2139,7 @@ void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
 }
 
 /**
- * \fn void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+ * \fn void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
  * \brief assemble stiffness matrix 
  * \param *A pointer to stiffness matrix
  * \param *BT pointer to stiffness matrix
@@ -2145,11 +2156,9 @@ void assembleBiCurlNedelec2nd3d(dCSRmat *A, ELEMENT *elements, idenmat *elementF
  *				 the first column is in ascend order.
  * \param *nodes pointer to the nodes location of the triangulation
  * \param *elementDOF pointer to relation between elements and DOFs
- * \param lambda Lame constant
- * \param mu Lame constant or Poisson ratio of plate
  * \return void
  */
-void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
+void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
 {	
 	int i,j,k,l;
 
@@ -2174,15 +2183,15 @@ void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 	/************************************************** stiffness matrix A *****************************************************************/
 	int *ia, *ja;
 	double *va;
-	int N = elementDOF[0].col*elementDOF[1].col*elements->row;
+	int N = elementDOF0->col*elementDOF1->col*elements->row;
 	ia = (int*)malloc(N * sizeof(int));
 	ja = (int*)malloc(N * sizeof(int));
 	va = (double*)malloc(N * sizeof(double));
 
 	ddenmat lA; // local A
-	create_dden_matrix(elementDOF[1].col, elementDOF[0].col, &lA);
+	create_dden_matrix(elementDOF1->col, elementDOF0->col, &lA);
 
-	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 3); // the number of numerical intergation points
+	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF0->dop+elementDOF1->dop-1, 3); // the number of numerical intergation points
 	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
 	for (k = 0; k<elements->row; k++)
 	{
@@ -2211,28 +2220,28 @@ void assembleNedelec2ndGradLagrange3d(dCSRmat *A, ELEMENT *elements, idenmat *el
 		// end set parameters
 
 		init_dden_matrix(&lA, 0.0);
-		for (k1 = 0; k1<elementDOF[1].col; k1++)
+		for (k1 = 0; k1<elementDOF1->col; k1++)
 		{
-			for (k2 = 0; k2<elementDOF[0].col; k2++)
+			for (k2 = 0; k2<elementDOF0->col; k2++)
 			{
 				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++)
 				{
-					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF[1].dop, phi1);
-					nedelec2nd3d_basis(lambdas[i1], grd_lambda, eperm, k2, elementDOF[0].dop, phi2);
+					lagrange3d_basis1(lambdas[i1], grd_lambda, k1, elementDOF1->dop, phi1);
+					nedelec2nd3d_basis(lambdas[i1], grd_lambda, eperm, k2, elementDOF0->dop, phi2);
 					val1 += vol*weight[i1] * dot_array(3, phi1, phi2);
 				}
 				lA.val[k1][k2] += val1;
 			} // k2
 		} // k1
 
-		l = elementDOF[0].col*elementDOF[1].col * k;
-		for (i = 0; i<elementDOF[1].col; i++)
+		l = elementDOF0->col*elementDOF1->col * k;
+		for (i = 0; i<elementDOF1->col; i++)
 		{
-			for (j = 0; j<elementDOF[0].col; j++)
+			for (j = 0; j<elementDOF0->col; j++)
 			{
-				ia[l] = elementDOF[1].val[k][i];
-				ja[l] = elementDOF[0].val[k][j];
+				ia[l] = elementDOF1->val[k][i];
+				ja[l] = elementDOF0->val[k][j];
 				va[l] = lA.val[i][j];
 				l++;
 			} // j
@@ -2329,6 +2338,112 @@ void assembleRHSNedelec2nd3d(dvector *b, ELEMENT *elements, idenmat *elementFace
 			for (i1 = 0; i1<num_qp; i1++)
 			{
 				nedelec2nd3d_basis(lambdas[i1], grd_lambda, eperm, i, elementDOF[0].dop, phi1);
+				axy_array(3, lambdas[i1][3], vertices[3], x);
+				for(j=0;j<3;j++)
+					axpy_array(3, lambdas[i1][j], vertices[j], x);
+				// maxwell3d_f(x, phi2);
+				f(x, phi2);
+				lb.val[i] += vol*weight[i1] * dot_array(3, phi1, phi2);
+			} // i1
+		} // k1 
+
+		for (k1 = 0; k1<elementDOF[0].col; k1++)
+		{
+			i = elementDOF[0].val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1 
+	} // k
+	free_dvector(&lb);
+}
+
+/**
+ * \fn void assembleRHSNedelec3d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, int nrs, int curlfemtype, void (*f)(double *, double *))
+ * \brief assemble stiffness matrix 
+ * \param *A pointer to stiffness matrix
+ * \param *BT pointer to stiffness matrix
+ * \param *C pointer to stiffness matrix
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param nrs extend vector b with additional nrs zeros, nrs = 0 means no extension
+ * \param curlfemtype type of Nedelec element
+ * \return void
+ */
+void assembleRHSNedelec3d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, int nrs, int curlfemtype, void (*f)(double *, double *))
+{
+	int i,j,k,l;
+
+	int nvertices=nodes->row;
+	int nedges=edges->row;
+	int nfaces=faces->row;
+	int element, face, edge, node;
+	
+	double phi, phi1[3], phi2[3];
+	int k1,k2,i1,j1,l1,l2,i2,ej;
+	double x[3], **grd_lambda, **nv, *nvf[4], *etv[6], **vertices;
+	double vol, s[4], h[6];
+	int rowstart[3], row31[3];
+	int count;
+	short *forien, *eorien;
+	int **fpermi, **eperm;
+	double *lambdaConst;
+
+	int num_qp;
+	double lambdas[100][4], weight[100];
+	
+	int *index;
+	int istart;
+	
+	dvector lb;
+	create_dvector(elementDOF[0].col, &lb);
+	 /************************************************** right hand side b *****************************************************************/
+	create_dvector(elementDOF[0].dof+nrs, b);
+	num_qp = getNumQuadPoints_ShunnWilliams(9, 3); // the number of numerical intergation points
+	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		vol = elements->vol[k];
+		grd_lambda = elements->gradLambda[k];
+		vertices = elements->vertices[k];
+		nv = elements->nvector[k];
+		forien = elements->forien[k];
+		eorien = elements->eorien[k];
+		eperm = elements->eperm[k];
+		fpermi = elements->fpermi[k];
+		lambdaConst = elements->lambdaConst[k];
+		for (i = 0; i < elementFace->col; i++)
+		{
+			face = elementFace->val[k][i];
+			nvf[i] = faces->nvector[face];
+			s[i] = faces->area[face];
+		}
+		for (i = 0; i<6; i++)
+		{
+			edge = elementEdge->val[k][i];
+			etv[i] = edges->tvector[edge];
+			h[i] = edges->length[edge];
+		}
+		// end set parameters
+
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOF[0].col; i++)
+		{
+			for (i1 = 0; i1<num_qp; i1++)
+			{
+				if(curlfemtype == 1)
+					nedelec1st3d_basis(lambdas[i1], grd_lambda, eorien, fpermi, i, elementDOF[0].dop, phi1);
+				else
+					nedelec2nd3d_basis(lambdas[i1], grd_lambda, eperm, i, elementDOF[0].dop, phi1);
 				axy_array(3, lambdas[i1][3], vertices[3], x);
 				for(j=0;j<3;j++)
 					axpy_array(3, lambdas[i1][j], vertices[j], x);
@@ -3409,6 +3524,244 @@ void assembleRHSHuang3d(dvector *b, ELEMENT *elements, idenmat *elementFace, FAC
 }
 
 /**
+ * \fn void assembleDistribCurldivTracelessDGNedelecHybrid3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, int curlfemtype)
+ * \brief assemble stiffness matrix
+ *  The basis of Tracelss tensor: e1 e2^T, e1 e3^T, e2 e1^T, e2 e3^T, e3 e1^T, e3 e2^T, (e1 e1^T - e2 e2^T)/sqrt(2), (e1 e1^T + e2 e2^T - 2 e3 e3^T)/sqrt(6) 
+ * \param *A pointer to stiffness matrix
+ * \param *BT pointer to stiffness matrix
+ * \param *C pointer to stiffness matrix
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param curlfemtype type of Nedelec element
+ * \return void
+ */
+void assembleDistribCurldivTracelessDGNedelecHybrid3d(dCSRmat *A, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, int curlfemtype)
+{
+	/**	
+	Ax1 + B^Tx2 = b
+	Bx1 - Cx2   = 0
+	where x1: u_h, x2: lambda_h
+	**/
+	
+	int i,j,k,l,li;
+
+	int nvertices=nodes->row;
+	int nedges=edges->row;
+	int nfaces=faces->row;
+	int element, face, edge, node;
+	
+	double phi, phi1[3], phi2[3], val[16], val1;
+	int k1,k2,i1,j1,l1,l2,i2,ej;
+	double x[3], **grd_lambda, **nv, *nvf, *t1vf, *t2vf, *etv[6], **vertices;
+	double vol, s, h[6];
+	int fi[3];
+	int count;
+	short *forien, *eorien;
+	int **fpermi, **eperm;
+	double *lambdaConst;
+
+	int num_qp;
+	double lambdas[100][4], weight[100];
+	int num_qp2;
+	double lambdasT[4]; 
+	double lambdas2[100][3], weight2[100];
+		
+	/************************************************** stiffness matrix A *****************************************************************/
+	int *ia, *ja;
+	double *va;
+	int N1 = 8*elementDOF[0].col*elementDOF[1].col*elements->row;
+	int N2 = 64*elementDOF[0].col*elementDOF[2].col*elements->row;
+	int N = N1+N2;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA[16]; // local A
+	for(i=0;i<8;i++)
+		create_dden_matrix(elementDOF[1].col, elementDOF[0].col, lA+i);
+
+	num_qp = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-2, 3); // the number of numerical intergation points
+	init_ShunnWilliams3d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
+	num_qp2 = getNumQuadPoints_ShunnWilliams(elementDOF[0].dop+elementDOF[1].dop-1, 2); // the number of numerical intergation points
+	init_ShunnWilliams2d(num_qp2, lambdas2, weight2); // Shunn-Williams intergation initial
+
+	for (k = 0; k<elements->row; k++){
+		// set parameters
+		vol = elements->vol[k];
+		grd_lambda = elements->gradLambda[k];
+		vertices = elements->vertices[k];
+		nv = elements->nvector[k];
+		forien = elements->forien[k];
+		eorien = elements->eorien[k];
+		eperm = elements->eperm[k];
+		fpermi = elements->fpermi[k];
+		lambdaConst = elements->lambdaConst[k];
+		// end set parameters
+
+		for(i=0;i<8;i++)
+			init_dden_matrix(lA+i, 0.0);
+		for (k1 = 0; k1<elementDOF[1].col; k1++){
+			for (k2 = 0; k2<elementDOF[0].col; k2++){
+				init_array(8, val, 0);
+				for (i1 = 0; i1<num_qp; i1++){
+					if(curlfemtype == 1)
+						nedelec1st3d_basisCurl(lambdas[i1], grd_lambda, eorien, fpermi, k1, elementDOF[1].dop, phi1);
+					else
+						nedelec2nd3d_basisCurl(lambdas[i1], grd_lambda, eperm, k1, elementDOF[1].dop, phi1);
+					lagrange3d_basis1(lambdas[i1], grd_lambda, k2, elementDOF[0].dop, phi2);
+					val[0] += vol*weight[i1] * phi1[0]*phi2[1];
+					val[1] += vol*weight[i1] * phi1[0]*phi2[2];
+					val[2] += vol*weight[i1] * phi1[1]*phi2[0];
+					val[3] += vol*weight[i1] * phi1[1]*phi2[2];
+					val[4] += vol*weight[i1] * phi1[2]*phi2[0];
+					val[5] += vol*weight[i1] * phi1[2]*phi2[1];
+					val[6] += vol*weight[i1] * (phi1[0]*phi2[0] - phi1[1]*phi2[1]) / sqrt(2);
+					val[7] += vol*weight[i1] * (phi1[0]*phi2[0] + phi1[1]*phi2[1] - 2*phi1[2]*phi2[2]) / sqrt(6);
+				}
+
+				for (i = 0; i < elementFace->col; i++){
+					face = elementFace->val[k][i];
+					// t1vf = faces->t1vector[face];
+					// t2vf = faces->t2vector[face];
+					s = faces->area[face];
+					face2vertices3d(i, fi);
+					init_array(4, lambdasT, 0);
+					// lambdasT[i]=0;
+					for (i1 = 0; i1<num_qp2; i1++){
+						for(j=0;j<3;j++) lambdasT[fi[j]] = lambdas2[i1][j];
+						
+						if(curlfemtype == 1)
+							nedelec1st3d_basisCurl(lambdasT, grd_lambda, eorien, fpermi, k1, elementDOF[1].dop, phi1);
+						else
+							nedelec2nd3d_basisCurl(lambdasT, grd_lambda, eperm, k1, elementDOF[1].dop, phi1);
+						lagrange3d_basis(lambdasT, k2, elementDOF[0].dop, phi2);
+					
+						val1 = - s*weight2[i1] * phi2[0] * dot_array(3, nv[i], phi1);
+						val[0] += val1 * nv[i][0]*nv[i][1];
+						val[1] += val1 * nv[i][0]*nv[i][2];
+						val[2] += val1 * nv[i][1]*nv[i][0];
+						val[3] += val1 * nv[i][1]*nv[i][2];
+						val[4] += val1 * nv[i][2]*nv[i][0];
+						val[5] += val1 * nv[i][2]*nv[i][1];
+						val[6] += val1 * (nv[i][0]*nv[i][0] - nv[i][1]*nv[i][1]) / sqrt(2);
+						val[7] += val1 * (nv[i][0]*nv[i][0] + nv[i][1]*nv[i][1] - 2*nv[i][2]*nv[i][2]) / sqrt(6);
+					}
+				}
+
+				for(i=0;i<8;i++)
+				 lA[i].val[k1][k2] += val[i];
+			} // k2
+		} // k1
+
+		l = 8*elementDOF[0].col*elementDOF[1].col * k;
+		for (k1 = 0; k1<elementDOF[1].col; k1++){
+			for (k2 = 0; k2<elementDOF[0].col; k2++){
+				for (i = 0; i<8; i++){
+					ia[l] = elementDOF[1].val[k][k1];
+					ja[l] = elementDOF[0].col*(8*k+i) + k2;
+					va[l] = lA[i].val[k1][k2];
+					l++;
+				} // i
+			} // k2
+		} // k1
+	} // k
+
+	for(i=0;i<8;i++)
+		free_dden_matrix(lA+i);
+
+/************** Lagrange multiplier part **************/
+	for(i=0;i<16;i++)
+		create_dden_matrix(elementDOF[2].col, elementDOF[0].col, lA+i);
+
+	for (k = 0; k<elements->row; k++){
+		// set parameters
+		vol = elements->vol[k];
+		grd_lambda = elements->gradLambda[k];
+		vertices = elements->vertices[k];
+		nv = elements->nvector[k];
+		forien = elements->forien[k];
+		eorien = elements->eorien[k];
+		eperm = elements->eperm[k];
+		fpermi = elements->fpermi[k];
+		lambdaConst = elements->lambdaConst[k];
+		// end set parameters
+
+		for (i = 0; i < elementFace->col; i++){
+			face = elementFace->val[k][i];
+			// if(face == 863) printf("face=%d\n", face);
+			t1vf = faces->t1vector[face];
+			t2vf = faces->t2vector[face];
+			s = faces->area[face];
+			face2vertices3d(i, fi);
+					
+			for(j=0;j<16;j++)
+				init_dden_matrix(lA+j, 0.0);
+			init_array(4, lambdasT, 0);
+			// lambdasT[i]=0;
+			for (k1 = 0; k1<elementDOF[2].col; k1++){
+				for (k2 = 0; k2<elementDOF[0].col; k2++){
+					init_array(16, val, 0);
+					for (i1 = 0; i1<num_qp2; i1++){
+						// lambdasT[i]=0;
+						for(j=0;j<3;j++) lambdasT[fi[j]] = lambdas2[i1][j];
+						
+						lagrange_basis(lambdas2[i1], k1, elementDOF[2].dop, phi1);
+						lagrange3d_basis(lambdasT, k2, elementDOF[0].dop, phi2);
+						val1 = - s*weight2[i1] * phi2[0] * phi1[0];
+						// printf("val1 + s=%le\n", val1 + s);
+						val[0] += val1 * t1vf[0]*nv[i][1];
+						val[1] += val1 * t1vf[0]*nv[i][2];
+						val[2] += val1 * t1vf[1]*nv[i][0];
+						val[3] += val1 * t1vf[1]*nv[i][2];
+						val[4] += val1 * t1vf[2]*nv[i][0];
+						val[5] += val1 * t1vf[2]*nv[i][1];
+						val[6] += val1 * (t1vf[0]*nv[i][0] - t1vf[1]*nv[i][1]) / sqrt(2);
+						val[7] += val1 * (t1vf[0]*nv[i][0] + t1vf[1]*nv[i][1] - 2*t1vf[2]*nv[i][2]) / sqrt(6);
+						val[8] += val1 * t2vf[0]*nv[i][1];
+						val[9] += val1 * t2vf[0]*nv[i][2];
+						val[10] += val1 * t2vf[1]*nv[i][0];
+						val[11] += val1 * t2vf[1]*nv[i][2];
+						val[12] += val1 * t2vf[2]*nv[i][0];
+						val[13] += val1 * t2vf[2]*nv[i][1];
+						val[14] += val1 * (t2vf[0]*nv[i][0] - t2vf[1]*nv[i][1]) / sqrt(2);
+						val[15] += val1 * (t2vf[0]*nv[i][0] + t2vf[1]*nv[i][1] - 2*t2vf[2]*nv[i][2]) / sqrt(6);
+					}
+					for(j=0;j<16;j++)
+						lA[j].val[k1][k2] += val[j];
+				} // k2
+			} // k1
+		
+			l = N1+16*elementDOF[0].col*elementDOF[2].col * (4*k + i);
+			for (k1 = 0; k1<elementDOF[2].col; k1++){
+				for (k2 = 0; k2<elementDOF[0].col; k2++){
+					for (j = 0; j<16; j++){
+						ia[l] = elementDOF[1].dof + elementDOF[2].col*(2*face + j/8) + k1;
+						ja[l] = elementDOF[0].col*(8*k + j%8) + k2;
+						va[l] = lA[j].val[k1][k2];
+						l++;
+					} // j
+				} // k2
+			} // k1
+		} // i, face
+	} // k
+	
+	for(i=0;i<16;i++)
+		free_dden_matrix(lA+i);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
+}
+
+/**
 * \fn void jumpOperatorMorley3d(double *prt_lambdas, int face, ELEMENT *elements, idenmat *elementFace, FACE *faces, ELEMENT_DOF *elementDOF, int node, double *jump)
 * \brief the jump of uh for Morley element in 3d
 * \param prt_lambdas pointer to the area coordiante
@@ -4121,6 +4474,123 @@ void getFreenodesInfo(ELEMENT_DOF *elementDOF)
 }
 
 /**
+* \fn void getFreenodesInfoFaces(FACE *faces, ELEMENT_DOF *elementDOF)
+* \brief get freenodes information of piecewise polynomial on faces
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to nodes: the first column stores the x coordinate of points, the second column stores the y coordinate of points
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void getFreenodesInfoFaces(FACE *faces, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k, fstride, nnf;
+
+	int nf = faces->row;
+	int dof = elementDOF->dof;
+	int dop = elementDOF->dop;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	create_ivector(dof, nfFlag);
+	create_ivector(dof, index);
+
+	nnf = 0; // number of non-free nodes
+	fstride = (dop+1)*(dop+2)/2;
+	for (k = 0; k<nf; k++)
+	{
+		if (faces->bdFlag[k] == 1 || faces->bdFlag[k] == 2 || faces->bdFlag[k] == 3 || faces->bdFlag[k] == 4) // Dirichlet boundary
+		{
+			for (i = 0; i < fstride; i++)
+				nfFlag->val[k*fstride + i] = 1;
+			nnf += fstride;
+		}
+	}
+
+
+	create_ivector(nnf, nfreenodes);
+	create_ivector(dof - nnf, freenodes);
+
+	j = 0; k = 0;
+	for (i = 0; i<dof; i++)
+	{
+		if (nfFlag->val[i] == 1) //  non-free node
+		{
+			nfreenodes->val[k] = i;
+			index->val[i] = k;
+			k++;
+		}
+		else // free variable
+		{
+			freenodes->val[j] = i;
+			index->val[i] = j;
+			j++;
+		}
+	}
+}
+
+/**
+* \fn void getFreenodesInfoFacesVector(FACE *faces, ELEMENT_DOF *elementDOF, int n)
+* \brief get freenodes information of piecewise polynomial on faces
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to nodes: the first column stores the x coordinate of points, the second column stores the y coordinate of points
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param n the dimension of vector
+* \return void
+*/
+void getFreenodesInfoFacesVector(FACE *faces, ELEMENT_DOF *elementDOF, int n)
+{
+	int i, j, k, fstride, nnf;
+
+	int nf = faces->row;
+	int dof = elementDOF->dof*n;
+	int dop = elementDOF->dop;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	create_ivector(dof, nfFlag);
+	create_ivector(dof, index);
+
+	nnf = 0; // number of non-free nodes
+	fstride = (dop+1)*(dop+2)/2*n;
+	for (k = 0; k<nf; k++){
+		if (faces->bdFlag[k] == 1 || faces->bdFlag[k] == 2 || faces->bdFlag[k] == 3 || faces->bdFlag[k] == 4) // Dirichlet boundary
+		{
+			for (i = 0; i < fstride; i++)
+				nfFlag->val[k*fstride + i] = 1;
+			nnf += fstride;
+		}
+	}
+
+
+	create_ivector(nnf, nfreenodes);
+	create_ivector(dof - nnf, freenodes);
+
+	j = 0; k = 0;
+	for (i = 0; i<dof; i++){
+		if (nfFlag->val[i] == 1) //  non-free node
+		{
+			nfreenodes->val[k] = i;
+			index->val[i] = k;
+			k++;
+		}
+		else // free variable
+		{
+			freenodes->val[j] = i;
+			index->val[i] = j;
+			j++;
+		}
+	}
+}
+
+/**
 * \fn void getFreenodesInfoLagrange3d(FACE *faces, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
 * \brief get freenodes information of Lagrange element in three dimensions
 * \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
@@ -4720,6 +5190,60 @@ void getFreenodesInfoHuangZhang3d(FACE *faces, EDGE *edges, dennode *nodes, int 
 		}
 		else // free variable
 		{
+			freenodes->val[j] = i;
+			index->val[i] = j;
+			j++;
+		}
+	}
+}
+
+/**
+* \fn void combineFreenodesInfo(ivector *nfFlag1, ivector *nfFlag2, ELEMENT_DOF *elementDOF)
+* \brief combines nfFlag1 and nfFlag2 into nfFlag
+* \param *nfFlage1 pointer to the first freenode information
+* \param *nfFlage2 pointer to the second freenode information
+* \param *elementDOF pointer to relation between elements and DOFs
+* \return void
+*/
+void combineFreenodesInfo(ivector *nfFlag1, ivector *nfFlag2, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k;
+
+	ivector *nfFlag = &elementDOF->nfFlag;
+	ivector *freenodes = &elementDOF->freenodes;
+	ivector *nfreenodes = &elementDOF->nfreenodes;
+	ivector *index = &elementDOF->index;
+
+	int dof1 = nfFlag1->row;
+	int dof2 = nfFlag2->row;
+	int dof = dof1 + dof2;
+	elementDOF->dof = dof;
+	elementDOF->val = NULL;
+	
+	create_ivector(dof, nfFlag);
+	create_ivector(dof, index);
+	for(i=0;i<dof1;i++)
+		nfFlag->val[i] = nfFlag1->val[i];
+	for(i=0;i<dof2;i++)
+		nfFlag->val[dof1+i] = nfFlag2->val[i];
+
+	int nnf = 0;
+	for(i=0;i<dof;i++){
+		if(nfFlag->val[i] == 1) nnf++;
+	}
+
+	create_ivector(nnf, nfreenodes);
+	create_ivector(dof - nnf, freenodes);
+
+	j = 0; k = 0;
+	for (i = 0; i<dof; i++)
+	{
+		if (nfFlag->val[i] == 1){ //  non-free node
+			nfreenodes->val[k] = i;
+			index->val[i] = k;
+			k++;
+		}
+		else{ // free variable
 			freenodes->val[j] = i;
 			index->val[i] = j;
 			j++;

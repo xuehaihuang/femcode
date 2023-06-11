@@ -97,7 +97,7 @@ void poissonLagrange3d(ELEMENT *elements, idenmat *elementFace, FACE *faces, ide
 	int dop = Input->dop1;
 		
 	/** Step 1. generate degrees of freedom */
-	getElementDOF_Lagrange3d(&elementDOF, elements, elementFace, faces, elementEdge, edges, nodes->row, dop);
+	getElementDOF_Lagrange3d(&elementDOF, elements, elementFace, elementEdge, faces->row, edges->row, nodes->row, dop);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, &elementDOF);
 		
 	/** Step 2. assemble stiffmatrix and right hand side term */

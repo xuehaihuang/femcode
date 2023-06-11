@@ -61,8 +61,6 @@ int create_dvector(int m, dvector *u);
 int create_ivector(int m, ivector *u);
 int free_dvector(dvector *u);
 int free_ivector(ivector *u);
-int print_dvector(int n, dvector *u); 
-int print_ivector(int n, ivector *u);
 
 int copy_arrayint(int n, int *x, int *y);
 int init_array(int n, double *x, double val);

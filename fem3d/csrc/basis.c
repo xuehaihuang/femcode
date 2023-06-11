@@ -1194,6 +1194,162 @@ void lagrange3d_basis1(double *lambda, double **gradLambda, int index, int dop, 
 	}
 }
 
+/** 
+ * \fn void bernstein3d_basis(double *lambda, int index, int dop, double *phi)
+ * \brief Bernstein basis function of Lagrange element
+ * \param *lambda pointer to the volume coordiante
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param *phi basis function
+ * \return void
+ */
+void bernstein3d_basis(double *lambda, int index, int dop, double *phi)
+{
+	int fi, ei[2], ii, vi[3], fl, l, i;
+	int dofs = (dop+1)*(dop+2)*(dop+3)/6; // degrees of freedom
+	if(index>= dofs || index<0){
+		*phi=0;
+		return;
+	}
+
+	if(dop==0){
+		*phi = 1;
+	}
+
+	else if(dop==1){
+		*phi = lambda[index];
+	} // dop=1
+
+	else if(dop>=2){
+		if(index<4){
+			*phi =  pow(lambda[index], dop);
+		}
+		else if(index < 4+6*(dop-1)){
+			// edge: 01, 12, 23, 30, 02, 13 
+			edge2vv3d((index-4)/(dop-1), ei);
+			ii = (index-4)%(dop-1); // ii=0, 1 or 2 if dop=4
+			*phi =  4.0 *pow(lambda[ei[0]], ii+1)*pow(lambda[ei[1]], dop-1-ii);
+		}
+		else if(index < 2*(dop*dop+1)){
+			fi=(index-(6*dop-2))/((dop-1)*(dop-2)/2);
+			face2vertices3d(fi, vi);
+			ii=(index-(6*dop-2))%((dop-1)*(dop-2)/2);
+			for(l=0;l<dop-2;l++){
+				if(ii<(l+1)*(l+2)/2) 
+					break;
+			}
+			i=ii-(l+1)*l/2;
+			*phi =  27.0*pow(lambda[vi[0]], dop-2-l)*pow(lambda[vi[1]], l-i+1)*pow(lambda[vi[2]], i+1);
+		}
+		else{	
+			ii=index-2*(dop*dop+1);
+			for(fl=0;fl<dop-3;fl++)
+			{
+				if(ii<(fl+1)*(fl+2)*(fl+3)/6) 
+					break;
+			}
+			fi=ii-(fl+1)*(fl+2)*fl/6;
+			for(l=0;l<fl+1;l++)
+			{
+				if(fi<(l+1)*(l+2)/2) 
+					break;
+			}
+			i=fi-(l+1)*l/2;
+			*phi = 256.0*pow(lambda[0],dop-3-fl)*pow(lambda[1],fl-l+1)*pow(lambda[2],l-i+1)*pow(lambda[3],i+1);
+		}
+	}	
+}
+
+/** 
+ * \fn void bernstein3d_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[3])
+ * \brief the first order derivative of Bernstein basis function: (\partial_{x}phi, \partial_{y}phi, \partial_{z}phi)
+ * \param *lambda pointer to the volume coordiante
+ * \param gradLambda gradient of the barycentric coordinate
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param phi[3] the first order derivative of lagrangian element basis function: (\partial_{x}phi, \partial_{y}phi, \partial_{z}phi)
+ * \return void
+ */
+void bernstein3d_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[3])
+{
+	int fl, l, i;
+	int in, ei[2], fi, ii, i1, i2, i3, vi[3];
+	int dofs = (dop+1)*(dop+2)*(dop+3)/6; // degrees of freedom
+
+	if(index>= dofs || index<0){
+		phi[0]=0; phi[1]=0; phi[2]=0;
+		return;
+	}
+
+	// gradLambda[0][0]=(eta[1]*zeta[0]-eta[0]*zeta[1])/(6*v); gradLambda[0][1]=(zeta[1]*xi[0]-zeta[0]*xi[1])/(6*v); gradLambda[0][2]=(xi[1]*eta[0]-xi[0]*eta[1])/(6*v);
+	// gradLambda[1][0]=-(eta[2]*zeta[1]-eta[1]*zeta[2])/(6*v); gradLambda[1][1]=-(zeta[2]*xi[1]-zeta[1]*xi[2])/(6*v); gradLambda[1][2]=-(xi[2]*eta[1]-xi[1]*eta[2])/(6*v);
+	// gradLambda[2][0]=(eta[3]*zeta[2]-eta[2]*zeta[3])/(6*v); gradLambda[2][1]=(zeta[3]*xi[2]-zeta[2]*xi[3])/(6*v); gradLambda[2][2]=(xi[3]*eta[2]-xi[2]*eta[3])/(6*v);
+	// gradLambda[3][0]=-(eta[0]*zeta[3]-eta[3]*zeta[0])/(6*v); gradLambda[3][1]=-(zeta[0]*xi[3]-zeta[3]*xi[0])/(6*v); gradLambda[3][2]=-(xi[0]*eta[3]-xi[3]*eta[0])/(6*v);
+
+	if(dop==0){
+		phi[0]=0; phi[1]=0; phi[2]=0;
+	} // dop=0
+
+	else if(dop==1){
+		copy_array(3, gradLambda[index], phi);
+	} // dop=1
+
+	else if(dop>=2){
+		if(index<4)
+		{
+			// *phi =  pow(lambda[index], dop);
+			axy_array(3, dop*pow(lambda[index], dop-1), gradLambda[index], phi);
+		}
+		else if(index < 4+6*(dop-1)) 
+		{
+			// edge: 01, 12, 23, 30, 02, 13 
+			edge2vv3d((index-4)/(dop-1), ei);
+			ii = (index-4)%(dop-1); // ii=0, 1 or 2 if dop=4
+			// *phi =  4.0 *pow(lambda[ei[0]], ii+1)*pow(lambda[ei[1]], dop-1-ii);
+			axy_array(3, 4.0 * (ii+1) * pow(lambda[ei[0]], ii)*pow(lambda[ei[1]], dop-1-ii), gradLambda[ei[0]], phi);
+			axpy_array(3, 4.0 *(dop-1-ii)*pow(lambda[ei[0]], ii+1)*pow(lambda[ei[1]], dop-2-ii), gradLambda[ei[1]], phi);
+		}
+		else if(index < 2*(dop*dop+1)) 
+		{
+			fi=(index-(6*dop-2))/((dop-1)*(dop-2)/2);
+			face2vertices3d(fi, vi);
+			ii=(index-(6*dop-2))%((dop-1)*(dop-2)/2);
+			for(l=0;l<dop-2;l++)
+			{
+				if(ii<(l+1)*(l+2)/2) 
+					break;
+			}
+			i=ii-(l+1)*l/2;
+			// *phi =  27.0*pow(lambda[vi[0]], dop-2-l)*pow(lambda[vi[1]], l-i+1)*pow(lambda[vi[2]], i+1);
+			axy_array(3, 27.0*(dop-2-l)*pow(lambda[vi[0]], dop-3-l)*pow(lambda[vi[1]], l-i+1)*pow(lambda[vi[2]], i+1), gradLambda[vi[0]], phi);
+			axpy_array(3, 27.0*(l-i+1)*pow(lambda[vi[0]], dop-2-l)*pow(lambda[vi[1]], l-i)*pow(lambda[vi[2]], i+1), gradLambda[vi[1]], phi);
+			axpy_array(3, 27.0*(i+1)*pow(lambda[vi[0]], dop-2-l)*pow(lambda[vi[1]], l-i+1)*pow(lambda[vi[2]], i), gradLambda[vi[2]], phi);
+		}
+		else
+		{	
+			ii=index-2*(dop*dop+1);
+			for(fl=0;fl<dop-3;fl++)
+			{
+				if(ii<(fl+1)*(fl+2)*(fl+3)/6) 
+					break;
+			}
+			fi=ii-(fl+1)*(fl+2)*fl/6;
+			for(l=0;l<fl+1;l++)
+			{
+				if(fi<(l+1)*(l+2)/2) 
+					break;
+			}
+			i=fi-(l+1)*l/2;
+			// *phi = 256.0*pow(lambda[0],dop-3-fl)*pow(lambda[1],fl-l+1)*pow(lambda[2],l-i+1)*pow(lambda[3],i+1);
+			axy_array(3, 256.0*(dop-3-fl)*pow(lambda[0],dop-4-fl)*pow(lambda[1],fl-l+1)*pow(lambda[2],l-i+1)*pow(lambda[3],i+1), gradLambda[0], phi);
+			axpy_array(3, 256.0*(fl-l+1)*pow(lambda[0],dop-3-fl)*pow(lambda[1],fl-l)*pow(lambda[2],l-i+1)*pow(lambda[3],i+1), gradLambda[1], phi);
+			axpy_array(3, 256.0*(l-i+1)*pow(lambda[0],dop-3-fl)*pow(lambda[1],fl-l+1)*pow(lambda[2],l-i)*pow(lambda[3],i+1), gradLambda[2], phi);
+			axpy_array(3, 256.0*(i+1)*pow(lambda[0],dop-3-fl)*pow(lambda[1],fl-l+1)*pow(lambda[2],l-i+1)*pow(lambda[3],i), gradLambda[3], phi);
+		}
+	}
+}
+
+
 /**
 * \fn void ncp13d_basis(double *lambda, int index, double *phi)
 * \brief basis function of nonconforming P1 element
@@ -2702,8 +2858,7 @@ void nedelec1st3d_basisCurl(double *lambda, double **grd_lambda, short *eorien, 
 				axpbyz_array(3, lambda[fi[0]], val0, lambda[fi[1]], val1, phi);
 				axpy_array(3, 2*lambda[fi[2]], val2, phi);
 			}
-			else
-			{
+			else{
 				cross_array(grd_lambda[fi[1]], grd_lambda[fi[2]], val0);
 				cross_array(grd_lambda[fi[0]], grd_lambda[fi[1]], val2);
 				cross_array(grd_lambda[fi[0]], grd_lambda[fi[2]], val1);
@@ -2746,26 +2901,20 @@ void nedelec1st3d_basisCurl(double *lambda, double **grd_lambda, short *eorien, 
 			ii = index % 6; // (dop - 1)*dop
 			j = ii / 3; // (dop - 1)*dop/2, j = 0 or 1
 			i = ii % 3;
-			if (j == 0)
-			{
+			if (j == 0){
 				axpbyz_array(3, lambda[fi[2]]*lambda[fi[0]], grd_lambda[vi[i]], lambda[vi[i]]*lambda[fi[0]], grd_lambda[fi[2]], val0);
 				axpy_array(3, lambda[vi[i]]*lambda[fi[2]], grd_lambda[fi[0]], val0);
 				cross_array(val0, grd_lambda[fi[1]], val1);
-
-				axpbyz_array(3, lambda[fi[2]]*lambda[fi[1]], grd_lambda[vi[i]], lambda[vi[i]]*lambda[fi[1]], grd_lambda[fi[2]], val0);
-				axpy_array(3, lambda[vi[i]]*lambda[fi[2]], grd_lambda[fi[1]], val0);
-				cross_array(val0, grd_lambda[fi[0]], val2);
 			}
-			else
-			{
+			else{
 				axpbyz_array(3, lambda[fi[1]]*lambda[fi[0]], grd_lambda[vi[i]], lambda[vi[i]]*lambda[fi[0]], grd_lambda[fi[1]], val0);
 				axpy_array(3, lambda[vi[i]]*lambda[fi[1]], grd_lambda[fi[0]], val0);
 				cross_array(val0, grd_lambda[fi[2]], val1);
-
-				axpbyz_array(3, lambda[fi[1]]*lambda[fi[2]], grd_lambda[vi[i]], lambda[vi[i]]*lambda[fi[2]], grd_lambda[fi[1]], val0);
-				axpy_array(3, lambda[vi[i]]*lambda[fi[1]], grd_lambda[fi[2]], val0);
-				cross_array(val0, grd_lambda[fi[0]], val2);
 			}
+			axpbyz_array(3, lambda[vi[i]]*lambda[fi[2]], grd_lambda[fi[1]], lambda[vi[i]]*lambda[fi[1]], grd_lambda[fi[2]], val0);
+			axpy_array(3, lambda[fi[1]]*lambda[fi[2]], grd_lambda[vi[i]], val0);
+			cross_array(val0, grd_lambda[fi[0]], val2);
+
 			axpbyz_array(3, 1.0, val1, -1.0, val2, phi);
 		}
 		else
@@ -2793,6 +2942,204 @@ void nedelec1st3d_basisCurl(double *lambda, double **grd_lambda, short *eorien, 
 			axpy_array(3, lambda[1]*lambda[2], grd_lambda[3], val0);
 			cross_array(val0, grd_lambda[0], val2);
 			axpbyz_array(3, 1.0, val1, -1.0, val2, phi);
+		}
+	}
+}
+
+/**
+* \fn void nedelec1st3d_basisGradCurl(double *lambda, double **grd_lambda, short *eorien, int **fpermi, int index, int dop, double phi[9])
+* \brief basis function of the first kind Nedelec element in three dimensions
+* \param *lambda pointer to the area coordiante
+* \param **grd_lambda pointer to the gradient of the volume coordiante lambda
+* \param **etv the unit tangential vectors of the six edges
+* \param index the indicator of the basis function
+* \param dop degree of polynomial
+* \param *phi basis function
+* \return void
+*/
+void nedelec1st3d_basisGradCurl(double *lambda, double **grd_lambda, short *eorien, int **fpermi, int index, int dop, double phi[9])
+{
+	int fi[3], ei[2], vi[3], i0, i1, i2, *permi;
+	int i, j, k, ii, idx;
+	int dofs = dop*(dop + 2)*(dop + 3) / 2; // degrees of freedom
+	double c1, c2, val0[3], val1[3], val2[3], phi1[9], phi2[9], psi0[9], psi1[9], psi2[9];
+	int face;
+	
+	init_array(9, phi, 0);
+
+	if (index >= dofs || index<0)
+		return;
+
+	if (dop < 2)
+		return;
+
+	if (dop == 2){
+		if (index < 12)
+		{
+			idx = index / dop;
+			edge2vv3d(idx, ei);
+			ii = index%dop; // ii=0 or 1 if dop=2
+			cross_array(grd_lambda[ei[0]], grd_lambda[ei[1]], val0);
+			for(i=0;i<3;i++)
+				axy_array(3, 3*val0[i]*eorien[idx], grd_lambda[ei[ii]], phi+3*i);
+		}
+		else if (index < 20)
+		{
+			index -= 12;
+			idx = index / 2;
+			face2vertices3d(idx, vi);
+			permi = fpermi[idx];
+			fi[0] = vi[permi[0]]; fi[1] = vi[permi[1]]; fi[2] = vi[permi[2]];
+			ii = index % 2; // ii=0 or 1 if dop=2
+			if (ii == 0){
+				cross_array(grd_lambda[fi[2]], grd_lambda[fi[1]], val0);
+				cross_array(grd_lambda[fi[0]], grd_lambda[fi[2]], val1);
+				cross_array(grd_lambda[fi[0]], grd_lambda[fi[1]], val2);
+				for(i=0;i<3;i++){
+					axpbyz_array(3, val0[i], grd_lambda[fi[0]], val1[i], grd_lambda[fi[1]], phi+3*i);
+					axpy_array(3, 2*val2[i], grd_lambda[fi[2]], phi+3*i);
+				}
+			}
+			else{
+				cross_array(grd_lambda[fi[1]], grd_lambda[fi[2]], val0);
+				cross_array(grd_lambda[fi[0]], grd_lambda[fi[1]], val2);
+				cross_array(grd_lambda[fi[0]], grd_lambda[fi[2]], val1);
+				for(i=0;i<3;i++){
+					axpbyz_array(3, val0[i], grd_lambda[fi[0]], val2[i], grd_lambda[fi[2]], phi+3*i);
+					axpy_array(3, 2*val1[i], grd_lambda[fi[1]], phi+3*i);
+				}
+			}
+		}
+	}
+
+	else if (dop == 3){
+		if (index < 18) // dop * 6
+		{
+			idx = index / dop;
+			edge2vv3d(idx, ei);
+			ii = index%dop; // ii=0, 1 or 2 if dop=3
+			
+			cross_array(grd_lambda[ei[0]], grd_lambda[ei[1]], val0);
+			if(ii==0){
+				for(i=0;i<3;i++)
+					axy_array(3, 8*lambda[ei[0]]*val0[i], grd_lambda[ei[0]], phi+3*i);
+			}
+			else if(ii==1){
+				for(i=0;i<3;i++)
+					axpbyz_array(3, 4*lambda[ei[1]]*val0[i], grd_lambda[ei[0]], 4*lambda[ei[0]]*val0[i], grd_lambda[ei[1]], phi+3*i);
+			}
+			else{
+				for(i=0;i<3;i++)
+					axy_array(3, 8*lambda[ei[1]]*val0[i], grd_lambda[ei[1]], phi+3*i);
+			}
+			ax_array(9, eorien[idx], phi);
+		}
+		else if (index < 42) // dop * 6 + (dop - 1)*dop * 4
+		{
+			index -= 18; // dop * 6
+			idx = index / 6; // (dop - 1)*dop
+			face2vertices3d(idx, vi);
+			permi = fpermi[idx];
+			fi[0] = vi[permi[0]]; fi[1] = vi[permi[1]]; fi[2] = vi[permi[2]];
+			ii = index % 6; // (dop - 1)*dop
+			j = ii / 3; // (dop - 1)*dop/2, j = 0 or 1
+			i = ii % 3;
+			if (j == 0){
+				cross_array(grd_lambda[vi[i]], grd_lambda[fi[1]], val0);
+				cross_array(grd_lambda[fi[2]], grd_lambda[fi[1]], val1);
+				cross_array(grd_lambda[fi[0]], grd_lambda[fi[1]], val2);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[fi[2]]*val0[k], grd_lambda[fi[0]], lambda[fi[0]]*val0[k], grd_lambda[fi[2]], psi0+3*k);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[vi[i]]*val1[k], grd_lambda[fi[0]], lambda[fi[0]]*val1[k], grd_lambda[vi[i]], psi1+3*k);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[vi[i]]*val2[k], grd_lambda[fi[2]], lambda[fi[2]]*val2[k], grd_lambda[vi[i]], psi2+3*k);
+				axpbyz_array(9, 1.0, psi0, 1.0, psi1, phi1);
+				axpy_array(9, 1.0, psi2, phi1);
+			}
+			else{
+				cross_array(grd_lambda[vi[i]], grd_lambda[fi[2]], val0);
+				cross_array(grd_lambda[fi[1]], grd_lambda[fi[2]], val1);
+				cross_array(grd_lambda[fi[0]], grd_lambda[fi[2]], val2);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[fi[1]]*val0[k], grd_lambda[fi[0]], lambda[fi[0]]*val0[k], grd_lambda[fi[1]], psi0+3*k);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[vi[i]]*val1[k], grd_lambda[fi[0]], lambda[fi[0]]*val1[k], grd_lambda[vi[i]], psi1+3*k);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[vi[i]]*val2[k], grd_lambda[fi[1]], lambda[fi[1]]*val2[k], grd_lambda[vi[i]], psi2+3*k);
+				axpbyz_array(9, 1.0, psi0, 1.0, psi1, phi1);
+				axpy_array(9, 1.0, psi2, phi1);
+			}
+
+			cross_array(grd_lambda[vi[i]], grd_lambda[fi[0]], val0);
+			cross_array(grd_lambda[fi[1]], grd_lambda[fi[0]], val1);
+			cross_array(grd_lambda[fi[2]], grd_lambda[fi[0]], val2);
+			for(k=0;k<3;k++)
+				axpbyz_array(3, lambda[fi[2]]*val0[k], grd_lambda[fi[1]], lambda[fi[1]]*val0[k], grd_lambda[fi[2]], psi0+3*k);
+			for(k=0;k<3;k++)
+				axpbyz_array(3, lambda[vi[i]]*val1[k], grd_lambda[fi[2]], lambda[fi[2]]*val1[k], grd_lambda[vi[i]], psi1+3*k);
+			for(k=0;k<3;k++)
+				axpbyz_array(3, lambda[vi[i]]*val2[k], grd_lambda[fi[1]], lambda[fi[1]]*val2[k], grd_lambda[vi[i]], psi2+3*k);
+			axpbyz_array(9, 1.0, psi0, 1.0, psi1, phi2);
+			axpy_array(9, 1.0, psi2, phi2);
+
+			axpbyz_array(9, 1.0, phi1, -1.0, phi2, phi);
+		}
+		else
+		{
+			index -= 42; // dop * 6 + (dop - 1)*dop * 4
+			if (index == 0){
+				cross_array(grd_lambda[2], grd_lambda[1], val0);
+				cross_array(grd_lambda[3], grd_lambda[1], val1);
+				cross_array(grd_lambda[0], grd_lambda[1], val2);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[3]*val0[k], grd_lambda[0], lambda[0]*val0[k], grd_lambda[3], psi0+3*k);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[2]*val1[k], grd_lambda[0], lambda[0]*val1[k], grd_lambda[2], psi1+3*k);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[2]*val2[k], grd_lambda[3], lambda[3]*val2[k], grd_lambda[2], psi2+3*k);
+				axpbyz_array(9, 1.0, psi0, 1.0, psi1, phi1);
+				axpy_array(9, 1.0, psi2, phi1);
+			}
+			else if (index == 1){
+				cross_array(grd_lambda[3], grd_lambda[2], val0);
+				cross_array(grd_lambda[0], grd_lambda[2], val1);
+				cross_array(grd_lambda[1], grd_lambda[2], val2);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[0]*val0[k], grd_lambda[1], lambda[1]*val0[k], grd_lambda[0], psi0+3*k);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[3]*val1[k], grd_lambda[1], lambda[1]*val1[k], grd_lambda[3], psi1+3*k);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[3]*val2[k], grd_lambda[0], lambda[0]*val2[k], grd_lambda[3], psi2+3*k);
+				axpbyz_array(9, 1.0, psi0, 1.0, psi1, phi1);
+				axpy_array(9, 1.0, psi2, phi1);
+			}
+			else{
+				cross_array(grd_lambda[0], grd_lambda[3], val0);
+				cross_array(grd_lambda[1], grd_lambda[3], val1);
+				cross_array(grd_lambda[2], grd_lambda[3], val2);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[1]*val0[k], grd_lambda[2], lambda[2]*val0[k], grd_lambda[1], psi0+3*k);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[0]*val1[k], grd_lambda[2], lambda[2]*val1[k], grd_lambda[0], psi1+3*k);
+				for(k=0;k<3;k++)
+					axpbyz_array(3, lambda[0]*val2[k], grd_lambda[1], lambda[1]*val2[k], grd_lambda[0], psi2+3*k);
+				axpbyz_array(9, 1.0, psi0, 1.0, psi1, phi1);
+				axpy_array(9, 1.0, psi2, phi1);
+			}
+			cross_array(grd_lambda[1], grd_lambda[0], val0);
+			cross_array(grd_lambda[2], grd_lambda[0], val1);
+			cross_array(grd_lambda[3], grd_lambda[0], val2);
+			for(k=0;k<3;k++)
+				axpbyz_array(3, lambda[2]*val0[k], grd_lambda[3], lambda[3]*val0[k], grd_lambda[2], psi0+3*k);
+			for(k=0;k<3;k++)
+				axpbyz_array(3, lambda[1]*val1[k], grd_lambda[3], lambda[3]*val1[k], grd_lambda[1], psi1+3*k);
+			for(k=0;k<3;k++)
+				axpbyz_array(3, lambda[1]*val2[k], grd_lambda[2], lambda[2]*val2[k], grd_lambda[1], psi2+3*k);
+			axpbyz_array(9, 1.0, psi0, 1.0, psi1, phi2);
+			axpy_array(9, 1.0, psi2, phi2);
+
+			axpbyz_array(9, 1.0, phi1, -1.0, phi2, phi);
 		}
 	}
 }
@@ -2889,7 +3236,7 @@ void nedelec2nd3d_basis(double *lambda, double **grd_lambda, int **eperm, int in
 void nedelec2nd3d_basisCurl(double *lambda, double **grd_lambda, int **eperm, int index, int dop, double phi[3])
 {
 	int fi[3], ei[2], vi[3], i0, i1, i2, *perm;
-	int i, j, ii, idx;
+	int i, j, k, ii, idx;
 	int dofs = (dop + 1)*(dop + 2)*(dop + 3) / 2; // degrees of freedom
 	double val1[3], val2[3];
 
@@ -2932,10 +3279,8 @@ void nedelec2nd3d_basisCurl(double *lambda, double **grd_lambda, int **eperm, in
 			else if (ii == 1)
 			{
 				ei[0] = vi[perm[0]]; ei[1] = vi[perm[1]];
-				axpbyz_array(3, lambda[ei[1]], grd_lambda[ei[0]], lambda[ei[0]], grd_lambda[ei[1]], val1);
-				copy_array(3, grd_lambda[ei[1]], val2);
-				axpy_array(3, -1.0, grd_lambda[ei[0]], val2);
-				cross_array(val1, val2, phi);
+				cross_array(grd_lambda[ei[0]], grd_lambda[ei[1]], phi);
+				ax_array(3, lambda[ei[0]]+lambda[ei[1]], phi);
 			}
 			else
 			{
@@ -2949,21 +3294,78 @@ void nedelec2nd3d_basisCurl(double *lambda, double **grd_lambda, int **eperm, in
 			idx = index / 3;
 			face2vertices3d(idx, fi);
 			ii = index % 3;
+			j = (ii+1)%3;
+			k = (ii+2)%3;
+			cross_array(grd_lambda[fi[k]], grd_lambda[fi[ii]], val1);
+			cross_array(grd_lambda[fi[ii]], grd_lambda[fi[j]], val2);
+			axpbyz_array(3, lambda[fi[j]], val1, -lambda[fi[k]], val2, phi);
+		}
+	}
+}
+
+/**
+* \fn void nedelec2nd3d_basisGradCurl(double *lambda, double v, double s[4], double h[6], double **grd_lambda, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, int element, int index, int dop, double phi[9])
+* \brief basis function of the second kind Nedelec element in three dimensions
+* \param *lambda pointer to the area coordiante
+* \param **grd_lambda pointer to the gradient of the volume coordiante lambda
+* \param **etv the unit tangential vectors of the six edges
+* \param index the indicator of the basis function
+* \param dop degree of polynomial
+* \param *phi basis function
+* \return void
+*/
+void nedelec2nd3d_basisGradCurl(double *lambda, double **grd_lambda, int **eperm, int index, int dop, double phi[9])
+{
+	int fi[3], ei[2], vi[3], i0, i1, i2, *perm;
+	int i, j, k, ii, idx;
+	int dofs = (dop + 1)*(dop + 2)*(dop + 3) / 2; // degrees of freedom
+	double val0[3], val1[3], val2[3];
+
+	init_array(9, phi, 0);
+
+	if (index >= dofs || index<0)
+		return;
+
+	if (dop > 2 || dop < 2)
+		return;
+
+	if (dop == 2){
+		if (index < 18){
+			idx = index / 3;
+			edge2vv3d(idx, vi);
+			perm = eperm[idx];
+			ei[0] = vi[0]; ei[1] = vi[1];
+			ii = index % 3;
 			if (ii == 0)
 			{
-				axpbyz_array(3, lambda[fi[1]], grd_lambda[fi[2]], lambda[fi[2]], grd_lambda[fi[1]], val1);
-				cross_array(val1, grd_lambda[fi[0]], phi);
+				cross_array(grd_lambda[ei[0]], grd_lambda[ei[1]], val0);
+				for(i=0;i<3;i++)
+					axy_array(3, 2*val0[i], grd_lambda[ei[0]], phi+3*i);
 			}
 			else if (ii == 1)
 			{
-				axpbyz_array(3, lambda[fi[2]], grd_lambda[fi[0]], lambda[fi[0]], grd_lambda[fi[2]], val1);
-				cross_array(val1, grd_lambda[fi[1]], phi);
+				ei[0] = vi[perm[0]]; ei[1] = vi[perm[1]];
+				cross_array(grd_lambda[ei[0]], grd_lambda[ei[1]], val0);
+				for(i=0;i<3;i++)
+					axpbyz_array(3, val0[i], grd_lambda[ei[0]], val0[i], grd_lambda[ei[1]], phi+3*i);
 			}
-			else
-			{
-				axpbyz_array(3, lambda[fi[0]], grd_lambda[fi[1]], lambda[fi[1]], grd_lambda[fi[0]], val1);
-				cross_array(val1, grd_lambda[fi[2]], phi);
+			else{
+				cross_array(grd_lambda[ei[1]], grd_lambda[ei[0]], val0);
+				for(i=0;i<3;i++)
+					axy_array(3, 2*val0[i], grd_lambda[ei[1]], phi+3*i);
 			}
+		}
+		else if (index < 30){
+			index -= 18;
+			idx = index / 3;
+			face2vertices3d(idx, fi);
+			ii = index % 3;
+			j = (ii+1)%3;
+			k = (ii+2)%3;
+			cross_array(grd_lambda[fi[k]], grd_lambda[fi[ii]], val1);
+			cross_array(grd_lambda[fi[ii]], grd_lambda[fi[j]], val2);
+			for(i=0;i<3;i++)
+				axpbyz_array(3, val1[i], grd_lambda[fi[j]], -val2[i], grd_lambda[fi[k]], phi+3*i);
 		}
 	}
 }

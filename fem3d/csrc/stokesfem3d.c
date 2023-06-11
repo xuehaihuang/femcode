@@ -102,7 +102,7 @@ void stokesNcP1P03d(ELEMENT *elements, idenmat *elementFace, FACE *faces, idenma
 	getElementDOF_NoncfmP13d(&elementDOF[0], elementFace, faces->row);
 	getFreenodesInfoNoncfmP1Vector3d(faces, &elementDOF[0]);
 
-	getElementDOF3d(&elementDOF[1], elements->row, 0);
+	getElementDOFdg(&elementDOF[1], elements->row, 1, 0);
 	getFreenodesInfo(&elementDOF[1]);
 			
 	/** Step 2. assemble stiffmatrix and right hand side term */

@@ -121,7 +121,7 @@ void quadcurlperturbHuangZhang3d(ELEMENT *elements, idenmat *elementFace, FACE *
 		getFreenodesInfoHuangZhang3d(faces, edges, nodes, 1, elementDOF);
 	else
 		getFreenodesInfoHuangZhang3d(faces, edges, nodes, 2, elementDOF);
-	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, faces, elementEdge, edges, nodes->row, dop2);
+	getElementDOF_Lagrange3d(elementDOF+1, elements, elementFace, elementEdge, faces->row, edges->row, nodes->row, dop2);
 	getFreenodesInfoLagrange3d(faces, edges, nodes, elementDOF+1);
 
 	/***************************Generate coefficient of basis functions**************************/

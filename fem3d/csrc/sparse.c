@@ -2588,6 +2588,7 @@ int dIJtoCSR(dCSRmat *A, int *ia, int *ja, double *val, int N, int row, int col)
  * \param eps epsilon
  * \return 1 if succeed, 0 if fail 
  */
+////////////////// not very correct fot eps > 1e-20
 int dIJtoCSReps(dCSRmat *A, int *ia, int *ja, double *va, int N, int row, int col, double eps)
 {
 	int i;
