@@ -3633,9 +3633,9 @@ void assembleDistribCurldivTracelessDGNedelecHybrid3d(dCSRmat *A, ELEMENT *eleme
 					// t1vf = faces->t1vector[face];
 					// t2vf = faces->t2vector[face];
 					s = faces->area[face];
-					face2vertices3d(i, fi);
+					for(j=0;j<3;j++)
+						fi[j]=find_iarray(4, elements->val[k], faces->val[face][j]);
 					init_array(4, lambdasT, 0);
-					// lambdasT[i]=0;
 					for (i1 = 0; i1<num_qp2; i1++){
 						for(j=0;j<3;j++) lambdasT[fi[j]] = lambdas2[i1][j];
 						
@@ -3697,16 +3697,15 @@ void assembleDistribCurldivTracelessDGNedelecHybrid3d(dCSRmat *A, ELEMENT *eleme
 
 		for (i = 0; i < elementFace->col; i++){
 			face = elementFace->val[k][i];
-			// if(face == 863) printf("face=%d\n", face);
 			t1vf = faces->t1vector[face];
 			t2vf = faces->t2vector[face];
 			s = faces->area[face];
-			face2vertices3d(i, fi);
+			for(j=0;j<3;j++)
+				fi[j]=find_iarray(4, elements->val[k], faces->val[face][j]);
 					
 			for(j=0;j<16;j++)
 				init_dden_matrix(lA+j, 0.0);
 			init_array(4, lambdasT, 0);
-			// lambdasT[i]=0;
 			for (k1 = 0; k1<elementDOF[2].col; k1++){
 				for (k2 = 0; k2<elementDOF[0].col; k2++){
 					init_array(16, val, 0);
@@ -3717,7 +3716,6 @@ void assembleDistribCurldivTracelessDGNedelecHybrid3d(dCSRmat *A, ELEMENT *eleme
 						lagrange_basis(lambdas2[i1], k1, elementDOF[2].dop, phi1);
 						lagrange3d_basis(lambdasT, k2, elementDOF[0].dop, phi2);
 						val1 = - s*weight2[i1] * phi2[0] * phi1[0];
-						// printf("val1 + s=%le\n", val1 + s);
 						val[0] += val1 * t1vf[0]*nv[i][1];
 						val[1] += val1 * t1vf[0]*nv[i][2];
 						val[2] += val1 * t1vf[1]*nv[i][0];

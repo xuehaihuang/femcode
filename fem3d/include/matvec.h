@@ -62,6 +62,7 @@ int create_ivector(int m, ivector *u);
 int free_dvector(dvector *u);
 int free_ivector(ivector *u);
 
+int find_iarray(int n, int *a, int x);
 int copy_arrayint(int n, int *x, int *y);
 int init_array(int n, double *x, double val);
 int copy_iarray(int n, int *x, int *y);

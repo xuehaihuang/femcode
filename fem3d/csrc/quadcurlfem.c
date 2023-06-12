@@ -1122,33 +1122,6 @@ void assemble_quadcurlDistribMixedFEM3d(dCSRmat *A, dCSRmat *Asigma, dvector *b,
 	assembleMassmatrixTracelessDGPk3d(&Ah, elements, elementDOF);
 	inverse_dBDmat(&Ah, &Ahinv);
 
-/////////////////////////////////////////////
-	// int j,k,k1,k2;
-	// printf("Ah:\n");
-	// for (k = 0; k<elements->row; k++){
-	// 	for(i=0;i<8;i++){
-	// 		printf("k = %d, i = %d \n", k,i);
-	// 		for (k1 = 0; k1<elementDOF->col; k1++){
-	// 			for (k2 = 0; k2<elementDOF->col; k2++)
-	// 				printf("%e ",Ah.blk[k].val[k1][k2]);
-	// 			printf("\n");
-	// 		}
-	// 	}
-	// }
-	// printf("Ahinv:\n");
-	// for (k = 0; k<elements->row; k++){
-	// 	for(i=0;i<8;i++){
-	// 		printf("k = %d, i = %d \n", k,i);
-	// 		for (k1 = 0; k1<elementDOF->col; k1++){
-	// 			for (k2 = 0; k2<elementDOF->col; k2++)
-	// 				printf("%e ",Ahinv.blk[k].val[k1][k2]);
-	// 			printf("\n");
-	// 		}
-	// 	}
-	// }
-/////////////////////////////////////////////
-
-
 	free_dbd_matrix(&Ah);	
 
 	assembleDistribCurldivTracelessDGNedelecHybrid3d(&BCh[0], elements, elementFace, faces, elementEdge, edges, nodes, elementDOF, curlfemtype);
@@ -1181,16 +1154,6 @@ void assemble_quadcurlDistribMixedFEM3d(dCSRmat *A, dCSRmat *Asigma, dvector *b,
 	for(i=0;i<4;i++) free_csr_matrix(AA+i);
 	getdiag(AB[3].row, &AB[3], &D);
 	free_csr_matrix(&AB[3]);
-
-	/* output A, b to a diskfile */
-	// char *outputfileA1="output/A1.dat";
-	// char *outputfileA2="output/A2.dat";
-	// char *outputfileD="output/D.dat";
-	// char *outputfileb="output/b.dat";
-	// write_IJ_dCSRmat4Matlab(&AB[1], outputfileA1); 
-	// write_IJ_dCSRmat4Matlab(&AB[2], outputfileA2); 
-	// write_dvector4Matlab(&D, outputfileD); 
-	// write_dvector4Matlab(&bb[0], outputfileb); 
 
 	// Schur Complement : A = AB[0] + AB[1] Dinv AB[2]
 	create_dvector(bb[0].row, b);

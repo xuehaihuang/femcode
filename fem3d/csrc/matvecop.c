@@ -710,6 +710,27 @@ int free_ivector(ivector *u)
 // Some simple array Blas operations follow ...
 
 /**
+* \fn int find_iarray(int n, int *a, int x)
+* \brief find the index of integer x in the array a
+* \param n number of variables
+* \param *a pointer to the integer array
+* \param x search value 
+* \return index if succeed, -1 if fail
+*/
+int find_iarray(int n, int *a, int x)
+{
+	int index = -1;
+	int i;
+    for (i = 0; i<n; i++){
+		if(a[i] == x){
+			index = i; break;
+		}
+	}
+
+	return index;
+}
+
+/**
  * \fn int copy_arrayint(int n, int *x, int *y) 
  * \brief Copy an int array to the other y=x
  * \param n number of variables

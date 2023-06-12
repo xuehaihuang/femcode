@@ -10,3 +10,4 @@ A=sparse(i,j,s);
 clear i j s;
 u=A\b;
 dlmwrite('uh.dat',u,'\n')
+
