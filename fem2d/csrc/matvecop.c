@@ -140,6 +140,7 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 	A->xi=(double**)calloc(A->row, sizeof(double *));
 	A->eta=(double**)calloc(A->row, sizeof(double *));
 	A->edgeslength=(double**)calloc(A->row, sizeof(double *));
+	A->height=(double**)calloc(A->row, sizeof(double *));
 	A->gradLambda=(double***)calloc(A->row, sizeof(double **));
 	A->nvector=(double***)calloc(A->row, sizeof(double **));
 	A->tvector=(double***)calloc(A->row, sizeof(double **));
@@ -155,6 +156,7 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 		A->xi[i]=(double*)calloc(A->col, sizeof(double));
 		A->eta[i]=(double*)calloc(A->col, sizeof(double));
 		A->edgeslength[i]=(double*)calloc(A->col, sizeof(double));
+		A->height[i]=(double*)calloc(A->col, sizeof(double));
 		A->gradLambda[i]=(double**)calloc(A->col, sizeof(double *));
 		A->nvector[i]=(double**)calloc(A->col, sizeof(double *));
 		A->tvector[i]=(double**)calloc(A->col, sizeof(double *));
@@ -192,6 +194,7 @@ int free_ELEMENT(ELEMENT *A)
 		free(A->xi[i]);
 		free(A->eta[i]);
 		free(A->edgeslength[i]);
+		free(A->height[i]);
 		for(j=0;j<A->col;j++)
 		{
 			free(A->vertices[i][j]);
@@ -218,6 +221,7 @@ int free_ELEMENT(ELEMENT *A)
 	free(A->xi);
 	free(A->eta);
 	free(A->edgeslength);
+	free(A->height);
 	free(A->gradLambda);
 	free(A->nvector);
 	free(A->tvector);

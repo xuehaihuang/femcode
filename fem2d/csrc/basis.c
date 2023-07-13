@@ -983,6 +983,128 @@ void lagrange_basis2(double *lambda, double **gradLambda, int index, int dop, do
 }
 
 /** 
+ * \fn void bernstein2d_basis(double *lambda, int index, int dop, double *phi)
+ * \brief Bernstein basis function of Lagrange element
+ * \param *lambda pointer to the area coordiante
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param *phi basis function
+ * \return void
+ */
+void bernstein2d_basis(double *lambda, int index, int dop, double *phi)
+{
+	int in, ie, ii, i1, i2, l, i;
+	int dofs = (dop+1)*(dop+2)/2; // degrees of freedom
+	if(index>= dofs || index<0){
+		*phi=0;
+		return;
+	}
+
+	if(dop==0){
+		*phi = 1;
+	}
+
+	else if(dop==1){
+		*phi = lambda[index];
+	} // dop=1
+	
+	else if(dop>=2) 
+	{
+		if(index<3){
+			*phi =  pow(lambda[index], dop);
+		}
+		else if(index < 3*dop){
+			in = index-3;
+			ie = in/(dop-1);
+			ii = in%(dop-1); // ii=0, 1 or 2 if dop=4
+			i1 = (ie+1)%3;
+			i2 = (ie+2)%3;
+			*phi =  4.0 *pow(lambda[i1], ii+1)*pow(lambda[i2], dop-1-ii);
+		}
+		else{
+			ii = index-3*dop;
+			for(l=0;l<dop-2;l++)
+			{
+				if(ii<(l+1)*(l+2)/2) 
+					break;
+			}
+			i=ii-(l+1)*l/2;
+			*phi =  27.0*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i+1);
+		}
+	}
+}
+
+/** 
+ * \fn void bernstein2d_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[2])
+ * \brief the first order derivative of Bernstein element basis function: (\partial_{x}phi, \partial_{y}phi)
+ * \param *lambda pointer to the area coordiante
+ * \param **gradLambda pointer to the gradient of the barycentric coordinate
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param phi[2] the first order derivative of Morley element basis function: (\partial_{x}phi, \partial_{y}phi)
+ * \return void
+ */
+void bernstein2d_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[2])
+{
+	double c0, c1, c2;	
+	int in, ie, ii, i1, i2, i3, l, i;
+	// s = 0.5 / (gradLambda[0][0]*gradLambda[1][1] - gradLambda[0][1]*gradLambda[1][0]);
+	// for(int i=0;i<3;i++){
+	// 	eta[i] = gradLambda[i][0]*2*s;
+	// 	xi[i] = -gradLambda[i][1]*2*s;
+	// }
+
+	int dofs = (dop+1)*(dop+2)/2; // degrees of freedom
+	if(index>= dofs || index<0)
+	{
+		phi[0]=0;
+		phi[1]=0;
+		return;
+	}
+
+	if(dop==0){
+		phi[0]=0;
+		phi[1]=0;
+	} // dop=0
+
+	else if(dop==1)
+		copy_array(2, gradLambda[index], phi);
+
+	else if(dop>=2){
+		if(index<3){
+			// *phi =  pow(lambda[index], dop);
+			axy_array(2, dop*pow(lambda[index], dop-1), gradLambda[index], phi);
+		}
+		else if(index < 3*dop){
+			in = index-3;
+			ie = in/(dop-1);
+			ii = in%(dop-1); // ii=0, 1 or 2 if dop=4
+			i1 = (ie+1)%3;
+			i2 = (ie+2)%3;
+			// *phi =  4.0 *pow(lambda[i1], ii+1)*pow(lambda[i2], dop-1-ii);
+			c1 =  4.0 *(ii+1)*pow(lambda[i1], ii)*pow(lambda[i2], dop-1-ii);
+			c2 =  4.0 *(dop-1-ii)*pow(lambda[i1], ii+1)*pow(lambda[i2], dop-2-ii);
+			axpbyz_array(2, c1, gradLambda[i1], c2, gradLambda[i2], phi);
+		}
+		else{
+			ii = index-3*dop;
+			for(l=0;l<dop-2;l++){
+				if(ii<(l+1)*(l+2)/2) 
+					break;
+			}
+			i=ii-(l+1)*l/2;
+			// *phi =  27.0*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i+1);
+			c0 =  27.0*(dop-2-l)*pow(lambda[0], dop-3-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i+1);
+			c1 =  27.0*(l-i+1)*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i)*pow(lambda[2], i+1);
+			axpbyz_array(2, c0, gradLambda[0], c1, gradLambda[1], phi);
+	        c2 =  27.0*(i+1)*pow(lambda[0], dop-2-l)*pow(lambda[1], l-i+1)*pow(lambda[2], i);
+			axpy_array(2, c2, gradLambda[2], phi);
+		}
+	}
+}
+
+
+/** 
  * \fn void cr_basis(int n, double *lambda, int index, double *phi)
  * \brief basis function of Crouzeix–Raviart element
  * \param n the dimension of space
@@ -1011,8 +1133,8 @@ void cr_basis1(int n, double **gradLambda, int index, double *phi)
 }
 
 /** 
- * \fn void rt_basis(double x, double y, double (*T)[2], double s, double elen[3], double eta[3], double xi[3], double orient[3], int index, int dop, double phi[2])
- * \brief basis function of Raviart-Thomas element: (phi1, phi2)
+ * \fn void rt_basis(double *lambda, double *height, double **tij, short *eorien, int index, int dop, double phi[2])
+ * Arnold, D. N.; Falk, R. S. & Winther, R. Geometric decompositions and local bases for spaces of finite element differential forms Comput. Methods Appl. Mech. Engrg., 2009, 198, 1660-1672
  * \param x the x-axis coordiante
  * \param y the y-axis coordiante
  * \param (*T)[2] point the coordiantes of all vertices of current element
@@ -1026,234 +1148,99 @@ void cr_basis1(int n, double **gradLambda, int index, double *phi)
  * \param phi[2] basis function of Raviart-Thomas element: (phi1, phi2)
  * \return void
  */
-void rt_basis(double x, double y, double (*T)[2], double s, double elen[3], double eta[3], double xi[3], double orient[3], int index, int dop, double phi[2])
+void rt_basis(double *lambda, double *height, double **tij, short *eorien, int index, int dop, double phi[2])
 {
-	double c1, c2, d1, d2, d3, a1, a2, a3, b1, b2, b3, aa1, aa2, aa3, bb1, bb2, bb3;
-	double x1 = T[0][0];
-	double x2 = T[1][0];
-	double x3 = T[2][0];
-	double y1 = T[0][1];
-	double y2 = T[1][1];
-	double y3 = T[2][1];
-	if(dop==1)
-	{
-		if(index==0)
-		{
-			c1 = -elen[0]*eta[0]/(s*s);
-			c2 = elen[0]*xi[0]/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1;
-			a2 = -d2*x2-elen[0]*xi[2]/(2*s);
-			a3 = -d3*x3+elen[0]*xi[1]/(2*s);
-			b1 = -d1*y1;
-			b2 = -d2*y2-elen[0]*eta[2]/(2*s);
-			b3 = -d3*y3+elen[0]*eta[1]/(2*s);
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-			aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-			bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-			c1 *= orient[0];
-			c2 *= orient[0];
-			aa1 *= orient[0];
-			aa2 *= orient[0];
-			aa3 *= orient[0];
-			bb1 *= orient[0];
-			bb2 *= orient[0];
-			bb3 *= orient[0];
-		}
-		else if(index==1)
-		{
-			c1 = -2*elen[0]*(eta[1]-eta[2])/(s*s);
-			c2 = 2*elen[0]*(xi[1]-xi[2])/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1;
-			a2 = -d2*x2+3*elen[0]*xi[2]/s;
-			a3 = -d3*x3+3*elen[0]*xi[1]/s;
-			b1 = -d1*y1;
-			b2 = -d2*y2+3*elen[0]*eta[2]/s;
-			b3 = -d3*y3+3*elen[0]*eta[1]/s;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-			aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-			bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-		}
-		else if(index==2)
-		{
-			c1 = -elen[1]*eta[1]/(s*s);
-			c2 = elen[1]*xi[1]/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1+elen[1]*xi[2]/(2*s);
-			a2 = -d2*x2;
-			a3 = -d3*x3-elen[1]*xi[0]/(2*s);
-			b1 = -d1*y1+elen[1]*eta[2]/(2*s);
-			b2 = -d2*y2;
-			b3 = -d3*y3-elen[1]*eta[0]/(2*s);
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-			aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-			bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-			c1 *= orient[1];
-			c2 *= orient[1];
-			aa1 *= orient[1];
-			aa2 *= orient[1];
-			aa3 *= orient[1];
-			bb1 *= orient[1];
-			bb2 *= orient[1];
-			bb3 *= orient[1];
-		}
-		else if(index==3)
-		{
-			c1 = -2*elen[1]*(eta[2]-eta[0])/(s*s);
-			c2 = 2*elen[1]*(xi[2]-xi[0])/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1+3*elen[1]*xi[2]/s;
-			a2 = -d2*x2;
-			a3 = -d3*x3+3*elen[1]*xi[0]/s;
-			b1 = -d1*y1+3*elen[1]*eta[2]/s;
-			b2 = -d2*y2;
-			b3 = -d3*y3+3*elen[1]*eta[0]/s;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-			aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-			bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-		}
-		else if(index==4)
-		{
-			c1 = -elen[2]*eta[2]/(s*s);
-			c2 = elen[2]*xi[2]/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1-elen[2]*xi[1]/(2*s);
-			a2 = -d2*x2+elen[2]*xi[0]/(2*s);
-			a3 = -d3*x3;
-			b1 = -d1*y1-elen[2]*eta[1]/(2*s);
-			b2 = -d2*y2+elen[2]*eta[0]/(2*s);
-			b3 = -d3*y3;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-			aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-			bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-			c1 *= orient[2];
-			c2 *= orient[2];
-			aa1 *= orient[2];
-			aa2 *= orient[2];
-			aa3 *= orient[2];
-			bb1 *= orient[2];
-			bb2 *= orient[2];
-			bb3 *= orient[2];
-		}
-		else if(index==5)
-		{
-			c1 = -2*elen[2]*(eta[0]-eta[1])/(s*s);
-			c2 = 2*elen[2]*(xi[0]-xi[1])/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1+3*elen[2]*xi[1]/s;
-			a2 = -d2*x2+3*elen[2]*xi[0]/s;
-			a3 = -d3*x3;
-			b1 = -d1*y1+3*elen[2]*eta[1]/s;
-			b2 = -d2*y2+3*elen[2]*eta[0]/s;
-			b3 = -d3*y3;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-			aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-			bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-		}
-		else if(index==6)
-		{
-			c1 = -(eta[0]*eta[0]+eta[1]*eta[1]+eta[2]*eta[2])/(s*s);
-			c2 = (xi[0]*eta[0]+xi[1]*eta[1]+xi[2]*eta[2])/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1;
-			a2 = -d2*x2;
-			a3 = -d3*x3;
-			b1 = -d1*y1;
-			b2 = -d2*y2;
-			b3 = -d3*y3;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-			aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-			bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-		}
-		else if(index==7)
-		{
-			c1 = (xi[0]*eta[0]+xi[1]*eta[1]+xi[2]*eta[2])/(s*s);
-			c2 = -(xi[0]*xi[0]+xi[1]*xi[1]+xi[2]*xi[2])/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1;
-			a2 = -d2*x2;
-			a3 = -d3*x3;
-			b1 = -d1*y1;
-			b2 = -d2*y2;
-			b3 = -d3*y3;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-			aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-			bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-		}
-		else
-		{
-			c1 = 0;
-			c2 = 0;
-			d1 = 0;
-			d2 = 0;
-			d3 = 0;
-			a1 = 0;
-			a2 = 0;
-			a3 = 0;
-			b1 = 0;
-			b2 = 0;
-			b3 = 0;
-			aa1 = 0;
-			aa2 = 0;
-			aa3 = 0;
-			bb1 = 0;
-			bb2 = 0;
-			bb3 = 0;
-		}
-		phi[0] = aa1*x+aa2*y+aa3+x*(c1*x+c2*y);
-		phi[1] = bb1*x+bb2*y+bb3+y*(c1*x+c2*y);
-	} // dop=1
-	else
-	{
-		phi[0]=0;
-		phi[1]=0;
+	int dofs = dop *(dop + 2); // degrees of freedom
+	
+	init_array(2, phi, 0);
+		
+	if (dop<1) return;
+
+	if (index >= dofs || index<0)	return;
+
+	int i, i1, i2, j, k, jk[0];
+	int in, ie, ii;
+
+	if (dop == 1){
+		i = index;
+		j = (i+1)%3;
+		k = (i+2)%3;
+		axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
+		ax_array(2, eorien[i]/height[i], phi);
 	}
+
+	else if (dop == 2){
+		if (index < 3*dop){
+			in = index;
+			i = in / dop;
+			ii = in % dop;
+			jk[0] = (i+1)%3;
+			jk[1] = (i+2)%3;
+			j = jk[0]; k = jk[1];
+			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
+			ax_array(2, lambda[jk[ii]], phi);
+			ax_array(2, eorien[i]/height[i], phi);
+		}
+		else{
+			i = index - 6;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
+			ax_array(2, lambda[i]/height[i], phi);
+		}
+	} // dop=2
+
+	else if (dop == 3){
+		if (index < 3*dop){
+			in = index;
+			i = in / dop;
+			ii = in % dop;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			
+			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
+			ax_array(2, pow(lambda[j], dop-1-ii)*pow(lambda[k], ii), phi);
+			ax_array(2, eorien[i]/height[i], phi);
+		}
+		else{
+			in = index - 3*dop;
+			i = in / 3;
+			ii = in % 3;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
+			ax_array(2, lambda[ii]*lambda[i]/height[i], phi);
+		}
+	} // dop=3
+
+	else if (dop >= 4){
+		if (index < 3*dop){
+			in = index;
+			i = in / dop;
+			ii = in % dop;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			
+			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
+			ax_array(2, pow(lambda[j], dop-1-ii)*pow(lambda[k], ii), phi);
+			ax_array(2, eorien[i]/height[i], phi);
+		}
+		else{
+			in = index - 3*dop;
+			i = in / (dop*(dop-1)/2);
+			ii = in % (dop*(dop-1)/2);
+			j = (i+1)%3;
+			k = (i+2)%3;
+			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
+			ax_array(2, lambda[i]*lambda[ii]/height[ii], phi);
+		}
+	} // dop >= 4
 }
 
 /** 
- * \fn void rt_basis1(double x, double y, double (*T)[2], double s, double elen[3], double eta[3], double xi[3], double orient[3], int index, int dop, double phi[4])
+ * \fn void rt_basis1(double *lambda, double s, double elen[3], double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4])
  * \brief the first order derivative of Raviart-Thomas element basis function: (\partial_{x}phi1, \partial_{y}phi1, \partial_{x}phi2, \partial_{y}phi2)
+ * Arnold, D. N.; Falk, R. S. & Winther, R. Geometric decompositions and local bases for spaces of finite element differential forms Comput. Methods Appl. Mech. Engrg., 2009, 198, 1660-1672
  * \param x the x-axis coordiante
  * \param y the y-axis coordiante
  * \param (*T)[2] point the coordiantes of all vertices of current element
@@ -1267,232 +1254,468 @@ void rt_basis(double x, double y, double (*T)[2], double s, double elen[3], doub
  * \param phi[4] the first order derivative of Raviart-Thomas element basis function: (\partial_{x}phi1, \partial_{y}phi1, \partial_{x}phi2, \partial_{y}phi2)
  * \return void
  */
-void rt_basis1(double x, double y, double (*T)[2], double s, double elen[3], double eta[3], double xi[3], double orient[3], int index, int dop, double phi[4])
+void rt_basis1(double *lambda, double s, double elen[3], double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4])
 {
-	double c1, c2, d1, d2, d3, a1, a2, a3, b1, b2, b3, aa1, aa2, aa3, bb1, bb2, bb3;
-	double x1 = T[0][0];
-	double x2 = T[1][0];
-	double x3 = T[2][0];
-	double y1 = T[0][1];
-	double y2 = T[1][1];
-	double y3 = T[2][1];
-	if(dop==1)
+	int dofs = dop *(dop + 2); // degrees of freedom
+	
+	init_array(4, phi, 0);
+
+	if (dop<1) return;
+
+	if (index >= dofs || index<0)	return;
+
+	int i, i1, i2, j;
+	int in, ie, ii;
+	double orient[3], PHI[3][2], PSI[2][2], PHI1[3][4], PSI1[2][4], grad[2];
+	for (i = 0; i < 3; i++)
+		orient[i] = nv[i][0] * nve[i][0] + nv[i][1] * nve[i][1];
+
+	for (i = 0; i < 3; i++)
 	{
-		if(index==0)
+		i1 = (i + 1) % 3;
+		i2 = (i + 2) % 3;
+		PHI[i][0] = (xi[i1] * lambda[i2] - xi[i2] * lambda[i1]) * elen[i] / (2 * s);
+		PHI[i][1] = (eta[i1] * lambda[i2] - eta[i2] * lambda[i1]) * elen[i] / (2 * s);
+	}
+	for (i = 0; i < 2; i++)
+	{
+		PSI[i][0] = lambda[i] * PHI[i][0];
+		PSI[i][1] = lambda[i] * PHI[i][1];
+	}
+	for (i = 0; i < 3; i++)
+	{
+		PHI1[i][0] = elen[i] / (2 * s);
+		PHI1[i][1] = 0;
+		PHI1[i][2] = 0;
+		PHI1[i][3] = elen[i] / (2 * s);
+	}
+	for (i = 0; i < 2; i++)
+	{
+		grad[0] = eta[i] / (2 * s);
+		grad[1] = -xi[i] / (2 * s);
+		PSI1[i][0] = lambda[i] * PHI1[i][0]+ grad[0] * PHI[i][0];
+		PSI1[i][1] = lambda[i] * PHI1[i][1]+ grad[1] * PHI[i][0];
+		PSI1[i][2] = lambda[i] * PHI1[i][2]+ grad[0] * PHI[i][1];
+		PSI1[i][3] = lambda[i] * PHI1[i][3]+ grad[1] * PHI[i][1];
+	}
+
+	if (dop == 1)
+	{
+		i = index;
+		phi[0] = orient[i] * PHI1[i][0];
+		phi[1] = orient[i] * PHI1[i][1];
+		phi[2] = orient[i] * PHI1[i][2];
+		phi[3] = orient[i] * PHI1[i][3];
+	}
+
+	else if (dop == 2)
+	{
+		if (index<6)
 		{
-			c1 = -elen[0]*eta[0]/(s*s);
-			c2 = elen[0]*xi[0]/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1;
-			a2 = -d2*x2-elen[0]*xi[2]/(2*s);
-			a3 = -d3*x3+elen[0]*xi[1]/(2*s);
-			b1 = -d1*y1;
-			b2 = -d2*y2-elen[0]*eta[2]/(2*s);
-			b3 = -d3*y3+elen[0]*eta[1]/(2*s);
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-	//		aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-	//		bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-			c1 *= orient[0];
-			c2 *= orient[0];
-			aa1 *= orient[0];
-			aa2 *= orient[0];
-	//		aa3 *= orient[0];
-			bb1 *= orient[0];
-			bb2 *= orient[0];
-	//		bb3 *= orient[0];
-		}
-		else if(index==1)
-		{
-			c1 = -2*elen[0]*(eta[1]-eta[2])/(s*s);
-			c2 = 2*elen[0]*(xi[1]-xi[2])/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1;
-			a2 = -d2*x2+3*elen[0]*xi[2]/s;
-			a3 = -d3*x3+3*elen[0]*xi[1]/s;
-			b1 = -d1*y1;
-			b2 = -d2*y2+3*elen[0]*eta[2]/s;
-			b3 = -d3*y3+3*elen[0]*eta[1]/s;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-	//		aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-	//		bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-		}
-		else if(index==2)
-		{
-			c1 = -elen[1]*eta[1]/(s*s);
-			c2 = elen[1]*xi[1]/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1+elen[1]*xi[2]/(2*s);
-			a2 = -d2*x2;
-			a3 = -d3*x3-elen[1]*xi[0]/(2*s);
-			b1 = -d1*y1+elen[1]*eta[2]/(2*s);
-			b2 = -d2*y2;
-			b3 = -d3*y3-elen[1]*eta[0]/(2*s);
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-	//		aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-	//		bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-			c1 *= orient[1];
-			c2 *= orient[1];
-			aa1 *= orient[1];
-			aa2 *= orient[1];
-	//		aa3 *= orient[1];
-			bb1 *= orient[1];
-			bb2 *= orient[1];
-	//		bb3 *= orient[1];
-		}
-		else if(index==3)
-		{
-			c1 = -2*elen[1]*(eta[2]-eta[0])/(s*s);
-			c2 = 2*elen[1]*(xi[2]-xi[0])/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1+3*elen[1]*xi[2]/s;
-			a2 = -d2*x2;
-			a3 = -d3*x3+3*elen[1]*xi[0]/s;
-			b1 = -d1*y1+3*elen[1]*eta[2]/s;
-			b2 = -d2*y2;
-			b3 = -d3*y3+3*elen[1]*eta[0]/s;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-	//		aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-	//		bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-		}
-		else if(index==4)
-		{
-			c1 = -elen[2]*eta[2]/(s*s);
-			c2 = elen[2]*xi[2]/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1-elen[2]*xi[1]/(2*s);
-			a2 = -d2*x2+elen[2]*xi[0]/(2*s);
-			a3 = -d3*x3;
-			b1 = -d1*y1-elen[2]*eta[1]/(2*s);
-			b2 = -d2*y2+elen[2]*eta[0]/(2*s);
-			b3 = -d3*y3;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-	//		aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-	//		bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-			c1 *= orient[2];
-			c2 *= orient[2];
-			aa1 *= orient[2];
-			aa2 *= orient[2];
-	//		aa3 *= orient[2];
-			bb1 *= orient[2];
-			bb2 *= orient[2];
-	//		bb3 *= orient[2];
-		}
-		else if(index==5)
-		{
-			c1 = -2*elen[2]*(eta[0]-eta[1])/(s*s);
-			c2 = 2*elen[2]*(xi[0]-xi[1])/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1+3*elen[2]*xi[1]/s;
-			a2 = -d2*x2+3*elen[2]*xi[0]/s;
-			a3 = -d3*x3;
-			b1 = -d1*y1+3*elen[2]*eta[1]/s;
-			b2 = -d2*y2+3*elen[2]*eta[0]/s;
-			b3 = -d3*y3;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-	//		aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-	//		bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-		}
-		else if(index==6)
-		{
-			c1 = -(eta[0]*eta[0]+eta[1]*eta[1]+eta[2]*eta[2])/(s*s);
-			c2 = (xi[0]*eta[0]+xi[1]*eta[1]+xi[2]*eta[2])/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1;
-			a2 = -d2*x2;
-			a3 = -d3*x3;
-			b1 = -d1*y1;
-			b2 = -d2*y2;
-			b3 = -d3*y3;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-	//		aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-	//		bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
-		}
-		else if(index==7)
-		{
-			c1 = (xi[0]*eta[0]+xi[1]*eta[1]+xi[2]*eta[2])/(s*s);
-			c2 = -(xi[0]*xi[0]+xi[1]*xi[1]+xi[2]*xi[2])/(s*s);
-			d1 = c1*x1+c2*y1;
-			d2 = c1*x2+c2*y2;
-			d3 = c1*x3+c2*y3;
-			a1 = -d1*x1;
-			a2 = -d2*x2;
-			a3 = -d3*x3;
-			b1 = -d1*y1;
-			b2 = -d2*y2;
-			b3 = -d3*y3;
-			aa1 = (a1*eta[0]+a2*eta[1]+a3*eta[2])/(2*s);
-			aa2 = (-a1*xi[0]-a2*xi[1]-a3*xi[2])/(2*s);
-	//		aa3 = (a1*(x2*y3-y2*x3)+a2*(x3*y1-y3*x1)+a3*(x1*y2-y1*x2))/(2*s);
-			bb1 = (b1*eta[0]+b2*eta[1]+b3*eta[2])/(2*s);
-			bb2 = (-b1*xi[0]-b2*xi[1]-b3*xi[2])/(2*s);
-	//		bb3 = (b1*(x2*y3-y2*x3)+b2*(x3*y1-y3*x1)+b3*(x1*y2-y1*x2))/(2*s);
+			in = index;
+			ie = in / 2;
+			ii = in % 2;
+			i = (ie + 1 + ii) % 3;
+			grad[0] = eta[i] / (2 * s);
+			grad[1] = -xi[i] / (2 * s);
+			phi[0] = orient[ie] * (PHI1[ie][0] * lambda[i] + PHI[ie][0] * grad[0]);
+			phi[1] = orient[ie] * (PHI1[ie][1] * lambda[i] + PHI[ie][0] * grad[1]);
+			phi[2] = orient[ie] * (PHI1[ie][2] * lambda[i] + PHI[ie][1] * grad[0]);
+			phi[3] = orient[ie] * (PHI1[ie][3] * lambda[i] + PHI[ie][1] * grad[1]);
 		}
 		else
 		{
-			c1 = 0;
-			c2 = 0;
-			d1 = 0;
-			d2 = 0;
-			d3 = 0;
-			a1 = 0;
-			a2 = 0;
-			a3 = 0;
-			b1 = 0;
-			b2 = 0;
-			b3 = 0;
-			aa1 = 0;
-			aa2 = 0;
-	//		aa3 = 0;
-			bb1 = 0;
-			bb2 = 0;
-	//		bb3 = 0;
+			i = index - 6;
+			phi[0] = PSI1[i][0];
+			phi[1] = PSI1[i][1];
+			phi[2] = PSI1[i][2];
+			phi[3] = PSI1[i][3];
 		}
-		phi[0] = aa1+2*c1*x+c2*y;
-		phi[1] = aa2+c2*x;
-		phi[2] = bb1+c1*y;
-		phi[3] = bb2+c1*x+2*c2*y;
-	} // dop=1
+	} // dop=2
+
+	else if (dop == 3)
+	{
+		if (index<9)
+		{
+			in = index;
+			ie = in / 3;
+			ii = in % 3;
+			i = (ie + 1) % 3;
+			j = (ie + 2) % 3;
+			if (ii == 0)
+			{
+				grad[0] = lambda[i] * eta[i] / s;
+				grad[1] = -lambda[i] * xi[i] / s;
+				phi[0] = orient[ie] * (PHI1[ie][0] * lambda[i] * lambda[i] + PHI[ie][0] * grad[0]);
+				phi[1] = orient[ie] * (PHI1[ie][1] * lambda[i] * lambda[i] + PHI[ie][0] * grad[1]);
+				phi[2] = orient[ie] * (PHI1[ie][2] * lambda[i] * lambda[i] + PHI[ie][1] * grad[0]);
+				phi[3] = orient[ie] * (PHI1[ie][3] * lambda[i] * lambda[i] + PHI[ie][1] * grad[1]);
+			}
+			else if (ii == 1)
+			{
+				grad[0] = (lambda[i] * eta[j] + lambda[j] * eta[i]) / (2 * s);
+				grad[1] = -(lambda[i] * xi[j] + lambda[j] * xi[i]) / (2 * s);
+				phi[0] = orient[ie] * (PHI1[ie][0] * lambda[i] * lambda[j] + PHI[ie][0] * grad[0]);
+				phi[1] = orient[ie] * (PHI1[ie][1] * lambda[i] * lambda[j] + PHI[ie][0] * grad[1]);
+				phi[2] = orient[ie] * (PHI1[ie][2] * lambda[i] * lambda[j] + PHI[ie][1] * grad[0]);
+				phi[3] = orient[ie] * (PHI1[ie][3] * lambda[i] * lambda[j] + PHI[ie][1] * grad[1]);
+			} 
+			else
+			{
+				grad[0] = lambda[j] * eta[j] / s;
+				grad[1] = -lambda[j] * xi[j] / s;
+				phi[0] = orient[ie] * (PHI1[ie][0] * lambda[j] * lambda[j] + PHI[ie][0] * grad[0]);
+				phi[1] = orient[ie] * (PHI1[ie][1] * lambda[j] * lambda[j] + PHI[ie][0] * grad[1]);
+				phi[2] = orient[ie] * (PHI1[ie][2] * lambda[j] * lambda[j] + PHI[ie][1] * grad[0]);
+				phi[3] = orient[ie] * (PHI1[ie][3] * lambda[j] * lambda[j] + PHI[ie][1] * grad[1]);
+			}
+		}
+		else
+		{
+			in = index - 9;
+			ie = in / 3;
+			ii = in % 3;
+			grad[0] = eta[ii] / (2 * s);
+			grad[1] = -xi[ii] / (2 * s);
+			phi[0] = (PSI1[ie][0] * lambda[ii] + PSI[ie][0] * grad[0]);
+			phi[1] = (PSI1[ie][1] * lambda[ii] + PSI[ie][0] * grad[1]);
+			phi[2] = (PSI1[ie][2] * lambda[ii] + PSI[ie][1] * grad[0]);
+			phi[3] = (PSI1[ie][3] * lambda[ii] + PSI[ie][1] * grad[1]);
+		}
+	} // dop=3
+}
+
+/**
+* \fn void bdm_basis(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[2])
+* \brief basis function of Brezzi-Douglas-Marini element: (phi1, phi2)
+* Arnold, D. N.; Falk, R. S. & Winther, R. Geometric decompositions and local bases for spaces of finite element differential forms Comput. Methods Appl. Mech. Engrg., 2009, 198, 1660-1672
+* \param x the x-axis coordiante
+* \param y the y-axis coordiante
+* \param (*T)[2] point the coordiantes of all vertices of current element
+* \param s the area of the triangule
+* \param eta[3] some auxiliary parameter
+* \param xi[3] some auxiliary parameter
+* \param orient[3] some auxiliary parameter
+* \param index the indicator of the basis function
+* \param dop degree of polynomial
+* \param phi[2] basis function of Raviart-Thomas element: (phi1, phi2)
+* \return void
+*/
+void bdm_basis(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[2])
+{
+	if (dop<1)
+	{
+		phi[0] = 0;
+		phi[1] = 0;
+		return;
+	}
+
+	if (index >= (dop + 1)*(dop + 2) || index<0)
+	{
+		phi[0] = 0;
+		phi[1] = 0;
+		return;
+	}
+
+	int i, i1, i2, j, k;
+	int in, ie, ii;
+	double orient[3], PHI[3][2], PSI[2][2];
+	for (i = 0; i < 3; i++)
+		orient[i] = nv[i][0] * nve[i][0] + nv[i][1] * nve[i][1];
+
+	if (dop == 1)
+	{
+		in = index;
+		ie = in / 2;
+		ii = in % 2;
+		i = (ie + 1) % 3;
+		j = (ie + 2) % 3;
+		if (ii == 0)
+		{
+			phi[0] = orient[ie] * lambda[i] * xi[j] / (2 * s);
+			phi[1] = orient[ie] * lambda[i] * eta[j] / (2 * s);
+		}
+		else
+		{
+			phi[0] = -orient[ie] * lambda[j] * xi[i] / (2 * s);
+			phi[1] = -orient[ie] * lambda[j] * eta[i] / (2 * s);
+		}
+	}
+
+	else if (dop == 2)
+	{
+		if (index<9)
+		{
+			in = index;
+			ie = in / 3;
+			ii = in % 3;
+			i = (ie + 1) % 3;
+			j = (ie + 2) % 3;
+			if (ii == 0)
+			{
+				phi[0] = orient[ie] * lambda[i] * lambda[i] * xi[j] / (2 * s);
+				phi[1] = orient[ie] * lambda[i] * lambda[i] * eta[j] / (2 * s);
+			}
+			else if (ii == 1)
+			{
+				phi[0] = orient[ie] * lambda[i] * lambda[j] * (xi[j] - xi[i]) / (2 * s);
+				phi[1] = orient[ie] * lambda[i] * lambda[j] * (eta[j] - eta[i]) / (2 * s);
+			}
+			else
+			{
+				phi[0] = -orient[ie] * lambda[j] * lambda[j] * xi[i] / (2 * s);
+				phi[1] = -orient[ie] * lambda[j] * lambda[j] * eta[i] / (2 * s);
+			}
+		}
+		else
+		{
+			i = index - 9;
+			j = (i + 1) % 3;
+			k = (i + 2) % 3;
+			phi[0] = lambda[j] * lambda[k] * xi[i] / (2 * s);
+			phi[1] = lambda[j] * lambda[k] * eta[i] / (2 * s);
+		}
+	} // dop=2
+
+	else if (dop == 3)
+	{
+		if (index<12)
+		{
+			in = index;
+			ie = in / 4;
+			ii = in % 4;
+			i = (ie + 1) % 3;
+			j = (ie + 2) % 3;
+			if (ii == 0)
+			{
+				phi[0] = orient[ie] * lambda[i] * lambda[i] * lambda[i] * xi[j] / (2 * s);
+				phi[1] = orient[ie] * lambda[i] * lambda[i] * lambda[i] * eta[j] / (2 * s);
+			}
+			else if (ii == 1)
+			{
+				phi[0] = orient[ie] * lambda[i] * lambda[i] * lambda[j] * (2 * xi[j] - xi[i]) / (2 * s);
+				phi[1] = orient[ie] * lambda[i] * lambda[i] * lambda[j] * (2 * eta[j] - eta[i]) / (2 * s);
+			}
+			else if (ii == 2)
+			{
+				phi[0] = orient[ie] * lambda[i] * lambda[j] * lambda[j] * (xi[j] - 2 * xi[i]) / (2 * s);
+				phi[1] = orient[ie] * lambda[i] * lambda[j] * lambda[j] * (eta[j] - 2 * eta[i]) / (2 * s);
+			}
+			else
+			{
+				phi[0] = -orient[ie] * lambda[j] * lambda[j] * lambda[j] * xi[i] / (2 * s);
+				phi[1] = -orient[ie] * lambda[j] * lambda[j] * lambda[j] * eta[i] / (2 * s);
+			}
+		}
+		else
+		{
+			in = index - 12;
+			ie = in / 3;
+			ii = in % 3;
+			i = ie;
+			j = (i + 1) % 3;
+			k = (i + 2) % 3;
+			phi[0] = lambda[ii] * lambda[j] * lambda[k] * xi[i] / (2 * s);
+			phi[1] = lambda[ii] * lambda[j] * lambda[k] * eta[i] / (2 * s);
+		}
+	} // dop=2
+
 	else
 	{
-		phi[0]=0;
-		phi[1]=0;
-		phi[2]=0;
-		phi[3]=0;
+		phi[0] = 0;
+		phi[1] = 0;
+	}
+}
+
+/**
+* \fn void bdm_basis1(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4])
+* \brief the first order derivative of Brezzi-Douglas-Marini element basis function: (\partial_{x}phi1, \partial_{y}phi1, \partial_{x}phi2, \partial_{y}phi2)
+* Arnold, D. N.; Falk, R. S. & Winther, R. Geometric decompositions and local bases for spaces of finite element differential forms Comput. Methods Appl. Mech. Engrg., 2009, 198, 1660-1672
+* \param x the x-axis coordiante
+* \param y the y-axis coordiante
+* \param (*T)[2] point the coordiantes of all vertices of current element
+* \param s the area of the triangule
+* \param eta[3] some auxiliary parameter
+* \param xi[3] some auxiliary parameter
+* \param orient[3] some auxiliary parameter
+* \param index the indicator of the basis function
+* \param dop degree of polynomial
+* \param phi[4] the first order derivative of Raviart-Thomas element basis function: (\partial_{x}phi1, \partial_{y}phi1, \partial_{x}phi2, \partial_{y}phi2)
+* \return void
+*/
+void bdm_basis1(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4])
+{
+	if (dop<1)
+	{
+		phi[0] = 0;
+		phi[1] = 0;
+		phi[2] = 0;
+		phi[3] = 0;
+		return;
+	}
+
+	if (index >= (dop + 1)*(dop + 2) || index<0)
+	{
+		phi[0] = 0;
+		phi[1] = 0;
+		phi[2] = 0;
+		phi[3] = 0;
+		return;
+	}
+
+	int i, i1, i2, j, k;
+	int in, ie, ii;
+	double orient[3], PHI[3][2], PSI[2][2], PHI1[3][4], PSI1[2][4], grad[2];
+	for (i = 0; i < 3; i++)
+		orient[i] = nv[i][0] * nve[i][0] + nv[i][1] * nve[i][1];
+
+	if (dop == 1)
+	{
+		in = index;
+		ie = in / 2;
+		ii = in % 2;
+		i = (ie + 1) % 3;
+		j = (ie + 2) % 3;
+		if (ii == 0)
+		{
+			grad[0] = eta[i] / (2 * s);
+			grad[1] = -xi[i] / (2 * s);
+			phi[0] = orient[ie] * grad[0] * xi[j] / (2 * s);
+			phi[1] = orient[ie] * grad[1] * xi[j] / (2 * s);
+			phi[2] = orient[ie] * grad[0] * eta[j] / (2 * s);
+			phi[3] = orient[ie] * grad[1] * eta[j] / (2 * s);
+		}
+		else
+		{
+			grad[0] = eta[j] / (2 * s);
+			grad[1] = -xi[j] / (2 * s);
+			phi[0] = -orient[ie] * grad[0] * xi[i] / (2 * s);
+			phi[1] = -orient[ie] * grad[1] * xi[i] / (2 * s);
+			phi[2] = -orient[ie] * grad[0] * eta[i] / (2 * s);
+			phi[3] = -orient[ie] * grad[1] * eta[i] / (2 * s);
+		}
+	}
+
+	else if (dop == 2)
+	{
+		if (index<9)
+		{
+			in = index;
+			ie = in / 3;
+			ii = in % 3;
+			i = (ie + 1) % 3;
+			j = (ie + 2) % 3;
+			if (ii == 0)
+			{
+				grad[0] = 2 * lambda[i] * eta[i] / (2 * s);
+				grad[1] = -2 * lambda[i] * xi[i] / (2 * s);
+				phi[0] = orient[ie] * grad[0] * xi[j] / (2 * s);
+				phi[1] = orient[ie] * grad[1] * xi[j] / (2 * s);
+				phi[2] = orient[ie] * grad[0] * eta[j] / (2 * s);
+				phi[3] = orient[ie] * grad[1] * eta[j] / (2 * s);
+			}
+			else if (ii == 1)
+			{
+				grad[0] = (lambda[i] * eta[j] + lambda[j] * eta[i]) / (2 * s);
+				grad[1] = -(lambda[i] * xi[j] + lambda[j] * xi[i]) / (2 * s);
+				phi[0] = orient[ie] * grad[0] * (xi[j] - xi[i]) / (2 * s);
+				phi[1] = orient[ie] * grad[1] * (xi[j] - xi[i]) / (2 * s);
+				phi[2] = orient[ie] * grad[0] * (eta[j] - eta[i]) / (2 * s);
+				phi[3] = orient[ie] * grad[1] * (eta[j] - eta[i]) / (2 * s);
+			}
+			else
+			{
+				grad[0] = 2 * lambda[j] * eta[j] / (2 * s);
+				grad[1] = -2 * lambda[j] * xi[j] / (2 * s);
+				phi[0] = -orient[ie] * grad[0] * xi[i] / (2 * s);
+				phi[1] = -orient[ie] * grad[1] * xi[i] / (2 * s);
+				phi[2] = -orient[ie] * grad[0] * eta[i] / (2 * s);
+				phi[3] = -orient[ie] * grad[1] * eta[i] / (2 * s);
+			}
+		}
+		else
+		{
+			i = index - 9;
+			j = (i + 1) % 3;
+			k = (i + 2) % 3;
+			grad[0] = (lambda[k] * eta[j] + lambda[j] * eta[k]) / (2 * s);
+			grad[1] = -(lambda[k] * xi[j] + lambda[j] * xi[k]) / (2 * s);
+			phi[0] = grad[0] * xi[i] / (2 * s);
+			phi[1] = grad[1] * xi[i] / (2 * s);
+			phi[2] = grad[0] * eta[i] / (2 * s);
+			phi[3] = grad[1] * eta[i] / (2 * s);
+		}
+	} // dop=2
+
+	else if (dop == 3)
+	{
+		if (index<12)
+		{
+			in = index;
+			ie = in / 4;
+			ii = in % 4;
+			i = (ie + 1) % 3;
+			j = (ie + 2) % 3;
+			if (ii == 0)
+			{
+				grad[0] = 3 * lambda[i] * lambda[i] * eta[i] / (2 * s);
+				grad[1] = -3 * lambda[i] * lambda[i] * xi[i] / (2 * s);
+				phi[0] = orient[ie] * grad[0] * xi[j] / (2 * s);
+				phi[1] = orient[ie] * grad[1] * xi[j] / (2 * s);
+				phi[2] = orient[ie] * grad[0] * eta[j] / (2 * s);
+				phi[3] = orient[ie] * grad[1] * eta[j] / (2 * s);
+			}
+			else if (ii == 1)
+			{
+				grad[0] = (2 * lambda[i] * lambda[j] * eta[i] + lambda[i] * lambda[i] * eta[j]) / (2 * s);
+				grad[1] = -(2 * lambda[i] * lambda[j] * xi[i] + lambda[i] * lambda[i] * xi[j]) / (2 * s);
+				phi[0] = orient[ie] * grad[0] * (2 * xi[j] - xi[i]) / (2 * s);
+				phi[1] = orient[ie] * grad[1] * (2 * xi[j] - xi[i]) / (2 * s);
+				phi[2] = orient[ie] * grad[0] * (2 * eta[j] - eta[i]) / (2 * s);
+				phi[3] = orient[ie] * grad[1] * (2 * eta[j] - eta[i]) / (2 * s);
+			}
+			else if (ii == 2)
+			{
+				grad[0] = (2 * lambda[i] * lambda[j] * eta[j] + lambda[j] * lambda[j] * eta[i]) / (2 * s);
+				grad[1] = -(2 * lambda[i] * lambda[j] * xi[j] + lambda[j] * lambda[j] * xi[i]) / (2 * s);
+				phi[0] = orient[ie] * grad[0] * (xi[j] - 2 * xi[i]) / (2 * s);
+				phi[1] = orient[ie] * grad[1] * (xi[j] - 2 * xi[i]) / (2 * s);
+				phi[2] = orient[ie] * grad[0] * (eta[j] - 2 * eta[i]) / (2 * s);
+				phi[3] = orient[ie] * grad[1] * (eta[j] - 2 * eta[i]) / (2 * s);
+			}
+			else
+			{
+				grad[0] = 3 * lambda[j] * lambda[j] * eta[j] / (2 * s);
+				grad[1] = -3 * lambda[j] * lambda[j] * xi[j] / (2 * s);
+				phi[0] = -orient[ie] * grad[0] * xi[i] / (2 * s);
+				phi[1] = -orient[ie] * grad[1] * xi[i] / (2 * s);
+				phi[2] = -orient[ie] * grad[0] * eta[i] / (2 * s);
+				phi[3] = -orient[ie] * grad[1] * eta[i] / (2 * s);
+			}
+		}
+		else
+		{
+			in = index - 12;
+			ie = in / 3;
+			ii = in % 3;
+			i = ie;
+			j = (i + 1) % 3;
+			k = (i + 2) % 3;
+			grad[0] = (eta[ii] * lambda[j] * lambda[k] + lambda[ii] * eta[j] * lambda[k] + lambda[ii] * lambda[j] * eta[k]) / (2 * s);
+			grad[1] = -(xi[ii] * lambda[j] * lambda[k] + lambda[ii] * xi[j] * lambda[k] + lambda[ii] * lambda[j] * xi[k]) / (2 * s);
+			phi[0] = grad[0] * xi[i] / (2 * s);
+			phi[1] = grad[1] * xi[i] / (2 * s);
+			phi[2] = grad[0] * eta[i] / (2 * s);
+			phi[3] = grad[1] * eta[i] / (2 * s);
+		}
+	} // dop=2
+
+	else
+	{
+		phi[0] = 0;
+		phi[1] = 0;
+		phi[2] = 0;
+		phi[3] = 0;
 	}
 }
 

@@ -4815,6 +4815,7 @@ void getElementEdgeGeoInfo(ELEMENT *elements, idenmat *elementEdge, EDGE *edges,
 		
 		for(j=0;j<3;j++){
 			elements->edgeslength[i][j] = sqrt(xi[j]*xi[j]+eta[j]*eta[j]);
+			elements->height[i][j] = elements->vol[i]*2 / elements->edgeslength[i][j];
 			elements->nvector[i][j][0] = -eta[j]/elements->edgeslength[i][j];
 		    elements->nvector[i][j][1] = xi[j]/elements->edgeslength[i][j];
 			elements->tvector[i][j][0] = -elements->nvector[i][j][1];

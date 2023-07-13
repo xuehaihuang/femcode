@@ -216,6 +216,8 @@ typedef struct ELEMENT{
 	double ***tij;
 	/** length of three edges*/
 	double **edgeslength;
+	/** height to three edges*/
+	double **height;
 	/** permutation of six edges*/
 	int ***eperm;
 	/** orientation of six edges*/
@@ -805,10 +807,14 @@ void lagrange1D_basis1(double lambda, int index, int dop, double h, double *phi)
 void lagrange_basis(double *lambda, int index, int dop, double *phi);
 void lagrange_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[2]);
 void lagrange_basis2(double *lambda, double **gradLambda, int index, int dop, double phi[3]);
+void bernstein2d_basis(double *lambda, int index, int dop, double *phi);
+void bernstein2d_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[2]);
 void cr_basis(int n, double *lambda, int index, double *phi);
 void cr_basis1(int n, double **gradLambda, int index, double *phi);
-void rt_basis(double x, double y, double (*T)[2], double s, double elen[3], double eta[3], double xi[3], double orient[3], int index, int dop, double phi[2]);
-void rt_basis1(double x, double y, double (*T)[2], double s, double elen[3], double eta[3], double xi[3], double orient[3], int index, int dop, double phi[4]);
+void rt_basis(double *lambda, double *height, double **tij, short *eorien, int index, int dop, double phi[2]);
+void rt_basis1(double *lambda, double s, double elen[3], double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4]);
+void bdm_basis(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[2]);
+void bdm_basis1(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4]);
 void arnoldwinther_basis(double *lambda, double *x, double *y, ddenmat3 *basisCoeffs, int element, int index, double *phi);
 void arnoldwinther_basisDIV(double *lambda, ddenmat3 *basisCoeffs, int element, double s, double eta[3], double xi[3], int index, double *phi);
 void arnoldwinther_basisDIV2(ddenmat3 *basisCoeffs, int element, double s, double eta[3], double xi[3], int index, double *phi);
