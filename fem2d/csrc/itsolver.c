@@ -528,6 +528,10 @@ int TriAsP1PoissonDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param,
 	interpP1toDG2d(&P, &elementDOFas, elementDOFdg);
 	getTransposeOfSparse(&P, &PT);
 
+	// dCSRmat Pnew;
+	// interpP1toDG2dNew(&Pnew, &elementDOFas, elementDOFdg);
+	// write_IJ_dCSRmat4Matlab(&P, "output/P.dat");
+	// write_IJ_dCSRmat4Matlab(&Pnew, "output/Pnew.dat");
 	/**************************************************
 	dvector uh;
 	create_dvector(b[1].row, &uh);
@@ -1512,7 +1516,7 @@ int asP1ElasDG_PCG(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int pri
 		extractNondirichletMatrix11(&tempA, &As[i], &isInNode[i], &dirichlet[i], &nondirichlet[i], &index[i]);
 		free_csr_matrix(&tempA);
 	}
-	interpVecP1toDG2d(&tempA, &elementDOFas[levelNum - 1], elementDOFipdg);
+	interpVecP1toDG2d(&tempA, 2, &elementDOFas[levelNum - 1], elementDOFipdg);
 	extractNondirichletMatrix1cBlock(&tempA, &P, &isInNode[levelNum - 1], &dirichlet[levelNum - 1], &index[levelNum - 1]);
 	free_csr_matrix(&tempA);
 	getTransposeOfSparse(&P, &PT);
@@ -1682,7 +1686,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	// interpVecP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
 	// extractFreenodesMatrix1cBlock(&tempA, &P, &elementDOFas);
 	// free_csr_matrix(&tempA);
-	interpVecP1toDG2d(&P, &elementDOFas, elementDOFdg);
+	interpVecP1toDG2d(&P, 2, &elementDOFas, elementDOFdg);
 	getTransposeOfSparse(&P, &PT);
 
 
@@ -1878,7 +1882,7 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	// interpVecP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
 	// extractFreenodesMatrix1cBlock(&tempA, &P, &elementDOFas);
 	// free_csr_matrix(&tempA);
-	interpVecP1toDG2d(&P, &elementDOFas, elementDOFdg);
+	interpVecP1toDG2d(&P, 2, &elementDOFas, elementDOFdg);
 	getTransposeOfSparse(&P, &PT);
 
 

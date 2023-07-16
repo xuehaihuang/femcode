@@ -29,9 +29,9 @@
  */
 void interpP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg)
 {
-	int i, j, ie, ii, k;
-	int curnode;
+	int i, j, ie, ii, k, l;
 	int dop = elementDOFdg->dop;
+	int Nt = elementDOFdg->row;
 
 	if (elementDOFp1->dop != 1)
 	{
@@ -39,156 +39,99 @@ void interpP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementD
 		return;
 	}
 
-	P->row = elementDOFdg->dof;
-	P->col = elementDOFp1->dof;
-	P->IA = (int*)malloc((P->row + 1) * sizeof(int));
-	P->JA = NULL;
-	P->val = NULL;
+	int *ia, *ja;
+	double *va;
+	int N = 3;
+	if(dop>0)
+		N = 3 + 3*(dop-1)*2 + (dop-1)*(dop-2)/2*3;
+	ia = (int*)malloc(N * Nt * sizeof(int));
+	ja = (int*)malloc(N * Nt * sizeof(int));
+	va = (double*)malloc(N * Nt * sizeof(double));
 
-	// step 1P: Find first the structure IA of the interpolation matrix P
-	P->IA[0] = 0;
-	for (k = 0; k < elementDOFdg->row; k++)
-	{
-		if (dop == 0)
-		{
-			for (i = 0; i < elementDOFdg->col; i++) //  for each node
-			{
-				curnode = elementDOFdg->val[k][i];
-				P->IA[curnode + 1] = elementDOFp1->col;
+	for (k = 0; k < Nt; k++){
+		l = N * k;
+		if (dop == 0){
+			for (j = 0; j < 3; j++){ //  for each node
+				ia[l] = elementDOFdg->val[k][0];
+				ja[l] = elementDOFp1->val[k][j];
+				va[l] = 1.0 / 3.0;
+				l++;
 			}
 			continue;
 		}
 
-		for (i = 0; i < 3; i++) //  for each vertex
-		{
-			curnode = elementDOFdg->val[k][i];
-			P->IA[curnode + 1] = 1;
-		}
-		for (i = 3; i < 3 * dop; i++) //  for each node in edge
-		{
-			curnode = elementDOFdg->val[k][i];
-			P->IA[curnode + 1] = 2;
-		}
-		for (i = 3 * dop; i < elementDOFdg->col; i++) //  for each node in element
-		{
-			curnode = elementDOFdg->val[k][i];
-			P->IA[curnode + 1] = elementDOFp1->col;
-		}
-	}
-	for (i = 0; i<P->row; i++)
-		P->IA[i + 1] += P->IA[i];
-	P->nnz = P->IA[P->row];
-
-	// step 2P: Find the structure JA of the interpolation matrix P
-	P->JA = (int*)malloc(P->nnz * sizeof(int));
-	for (k = 0; k < elementDOFdg->row; k++)
-	{
-		if (dop == 0)
-		{
-			for (i = 0; i < elementDOFdg->col; i++) //  for each node
-			{
-				curnode = elementDOFdg->val[k][i];
-				for (j = 0; j < elementDOFp1->col; j++)
-				{
-					P->JA[P->IA[curnode] + j] = elementDOFp1->val[k][j];
-				}
-			}
-			continue;
+		for (i = 0; i < 3; i++){ //  for each vertex
+			ia[l] = elementDOFdg->val[k][i];
+			ja[l] = elementDOFp1->val[k][i];
+			va[l] = 1.0;
+			l++;
 		}
 
-		for (i = 0; i < 3; i++) //  for each vertex
-		{
-			curnode = elementDOFdg->val[k][i];
-			P->JA[P->IA[curnode]] = elementDOFp1->val[k][i];
-		}
-		for (i = 3; i < 3 * dop; i++) //  for each node in edge
-		{
-			curnode = elementDOFdg->val[k][i];
-			ie = (i - 3) / (dop - 1);
-			for (j = 0; j < 2; j++)
-			{
-				P->JA[P->IA[curnode] + j] = elementDOFp1->val[k][(ie + j) % 3];
-			}
-		}
-		for (i = 3 * dop; i < elementDOFdg->col; i++) //  for each node in element
-		{
-			curnode = elementDOFdg->val[k][i];
-			for (j = 0; j < elementDOFp1->col; j++)
-			{
-				P->JA[P->IA[curnode] + j] = elementDOFp1->val[k][j];
-			}
-		}
-	}
-
-	// step 3P: Loop element by element and compute the actual entries storing them in P
-	P->val = (double*)malloc(P->nnz * sizeof(double));
-	for (k = 0; k < elementDOFdg->row; k++)
-	{
-		if (elementDOFdg->dop == 0)
-		{
-			curnode = elementDOFdg->val[k][0];
-			for (j = 0; j < 3; j++)
-				P->val[P->IA[curnode] + j] = 1.0 / 3.0;
-			continue;
-		}
-
-		for (i = 0; i < 3; i++) //  for each vertex
-		{
-			curnode = elementDOFdg->val[k][i];
-			P->val[P->IA[curnode]] = 1.0;
-		}
-
-		for (ie = 0; ie < 3; ie++) //  for each dof in edge
-		{
-			for (ii = 0; ii < elementDOFdg->dop - 1; ii++)
-			{
-				curnode = elementDOFdg->val[k][3 + ie*(elementDOFdg->dop - 1) + ii];
-				P->val[P->IA[curnode]] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
-				P->val[P->IA[curnode] + 1] = (1.0 + ii) / (double)elementDOFdg->dop;
-/*				P->val[P->IA[curnode] + ie] = 0;
-				P->val[P->IA[curnode] + (ie + 1) % 3] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
-				P->val[P->IA[curnode] + (ie + 2) % 3] = (1.0 + ii) / (double)elementDOFdg->dop;*/
+		for (ie = 0; ie < 3; ie++){ //  for each dof in edge
+			for (ii = 0; ii < elementDOFdg->dop - 1; ii++){
+				ia[l] = elementDOFdg->val[k][3 + ie*(elementDOFdg->dop - 1) + ii];
+				ja[l] = elementDOFp1->val[k][(ie + 1) % 3];
+				va[l] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
+				l++;
+				ia[l] = elementDOFdg->val[k][3 + ie*(elementDOFdg->dop - 1) + ii];
+				ja[l] = elementDOFp1->val[k][(ie + 2) % 3];
+				va[l] = (1.0 + ii) / (double)elementDOFdg->dop;
+				l++;
 			}
 		}
 
 		if (elementDOFdg->dop > 2) //  for each dof in element
 		{
-			if (elementDOFdg->dop == 3)
-			{
-				curnode = elementDOFdg->val[k][3 * elementDOFdg->dop];
-				for (j = 0; j < 3; j++)
-					P->val[P->IA[curnode] + j] = 1.0 / 3.0;
-			}
-			else if (elementDOFdg->dop == 4)
-			{
-				for (i = 0; i < 3; i++)
-				{
-					curnode = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
-					for (j = 0; j < 3; j++)
-						P->val[P->IA[curnode] + j] = 1.0 / 4.0;
-					P->val[P->IA[curnode] + i] = 2.0 / 4.0;
+			if (elementDOFdg->dop == 3){
+				for(j=0;j<3;j++){
+					ia[l] = elementDOFdg->val[k][3 * elementDOFdg->dop];
+					ja[l] = elementDOFp1->val[k][j];
+					va[l] = 1.0 / 3.0;
+					l++;
 				}
 			}
-			else if (elementDOFdg->dop == 5)
-			{
-				for (i = 0; i < 3; i++)
-				{
-					curnode = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
-					for (j = 0; j < 3; j++)
-						P->val[P->IA[curnode] + j] = 1.0 / 5.0;
-					P->val[P->IA[curnode] + i] = 3.0 / 5.0;
+			else if (elementDOFdg->dop == 4){
+				for (i = 0; i < 3; i++){
+					for(j=0;j<3;j++){
+						ia[l] = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
+						ja[l] = elementDOFp1->val[k][j];
+						if(j == i)
+							va[l] = 2.0 / 4.0;
+						else
+							va[l] = 1.0 / 4.0;
+						l++;
+					}
+				}
+			}
+			else if (elementDOFdg->dop == 5){
+				for (i = 0; i < 3; i++){
+					for(j=0;j<3;j++){
+						ia[l] = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
+						ja[l] = elementDOFp1->val[k][j];
+						if(j == i)
+							va[l] = 3.0 / 5.0;
+						else
+							va[l] = 1.0 / 5.0;
+						l++;
+					}
 				}
 
-				for (ie = 0; ie < 3; ie++)
-				{
-					curnode = elementDOFdg->val[k][3 * elementDOFdg->dop + 3 + ie];
-					for (j = 0; j < 3; j++)
-						P->val[P->IA[curnode] + j] = 2.0 / 5.0;
-					P->val[P->IA[curnode] + ie] = 1.0 / 5.0;
+				for (ie = 0; ie < 3; ie++){
+					for(j=0;j<3;j++){
+						ia[l] = elementDOFdg->val[k][3 * elementDOFdg->dop + 3 + ie];
+						ja[l] = elementDOFp1->val[k][j];
+						if(j == ie)
+							va[l] = 1.0 / 5.0;
+						else
+							va[l] = 2.0 / 5.0;
+						l++;
+					}
 				}
 			}
 		} // elementDOFdg->dop > 2
 	} // k
+	
+	dIJtoCSReps(P, ia, ja, va, N * Nt, elementDOFdg->dof, elementDOFp1->dof, 0);
 }
 
  /**
@@ -249,17 +192,17 @@ void interpP1toP2_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *element
 }
 
 /**
-* \fn void interpVecP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg)
+* \fn void interpVecP1toDG2d(dCSRmat *P, int n, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg)
 * \brief the vector-version interpolation matrix from the 1st order Lagrange element to piecewise kth order polynomial in 2d
 * \param *P pointer to the vector-version interpolation matrix
 * \param *elementDOFp1 pointer to the relation between elements and degrees of freedom of the 1st order Lagrange element
 * \param *elementDOFdg pointer to the relation between elements and degrees of freedom of the piecewise kth order polynomial
 */
-void interpVecP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg)
+void interpVecP1toDG2d(dCSRmat *P, int n, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg)
 {
-	int i, j, ie, ii, k;
-	int curnode[2];
+	int i, j, ie, ii, k, l;
 	int dop = elementDOFdg->dop;
+	int Nt = elementDOFdg->row;
 
 	if (elementDOFp1->dop != 1)
 	{
@@ -267,207 +210,111 @@ void interpVecP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *eleme
 		return;
 	}
 
-	P->row = elementDOFdg->dof * 2;
-	P->col = elementDOFp1->dof * 2;
-	P->IA = (int*)malloc((P->row + 1) * sizeof(int));
-	P->JA = NULL;
-	P->val = NULL;
+	int *ia, *ja;
+	double *va;
+	int N = 3;
+	if(dop>0)
+		N = 3 + 3*(dop-1)*2 + (dop-1)*(dop-2)/2*3;
+	int NNt = N * Nt;
+	ia = (int*)malloc(n * NNt * sizeof(int));
+	ja = (int*)malloc(n * NNt * sizeof(int));
+	va = (double*)malloc(n * NNt * sizeof(double));
 
-	// step 1P: Find first the structure IA of the interpolation matrix P
-	P->IA[0] = 0;
-	for (k = 0; k < elementDOFdg->row; k++)
-	{
-		if (dop == 0)
-		{
-			for (i = 0; i < elementDOFdg->col; i++) //  for each node
-			{
-				curnode[0] = elementDOFdg->val[k][i];
-				curnode[1] = curnode[0] + elementDOFdg->dof;
-				P->IA[curnode[0] + 1] = elementDOFp1->col;
-				P->IA[curnode[1] + 1] = elementDOFp1->col;
+	for (k = 0; k < Nt; k++){
+		l = N * k;
+		if (dop == 0){
+			for (j = 0; j < 3; j++){ //  for each node
+				ia[l] = elementDOFdg->val[k][0];
+				ja[l] = elementDOFp1->val[k][j];
+				va[l] = 1.0 / 3.0;
+				l++;
 			}
 			continue;
 		}
 
-		for (i = 0; i < 3; i++) //  for each vertex
-		{
-			curnode[0] = elementDOFdg->val[k][i];
-			curnode[1] = curnode[0] + elementDOFdg->dof;
-			P->IA[curnode[0] + 1] = 1;
-			P->IA[curnode[1] + 1] = 1;
-		}
-		for (i = 3; i < 3 * dop; i++) //  for each node in edge
-		{
-			curnode[0] = elementDOFdg->val[k][i];
-			curnode[1] = curnode[0] + elementDOFdg->dof;
-			P->IA[curnode[0] + 1] = 2;
-			P->IA[curnode[1] + 1] = 2;
-		}
-		for (i = 3 * dop; i < elementDOFdg->col; i++) //  for each node in element
-		{
-			curnode[0] = elementDOFdg->val[k][i];
-			curnode[1] = curnode[0] + elementDOFdg->dof;
-			P->IA[curnode[0] + 1] = elementDOFp1->col;
-			P->IA[curnode[1] + 1] = elementDOFp1->col;
-		}
-	}
-	for (i = 0; i<P->row; i++)
-		P->IA[i + 1] += P->IA[i];
-	P->nnz = P->IA[P->row];
-
-	// step 2P: Find the structure JA of the interpolation matrix P
-	P->JA = (int*)malloc(P->nnz * sizeof(int));
-	for (k = 0; k < elementDOFdg->row; k++)
-	{
-		if (dop == 0)
-		{
-			for (i = 0; i < elementDOFdg->col; i++) //  for each node
-			{
-				curnode[0] = elementDOFdg->val[k][i];
-				curnode[1] = curnode[0] + elementDOFdg->dof;
-				for (j = 0; j < elementDOFp1->col; j++)
-				{
-					P->JA[P->IA[curnode[0]] + j] = elementDOFp1->val[k][j];
-					P->JA[P->IA[curnode[1]] + j] = elementDOFp1->val[k][j] + elementDOFp1->dof;
-				}
-			}
-			continue;
+		for (i = 0; i < 3; i++){ //  for each vertex
+			ia[l] = elementDOFdg->val[k][i];
+			ja[l] = elementDOFp1->val[k][i];
+			va[l] = 1.0;
+			l++;
 		}
 
-		for (i = 0; i < 3; i++) //  for each vertex
-		{
-			curnode[0] = elementDOFdg->val[k][i];
-			curnode[1] = curnode[0] + elementDOFdg->dof;
-			P->JA[P->IA[curnode[0]]] = elementDOFp1->val[k][i];
-			P->JA[P->IA[curnode[1]]] = elementDOFp1->val[k][i] + elementDOFp1->dof;
-		}
-		for (i = 3; i < 3 * dop; i++) //  for each node in edge
-		{
-			curnode[0] = elementDOFdg->val[k][i];
-			curnode[1] = curnode[0] + elementDOFdg->dof;
-			ie = (i - 3) / (dop - 1);
-			for (j = 0; j < 2; j++)
-			{
-				P->JA[P->IA[curnode[0]] + j] = elementDOFp1->val[k][(ie + j) % 3];
-				P->JA[P->IA[curnode[1]] + j] = elementDOFp1->val[k][(ie + j) % 3] + elementDOFp1->dof;
-			}
-		}
-		for (i = 3 * dop; i < elementDOFdg->col; i++) //  for each node in element
-		{
-			curnode[0] = elementDOFdg->val[k][i];
-			curnode[1] = curnode[0] + elementDOFdg->dof;
-			for (j = 0; j < elementDOFp1->col; j++)
-			{
-				P->JA[P->IA[curnode[0]] + j] = elementDOFp1->val[k][j];
-				P->JA[P->IA[curnode[1]] + j] = elementDOFp1->val[k][j] + elementDOFp1->dof;
-			}
-		}
-	}
-
-	// step 3P: Loop element by element and compute the actual entries storing them in P
-	P->val = (double*)malloc(P->nnz * sizeof(double));
-	for (k = 0; k < elementDOFdg->row; k++)
-	{
-		if (elementDOFdg->dop == 0)
-		{
-			curnode[0] = elementDOFdg->val[k][0];
-			curnode[1] = curnode[0] + elementDOFdg->dof;
-			for (j = 0; j < 3; j++)
-			{
-				P->val[P->IA[curnode[0]] + j] = 1.0 / 3.0;
-				P->val[P->IA[curnode[1]] + j] = 1.0 / 3.0;
-			}
-			continue;
-		}
-
-		for (i = 0; i < 3; i++) //  for each vertex
-		{
-			curnode[0] = elementDOFdg->val[k][i];
-			curnode[1] = curnode[0] + elementDOFdg->dof;
-			P->val[P->IA[curnode[0]]] = 1.0;
-			P->val[P->IA[curnode[1]]] = 1.0;
-		}
-
-		for (ie = 0; ie < 3; ie++) //  for each dof in edge
-		{
-			for (ii = 0; ii < elementDOFdg->dop - 1; ii++)
-			{
-				curnode[0] = elementDOFdg->val[k][3 + ie*(elementDOFdg->dop - 1) + ii];
-				curnode[1] = curnode[0] + elementDOFdg->dof;
-
-				P->val[P->IA[curnode[0]]] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
-				P->val[P->IA[curnode[0]] + 1] = (1.0 + ii) / (double)elementDOFdg->dop;
-/*				P->val[P->IA[curnode[0]] + ie] = 0;
-				P->val[P->IA[curnode[0]] + (ie + 1) % 3] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
-				P->val[P->IA[curnode[0]] + (ie + 2) % 3] = (1.0 + ii) / (double)elementDOFdg->dop;*/
-
-				for (j = 0; j < 3; j++)
-					P->val[P->IA[curnode[1]] + j] = P->val[P->IA[curnode[0]] + j];
+		for (ie = 0; ie < 3; ie++){ //  for each dof in edge
+			for (ii = 0; ii < elementDOFdg->dop - 1; ii++){
+				ia[l] = elementDOFdg->val[k][3 + ie*(elementDOFdg->dop - 1) + ii];
+				ja[l] = elementDOFp1->val[k][(ie + 1) % 3];
+				va[l] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
+				l++;
+				ia[l] = elementDOFdg->val[k][3 + ie*(elementDOFdg->dop - 1) + ii];
+				ja[l] = elementDOFp1->val[k][(ie + 2) % 3];
+				va[l] = (1.0 + ii) / (double)elementDOFdg->dop;
+				l++;
 			}
 		}
 
 		if (elementDOFdg->dop > 2) //  for each dof in element
 		{
-			if (elementDOFdg->dop == 3)
-			{
-				curnode[0] = elementDOFdg->val[k][3 * elementDOFdg->dop];
-				curnode[1] = curnode[0] + elementDOFdg->dof;
-
-				for (j = 0; j < 3; j++)
-				{
-					P->val[P->IA[curnode[0]] + j] = 1.0 / 3.0;
-					P->val[P->IA[curnode[1]] + j] = 1.0 / 3.0;
+			if (elementDOFdg->dop == 3){
+				for(j=0;j<3;j++){
+					ia[l] = elementDOFdg->val[k][3 * elementDOFdg->dop];
+					ja[l] = elementDOFp1->val[k][j];
+					va[l] = 1.0 / 3.0;
+					l++;
 				}
 			}
-			else if (elementDOFdg->dop == 4)
-			{
-				for (i = 0; i < 3; i++)
-				{
-					curnode[0] = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
-					curnode[1] = curnode[0] + elementDOFdg->dof;
-
-					for (j = 0; j < 3; j++)
-						P->val[P->IA[curnode[0]] + j] = 1.0 / 4.0;
-
-					P->val[P->IA[curnode[0]] + i] = 2.0 / 4.0;
-
-					for (j = 0; j < 3; j++)
-						P->val[P->IA[curnode[1]] + j] = P->val[P->IA[curnode[0]] + j];
+			else if (elementDOFdg->dop == 4){
+				for (i = 0; i < 3; i++){
+					for(j=0;j<3;j++){
+						ia[l] = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
+						ja[l] = elementDOFp1->val[k][j];
+						if(j == i)
+							va[l] = 2.0 / 4.0;
+						else
+							va[l] = 1.0 / 4.0;
+						l++;
+					}
 				}
 			}
-			else if (elementDOFdg->dop == 5)
-			{
-				for (i = 0; i < 3; i++)
-				{
-					curnode[0] = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
-					curnode[1] = curnode[0] + elementDOFdg->dof;
-
-					for (j = 0; j < 3; j++)
-						P->val[P->IA[curnode[0]] + j] = 1.0 / 5.0;
-
-					P->val[P->IA[curnode[0]] + i] = 3.0 / 5.0;
-
-					for (j = 0; j < 3; j++)
-						P->val[P->IA[curnode[1]] + j] = P->val[P->IA[curnode[0]] + j];
+			else if (elementDOFdg->dop == 5){
+				for (i = 0; i < 3; i++){
+					for(j=0;j<3;j++){
+						ia[l] = elementDOFdg->val[k][3 * elementDOFdg->dop + i];
+						ja[l] = elementDOFp1->val[k][j];
+						if(j == i)
+							va[l] = 3.0 / 5.0;
+						else
+							va[l] = 1.0 / 5.0;
+						l++;
+					}
 				}
 
-				for (ie = 0; ie < 3; ie++)
-				{
-					curnode[0] = elementDOFdg->val[k][3 * elementDOFdg->dop + 3 + ie];
-					curnode[1] = curnode[0] + elementDOFdg->dof;
-
-					for (j = 0; j < 3; j++)
-						P->val[P->IA[curnode[0]] + j] = 2.0 / 5.0;
-
-					P->val[P->IA[curnode[0]] + ie] = 1.0 / 5.0;
-
-					for (j = 0; j < 3; j++)
-						P->val[P->IA[curnode[1]] + j] = P->val[P->IA[curnode[0]] + j];
+				for (ie = 0; ie < 3; ie++){
+					for(j=0;j<3;j++){
+						ia[l] = elementDOFdg->val[k][3 * elementDOFdg->dop + 3 + ie];
+						ja[l] = elementDOFp1->val[k][j];
+						if(j == ie)
+							va[l] = 1.0 / 5.0;
+						else
+							va[l] = 2.0 / 5.0;
+						l++;
+					}
 				}
 			}
 		} // elementDOFdg->dop > 2
-
 	} // k
+	
+	int cur, ldg, lp1;
+	for(l=1; l<n; l++){
+		cur = l * NNt;
+		ldg = l * elementDOFdg->dof;
+		lp1 = l * elementDOFp1->dof;
+		for(i=0;i<NNt;i++){
+			ia[cur+i] = ia[i] + ldg;
+			ja[cur+i] = ja[i] + lp1;
+			va[cur+i] = va[i];
+		}
+	}
+	dIJtoCSReps(P, ia, ja, va, n*NNt, n*elementDOFdg->dof, n*elementDOFp1->dof, 0);
 }
 
 /**

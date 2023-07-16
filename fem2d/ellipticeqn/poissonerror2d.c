@@ -348,4 +348,5 @@ void geterrorsPoissonRaviartThomas2d(double *errors, dvector *uh, dvector *Qhu, 
 	
 	for(i=0;i<6;i++)
 		errors[i]=sqrt(errors[i]);
+
 }
