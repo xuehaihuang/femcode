@@ -208,6 +208,408 @@ int classicAMG_PCG(dCSRmat *A, dvector *b, dvector *x, AMG_param *param, int pri
 }
 
 /**
+* \fn int DiagAsP1PoissonDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level)
+* \brief Solve Ax=b by block diagonal preconditioned MINRES solver with auxiliary space method
+* \param *A	pointer to the dCSRmat matrix
+* \param *b	pointer to the dvector of right hand side
+* \param *x	pointer to the dvector of dofs
+* \param *param pointer to ASP parameters
+* \param print_level how much information to print out
+* \return the number of iterations
+*/
+int DiagAsP1PoissonDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level)
+{
+	int levelNum = 1;
+	int iter, i;
+
+	// int fem_num = param->fem_num;
+
+	int max_levels = param->max_levels;
+	dCSRmat As[max_levels], Adg, tempA, tempB, M, tempM;
+	dCSRmat P, PT, Rs[max_levels], Ps[max_levels];
+	ELEMENT *elements = param->elements;
+	idenmat *elementEdge = param->elementEdge;
+	EDGE *edges = param->edges;
+	dennode *nodes = param->nodes;
+	iCSRmat *edgesTran = param->edgesTran;
+	ivector *nodeCEdge = param->nodeCEdge;
+	ELEMENT_DOF *elementDOF = param->elementDOF;
+	iCSRmat *elementdofTran = param->elementdofTran;
+	ELEMENT_DOF *elementDOFdg = &elementDOF[1];
+	ELEMENT_DOF elementDOFas;
+	// iCSRmat elementdofTranas;
+
+	double lambda = param->lambda;
+	double mu = param->mu;
+
+	AMG_param amgparam; /* parameters for AMG */
+	amgparam.max_levels = param->max_levels;
+	amgparam.coarsening_type = param->AMG_coarsening_type;
+	amgparam.interpolation_type = param->AMG_interpolation_type;
+	amgparam.coarse_dof = param->AMG_coarse_dof;
+	amgparam.strong_threshold = param->AMG_strong_threshold;
+	amgparam.truncation_threshold = param->AMG_truncation_threshold;
+	amgparam.max_row_sum = param->AMG_max_row_sum;
+	amgparam.print_level = 1;
+
+	clock_t solve_start, solve_end;
+
+	// initialize
+	for (i = 1; i<max_levels; i++)
+	{
+		As[i].row = 0;
+		As[i].col = 0;
+		As[i].IA = NULL;
+		As[i].JA = NULL;
+		As[i].val = NULL;
+	}
+	for (i = 0; i<max_levels; i++)
+	{
+		Ps[i].row = 0;
+		Ps[i].col = 0;
+		Ps[i].IA = NULL;
+		Ps[i].JA = NULL;
+		Ps[i].val = NULL;
+
+		Rs[i].row = 0;
+		Rs[i].col = 0;
+		Rs[i].IA = NULL;
+		Rs[i].JA = NULL;
+		Rs[i].val = NULL;
+	}
+
+	// setup preconditioner
+	// if (fem_num == 1)
+	// 	assembleFluxMassmatrixPoissonRT2d(&M, elements, elementEdge, edges, elementDOF, elementdofTran);
+	// else if (fem_num == 2)
+	// 	assembleFluxMassmatrixPoissonBDM2d(&M, elements, elementEdge, edges, elementDOF, elementdofTran);
+	// else
+	// {
+	// 	printf("Pls choose fem_num = 1 or 2, other fems to be developed.\n");
+	// 	exit(0);
+	// }
+
+
+	dvector diag, diaginv;
+	getdiag(A[0].row, &A[0], &diag);
+	// getdiag(M.row, &M, &diag);
+	create_dvector(diag.row, &diaginv);
+	for (i = 0; i < diag.row; i++)
+		diaginv.val[i] = 1.0 / diag.val[i];
+
+	/************ form Shur complement Adg = A[2]A[0]^{-1}A[1] - A[3]  *********/
+	dDiagVectorMultiplydCSR(&diaginv, &A[1], &tempA);
+	if (A[3].row>0){
+		sparseMultiplication(&A[2], &tempA, &tempB);
+		sparseSubtraction(&tempB, &A[3], &Adg);
+		free_csr_matrix(&tempB);
+	}
+	else{
+		sparseMultiplication(&A[2], &tempA, &Adg);
+	}
+	free_csr_matrix(&tempA);
+	/************ form Shur complement end  *********/
+
+	getElementDOF_Lagrange2d(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
+	getFreenodesInfoLagrange2d(edges, nodes, &elementDOFas);
+	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, 0.5);	
+	updateFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas, 1);
+	free_csr_matrix(&tempA);
+	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
+
+	// interpP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
+	// extractFreenodesMatrix1c(&tempA, &P, &elementDOFas);
+	// free_csr_matrix(&tempA);
+	interpP1toDG2d(&P, &elementDOFas, elementDOFdg);
+	getTransposeOfSparse(&P, &PT);
+
+	/**************************************************
+	dvector uh;
+	create_dvector(b[1].row, &uh);
+	param->elementDOF = &(param->elementDOF[1]);
+	printf("Auxiliary space preconditioned CG solver\n");
+	asP1ElasDG_PCG(&Adg, &b[1], &uh, param, print_level);
+
+	return 0;
+	**************************************************************/
+
+
+
+
+	/*printf("diag:\n");
+	for (i = 0; i < diag.row; i++)
+	printf("%lf\n", diag.val[i]);
+	*/
+	precond_data aspData;
+	aspData.max_levels = levelNum;
+	aspData.max_iter = param->mg_max_iter;
+	aspData.tol = param->mg_tol;
+	aspData.precond_type = param->precond_type;
+	aspData.precond_scale = param->precond_scale;
+	aspData.smoother = param->smoother;
+	// aspData.schwarz_type = param->schwarz_type;
+	aspData.smooth_iter = param->smooth_iter;
+	aspData.mg_smoother = param->mg_smoother;
+	aspData.mg_smooth_iter = param->mg_smooth_iter;
+	aspData.diag = &diag;
+	aspData.precA[0] = &M;  // mass matrix
+	aspData.precA[1] = &A[1];
+	aspData.precA[2] = &A[2];
+	aspData.precA[3] = &Adg; // Schur complement
+	aspData.As = As;
+	aspData.Rs = Rs;
+	aspData.Ps = Ps;
+	aspData.R = &PT;
+	aspData.P = &P;
+	aspData.Minv = NULL;
+
+	precond *prec = (precond *)malloc(sizeof(precond));
+	prec->data = &aspData;
+	prec->fct_dvec = precond_DiagAsMixedPoisson;
+
+
+	// solver part
+	solve_start = clock();
+
+	int MaxIt = param->max_iter;
+	double tol = param->tol;
+	//	prec = NULL;
+	iter = minres2b(A, b, x, MaxIt, tol, prec, print_level);
+
+	solve_end = clock();
+
+	double solve_duration = (double)(solve_end - solve_start) / (double)(CLOCKS_PER_SEC);
+
+	if (print_level>0) {
+		printf("Auxiliary space preconditioned MINRES costs %f seconds.\n", solve_duration);
+		printf("Number of iterations = %d.\n", iter);
+	}
+
+	for (i = 0; i<levelNum; i++)
+	{
+		free_csr_matrix(&As[i]);
+		free_csr_matrix(&Rs[i]);
+		free_csr_matrix(&Ps[i]);
+	}
+	free_elementDOF(&elementDOFas);
+
+	// free_csr_matrix(&M);
+	free_dvector(&diag);
+	free_csr_matrix(&Adg);
+	free_csr_matrix(&P);
+	free_csr_matrix(&PT);
+
+	//	free(amgData.Aarray);
+	free(prec);
+
+	return iter;
+}
+
+/**
+* \fn int TriAsP1PoissonDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level)
+* \brief Solve Ax=b by block triangular preconditioned GMRES solver with auxiliary space method
+* \param *A	pointer to the dCSRmat matrix
+* \param *b	pointer to the dvector of right hand side
+* \param *x	pointer to the dvector of dofs
+* \param *param pointer to ASP parameters
+* \param print_level how much information to print out
+* \return the number of iterations
+*/
+int TriAsP1PoissonDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level)
+{
+	int levelNum = 1;
+	int iter, i;
+
+	int max_levels = param->max_levels;
+	dCSRmat As[max_levels], Adg, tempA, tempB, M, tempM;
+	dCSRmat P, PT, Rs[max_levels], Ps[max_levels];
+	ELEMENT *elements = param->elements;
+	idenmat *elementEdge = param->elementEdge;
+	EDGE *edges = param->edges;
+	dennode *nodes = param->nodes;
+	iCSRmat *edgesTran = param->edgesTran;
+	ivector *nodeCEdge = param->nodeCEdge;
+	ELEMENT_DOF *elementDOF = param->elementDOF;
+	iCSRmat *elementdofTran = param->elementdofTran;
+	ELEMENT_DOF *elementDOFdg = &elementDOF[1];
+	ELEMENT_DOF elementDOFas;
+	// iCSRmat elementdofTranas;
+
+	double lambda = param->lambda;
+	double mu = param->mu;
+
+	AMG_param amgparam; /* parameters for AMG */
+	amgparam.max_levels = param->max_levels;
+	amgparam.coarsening_type = param->AMG_coarsening_type;
+	amgparam.interpolation_type = param->AMG_interpolation_type;
+	amgparam.coarse_dof = param->AMG_coarse_dof;
+	amgparam.strong_threshold = param->AMG_strong_threshold;
+	amgparam.truncation_threshold = param->AMG_truncation_threshold;
+	amgparam.max_row_sum = param->AMG_max_row_sum;
+	amgparam.print_level = 1;
+
+	clock_t solve_start, solve_end;
+
+	// initialize
+	for (i = 1; i<max_levels; i++){
+		As[i].row = 0;
+		As[i].col = 0;
+		As[i].IA = NULL;
+		As[i].JA = NULL;
+		As[i].val = NULL;
+	}
+	for (i = 0; i<max_levels; i++){
+		Ps[i].row = 0;
+		Ps[i].col = 0;
+		Ps[i].IA = NULL;
+		Ps[i].JA = NULL;
+		Ps[i].val = NULL;
+
+		Rs[i].row = 0;
+		Rs[i].col = 0;
+		Rs[i].IA = NULL;
+		Rs[i].JA = NULL;
+		Rs[i].val = NULL;
+	}
+
+	// setup preconditioner
+	// if (fem_num == 1)
+	// 	assembleFluxMassmatrixPoissonRT2d(&M, elements, elementEdge, edges, elementDOF, elementdofTran);
+	// else if (fem_num == 2)
+	// 	assembleFluxMassmatrixPoissonBDM2d(&M, elements, elementEdge, edges, elementDOF, elementdofTran);
+	// else
+	// {
+	// 	printf("Pls choose fem_num = 1 or 2, other fems to be developed.\n");
+	// 	exit(0);
+	// }
+/*	if (elementDOF[0].nfreenodes.row == 0)
+		assembleStiffmatrixHuZhangA11_2d(&M, elements, nodes, elementDOF, elementdofTran, 0, mu);
+	else
+	{
+		assembleStiffmatrixHuZhangA11_2d(&tempM, elements, nodes, elementDOF, elementdofTran, 0, mu);
+		extractFreenodesMatrix11(&tempM, &M, &elementDOF[0], &elementDOF[0]);
+		free_csr_matrix(&tempM);
+	}*/
+
+	dvector diag, diaginv;
+	getdiag(A[0].row, &A[0], &diag);
+	// getdiag(M.row, &M, &diag);
+	create_dvector(diag.row, &diaginv);
+	for (i = 0; i < diag.row; i++)
+		diaginv.val[i] = 1.0 / diag.val[i];
+
+/*	for(i=0;i<diag.row;i++)
+	printf("%e, ", diaginv.val[i]);///////////////
+	printf("\n");*/
+
+	/************ form Shur complement Adg = A[2]A[0]^{-1}A[1] - A[3]  *********/
+	dDiagVectorMultiplydCSR(&diaginv, &A[1], &tempA);
+	if (A[3].row>0){
+		sparseMultiplication(&A[2], &tempA, &tempB);
+		sparseSubtraction(&tempB, &A[3], &Adg);
+		free_csr_matrix(&tempB);
+	}
+	else{
+		sparseMultiplication(&A[2], &tempA, &Adg);
+	}
+	free_csr_matrix(&tempA);
+	/************ form Shur complement end  *********/
+
+	getElementDOF_Lagrange2d(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
+	getFreenodesInfoLagrange2d(edges, nodes, &elementDOFas);
+	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, 0.5);	
+	updateFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas, 1);
+	free_csr_matrix(&tempA);
+	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
+
+	// interpP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
+	// extractFreenodesMatrix1c(&tempA, &P, &elementDOFas);
+	// free_csr_matrix(&tempA);
+	interpP1toDG2d(&P, &elementDOFas, elementDOFdg);
+	getTransposeOfSparse(&P, &PT);
+
+	/**************************************************
+	dvector uh;
+	create_dvector(b[1].row, &uh);
+	param->elementDOF = &(param->elementDOF[1]);
+	printf("Auxiliary space preconditioned CG solver\n");
+	asP1ElasDG_PCG(&Adg, &b[1], &uh, param, print_level);
+
+	return 0;
+	**************************************************************/
+
+
+
+
+	/*printf("diag:\n");
+	for (i = 0; i < diag.row; i++)
+	printf("%lf\n", diag.val[i]);
+	*/
+	precond_data aspData;
+	aspData.max_levels = levelNum;
+	aspData.max_iter = param->mg_max_iter;
+	aspData.tol = param->mg_tol;
+	aspData.precond_type = param->precond_type;
+	aspData.precond_scale = param->precond_scale;
+	aspData.smoother = param->smoother;
+	// aspData.schwarz_type = param->schwarz_type;
+	aspData.smooth_iter = param->smooth_iter;
+	aspData.mg_smoother = param->mg_smoother;
+	aspData.mg_smooth_iter = param->mg_smooth_iter;
+	aspData.diag = &diag;
+	aspData.precA[0] = &M;  // mass matrix
+	aspData.precA[1] = &A[1];
+	aspData.precA[2] = &A[2];
+	aspData.precA[3] = &Adg; // Schur complement
+	aspData.As = As;
+	aspData.Rs = Rs;
+	aspData.Ps = Ps;
+	aspData.R = &PT;
+	aspData.P = &P;
+	aspData.Minv = NULL;
+
+	precond *prec = (precond *)malloc(sizeof(precond));
+	prec->data = &aspData;
+	prec->fct_dvec = precond_TriAsMixedPoisson;
+
+	// solver part
+	solve_start = clock();
+
+	int restart = param->restart;
+	int MaxIt = param->max_iter;
+	double tol = param->tol;
+	//	prec = NULL;
+	iter = fgmres2b(A, b, x, restart, MaxIt, tol, prec, print_level);
+
+	solve_end = clock();
+
+	double solve_duration = (double)(solve_end - solve_start) / (double)(CLOCKS_PER_SEC);
+
+	if (print_level>0){
+		printf("Block triangular preconditioned GMRES with auxiliary space method costs %f seconds.\n", solve_duration);
+		printf("Number of iterations = %d.\n", iter);
+	}
+
+	for (i = 0; i<levelNum; i++){
+		free_csr_matrix(&As[i]);
+		free_csr_matrix(&Rs[i]);
+		free_csr_matrix(&Ps[i]);
+	}
+	free_elementDOF(&elementDOFas);
+
+	// free_csr_matrix(&M);
+	free_dvector(&diag);
+	free_csr_matrix(&Adg);
+	free_csr_matrix(&P);
+	free_csr_matrix(&PT);
+
+	//	free(amgData.Aarray);
+	free(prec);
+
+	return iter;
+}
+
+/**
 * \fn int DiagAsP1StokesNcP1P0_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level)
 * \brief Solve Ax=b by block diagonal preconditioned MINRES solver with auxiliary space method
 * \param *A	pointer to the dCSRmat matrix
@@ -1203,7 +1605,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	iCSRmat *elementdofTran = param->elementdofTran;
 	ELEMENT_DOF *elementDOFdg = &elementDOF[1];
 	ELEMENT_DOF elementDOFas;
-	iCSRmat elementdofTranas;
+	// iCSRmat elementdofTranas;
 
 	double lambda = param->lambda;
 	double mu = param->mu;
@@ -1271,9 +1673,8 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	
 	getElementDOF_Lagrange2d(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
 	getFreenodesInfoLagrange2d(edges, nodes, &elementDOFas);
-	getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
+	// getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
 	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, mu);
-	// extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
 	updateFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas, 1);
 	free_csr_matrix(&tempA);
 	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
@@ -1358,7 +1759,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 		free_csr_matrix(&Ps[i]);
 	}
 	free_elementDOF(&elementDOFas);
-	free_icsr_matrix(&elementdofTranas);
+	// free_icsr_matrix(&elementdofTranas);
 
 //	free_elementDOF(&elementDOFdg);
 	free_csr_matrix(&M);
@@ -1401,7 +1802,7 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	iCSRmat *elementdofTran = param->elementdofTran;
 	ELEMENT_DOF *elementDOFdg = &elementDOF[1];
 	ELEMENT_DOF elementDOFas;
-	iCSRmat elementdofTranas;
+	// iCSRmat elementdofTranas;
 
 	double lambda = param->lambda;
 	double mu = param->mu;
@@ -1469,9 +1870,7 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 
 	getElementDOF_Lagrange2d(&elementDOFas, elements, elementEdge, edges, nodes->row, 1);
 	getFreenodesInfoLagrange2d(edges, nodes, &elementDOFas);
-	getTransposeOfelementDoF(&elementDOFas, &elementdofTranas, 0);
 	assembleBiGradLagrange2d(&tempA, elements, elementEdge, edges, nodes, &elementDOFas, mu);
-	// extractFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas);
 	updateFreenodesMatrix11(&tempA, &As[0], &elementDOFas, &elementDOFas, 1);
 	free_csr_matrix(&tempA);
 	classicAMG_setup(As, Ps, Rs, &levelNum, &amgparam);
@@ -1521,13 +1920,6 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	aspData.R = &PT;
 	aspData.P = &P;
 
-/*aspData.edges = edges;
-	aspData.edgesTran = edgesTran;
-	aspData.nodeCEdge = nodeCEdge;
-	aspData.isInNode = isInNode;
-	aspData.nondirichlet = nondirichlet;
-	aspData.index = index;*/
-
 	precond *prec = (precond *)malloc(sizeof(precond));
 	prec->data = &aspData;
 	prec->fct_dvec = precond_TriAsP1ElasDG;
@@ -1557,7 +1949,6 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 		free_csr_matrix(&Ps[i]);
 	}
 	free_elementDOF(&elementDOFas);
-	free_icsr_matrix(&elementdofTranas);
 
 	//	free_elementDOF(&elementDOFdg);
 	free_csr_matrix(&M);

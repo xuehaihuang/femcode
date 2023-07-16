@@ -25,10 +25,10 @@
  * \param *x the cooridates of the point in three dimensions
  * \return function value
  */
-double biharmonic2d_f(double *x, double *paras)
+void biharmonic2d_f(double *x, double *val, double *paras)
 {
 	double v = 8*pi*pi*pi*pi*(cos(2*pi*x[0])*cos(2*pi*x[1]) - cos(2*pi*x[0])*sin(pi*x[1])*sin(pi*x[1]) - cos(2*pi*x[1])*sin(pi*x[0])*sin(pi*x[0]));
-	return v;
+	*val = v;
 }
 
 /**
@@ -37,9 +37,9 @@ double biharmonic2d_f(double *x, double *paras)
  * \param *x the cooridates of the point in three dimensions
  * \return function value 
  */
-double biharmonic2d_u(double *x, double *paras)
+void biharmonic2d_u(double *x, double *val, double *paras)
 {
-	return sin(pi*x[0])*sin(pi*x[0])*sin(pi*x[1])*sin(pi*x[1]);
+	*val = sin(pi*x[0])*sin(pi*x[0])*sin(pi*x[1])*sin(pi*x[1]);
 }
 
 /**

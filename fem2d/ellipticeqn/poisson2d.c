@@ -19,28 +19,28 @@
 #include "checkmat.h"
 
 /**
- * \fn double poisson2d_f(double *x, double *paras)
+ * \fn void poisson2d_f(double *x, double *val, double *paras)
  * \brief load f, i.e. right hand side when the true solution u is sin(pi*x)*sin(pi*y)
  *		  -\Delta u = f
  * \param *x the cooridates of the point in three dimensions
  * \return function value
  */
-double poisson2d_f(double *x, double *paras)
+void poisson2d_f(double *x, double *val, double *paras)
 {
 	double uxx=-pi*pi*sin(pi*x[0])*sin(pi*x[1]);
 	double uyy=-pi*pi*sin(pi*x[0])*sin(pi*x[1]);
-	return -uxx-uyy;
+	*val = -uxx-uyy;
 }
 
 /**
- * \fn double poisson2d_u(double *x, double *paras)
+ * \fn void poisson2d_u(double *x, double *val, double *paras)
  * \brief true solution u
  * \param *x the cooridates of the point in three dimensions
  * \return function value 
  */
-double poisson2d_u(double *x, double *paras)
+void poisson2d_u(double *x, double *val, double *paras)
 {
-	return sin(pi*x[0])*sin(pi*x[1]);
+	*val = sin(pi*x[0])*sin(pi*x[1]);
 }
 
 /**

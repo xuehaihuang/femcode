@@ -145,7 +145,7 @@ void interpP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementD
 				curnode = elementDOFdg->val[k][3 + ie*(elementDOFdg->dop - 1) + ii];
 				P->val[P->IA[curnode]] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
 				P->val[P->IA[curnode] + 1] = (1.0 + ii) / (double)elementDOFdg->dop;
-				/*				P->val[P->IA[curnode] + ie] = 0;
+/*				P->val[P->IA[curnode] + ie] = 0;
 				P->val[P->IA[curnode] + (ie + 1) % 3] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
 				P->val[P->IA[curnode] + (ie + 2) % 3] = (1.0 + ii) / (double)elementDOFdg->dop;*/
 			}
@@ -397,7 +397,7 @@ void interpVecP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *eleme
 
 				P->val[P->IA[curnode[0]]] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
 				P->val[P->IA[curnode[0]] + 1] = (1.0 + ii) / (double)elementDOFdg->dop;
-				/*				P->val[P->IA[curnode[0]] + ie] = 0;
+/*				P->val[P->IA[curnode[0]] + ie] = 0;
 				P->val[P->IA[curnode[0]] + (ie + 1) % 3] = ((double)elementDOFdg->dop - 1 - ii) / (double)elementDOFdg->dop;
 				P->val[P->IA[curnode[0]] + (ie + 2) % 3] = (1.0 + ii) / (double)elementDOFdg->dop;*/
 

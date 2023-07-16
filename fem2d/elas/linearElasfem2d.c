@@ -125,8 +125,8 @@ void linearElasHuZhang2d_mfem(ELEMENT *elements, idenmat *elementEdge, EDGE *edg
 
 	/** Step 1. generate degrees of freedom */
 	getElementDOF_HuZhang(&elementDOF[0], elements, elementEdge, edges, nodes->row, dop1);
-	getElementDOF(&elementDOF[1], elements->row, dop2);
-	getElementDOF(&elementDOF[2], elements->row, dop2+2);
+	getElementDOFdg(&elementDOF[1], elements->row, (dop2+1)*(dop2+2)/2, dop2);
+	getElementDOFdg(&elementDOF[2], elements->row, (dop2+3)*(dop2+4)/2, dop2+2);
 
 	// getTransposeOfelementDoF(elementDOF, &elementdofTran, 0);
 
@@ -141,8 +141,7 @@ void linearElasHuZhang2d_mfem(ELEMENT *elements, idenmat *elementEdge, EDGE *edg
 	// print_darray(20, A[0].val);///
 	
 	/** Step 3. Check matrix properties */
-	for (i = 0; i<3; i++)
-	{
+	for (i = 0; i<3; i++){
 		check_symm(&A[i]);
 		check_diagpos(&A[i]);
 		check_diagdom(&A[i]);
@@ -370,7 +369,7 @@ the third column stores the Dirichlet status of the points(0: nondirichlet, -1: 
 void linearElasHuangZhou2d_mfem(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, iCSRmat *edgesTran, ivector *nodeCEdge, Input_data *Input)
 {
 	int i,j;
-	dCSRmat A[3];
+	dCSRmat A[4];
 	dvector b[2], uh[2];
 	ELEMENT_DOF elementDOF[2];
 	// iCSRmat elementdofTran;
@@ -396,7 +395,7 @@ void linearElasHuangZhou2d_mfem(ELEMENT *elements, idenmat *elementEdge, EDGE *e
 
 	/** Step 1. generate degrees of freedom */
 	getElementDOF_HuangZhou(&elementDOF[0], elements, elementEdge, edges, nodes->row);
-	getElementDOF(&elementDOF[1], elements->row, dop2);
+	getElementDOFdg(&elementDOF[1], elements->row, (dop2+1)*(dop2+2)/2, dop2);
 
 	// getTransposeOfelementDoF(elementDOF, &elementdofTran, 0);
 
@@ -619,6 +618,11 @@ void assemble_linearElasHuangZhou2d(dCSRmat *ptr_A, dvector *ptr_b, ELEMENT *ele
 	assembleDivHuangZhouL2poly2d(&ptr_A[1], elements, elementDOF);
 	assembleRHSdgPolyVector2d(&ptr_b[1], elements, nodes, elementDOF+1, linearElas2d_f, paras);
 
+	ptr_A[3].row = 0;
+	ptr_A[3].col = 0;
+	ptr_A[3].IA = NULL;
+	ptr_A[3].JA = NULL;
+	ptr_A[3].val = NULL;
 	// if (elementDOF[0].dop > 2)
 	// {
 	// 	ptr_A[3].row = 0;

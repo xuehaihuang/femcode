@@ -576,6 +576,8 @@ void restrictionPTvector2dOld(iCSRmat *edgesTran, dvector *r, dvector *PTr);
 int standard_CG(dCSRmat *A, dvector *b, dvector *x, int MaxIt, double tol, int print_level);
 int diag_PCG(dCSRmat *A, dvector *b, dvector *x, int MaxIt, double tol, int print_level);
 int classicAMG_PCG(dCSRmat *A, dvector *b, dvector *x, AMG_param *param, int print_level);
+int DiagAsP1PoissonDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level);
+int TriAsP1PoissonDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level);
 int DiagAsP1StokesNcP1P0_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level);
 int AbfpAsP1StokesNcP1P0_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level);
 int DiagAsP1symStokesMINI_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level);
@@ -625,8 +627,8 @@ int dIJtoCSReps(dCSRmat *A, int *ia, int *ja, double *val, int N, int row, int c
 int dCSRtoIJ(dCSRmat *A, dIJmat *B);
 
 /* poisson2d.c */
-double poisson2d_f(double *x, double *paras);
-double poisson2d_u(double *x, double *paras);
+void poisson2d_f(double *x, double *val, double *paras);
+void poisson2d_u(double *x, double *val, double *paras);
 void poisson2d_gradu(double *x, double *val, double *paras);
 
 /* poissonfem2d.c */
@@ -635,14 +637,18 @@ void poissonLagrange2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, den
 void assemble_poissonLagrange2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void poissonCrouzeixRaviart2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void assemble_poissonCrouzeixRaviart2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void poissonRaviartThomas2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void assemble_poissonRaviartThomas2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+
 
 /* poissonerror2d.c */
 void geterrorsPoissonLagrange2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void geterrorsPoissonCrouzeixRaviart2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void geterrorsPoissonRaviartThomas2d(double *errors, dvector *uh, dvector *Qhu, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 
 /* biharmonic2d.c */
-double biharmonic2d_f(double *x, double *paras);
-double biharmonic2d_u(double *x, double *paras);
+void biharmonic2d_f(double *x, double *val, double *paras);
+void biharmonic2d_u(double *x, double *val, double *paras);
 void biharmonic2d_gradu(double *x, double *val, double *paras);
 void biharmonic2d_hessu(double *x, double *val, double *paras);
 
@@ -664,8 +670,8 @@ void geterrorsBiharmonicC0ipdg2d(double *errors, dvector *uh, ELEMENT *elements,
 void geterrorsBiharmonicC0ipdgExtrap2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran);
 
 /* triharmonic2d.c */
-double triharmonic2d_f(double *x, double *paras);
-double triharmonic2d_u(double *x, double *paras);
+void triharmonic2d_f(double *x, double *val, double *paras);
+void triharmonic2d_u(double *x, double *val, double *paras);
 void triharmonic2d_gradu(double *x, double *val, double *paras);
 void triharmonic2d_hessu(double *x, double *val, double *paras);
 void triharmonic2d_grad3u(double *x, double *val, double *paras);
@@ -699,11 +705,12 @@ void geterrorslinearElasHuangZhou2d(double *errors, dvector *sigmah, dvector *uh
 
 /* assemble.c */
 int getmesh(int domain_num, ELEMENT *ptr_elements, idenmat *ptr_elementEdge, EDGE *ptr_edges, dennode *ptr_nodes, iCSRmat *edgesTran, ivector *nodeCEdge, int levelNum);
-void getElementDOF1D(ELEMENT_DOF *elementDOF, int ne, int dop);
+void getElementDOFdg(ELEMENT_DOF *elementDOF, int nt, int ldof, int dop);
 void getElementDOF1D_Continue(ELEMENT_DOF *edgeDOF, ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
-void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop);
 void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF_CrouzeixRaviart2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges);
+void getElementDOF_RaviartThomas2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int dop);
+void getElementDOF_BrezziDouglasMarini2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int dop);
 void getElementDOF_MINI2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, int nvertices);
 void getElementDOF_Morley2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices);
 void getElementDOF_HuZhang(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
@@ -716,12 +723,15 @@ void getFreenodesInfoDG(ELEMENT_DOF *elementDOF);
 void assembleMassmatrixLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu);
 void assembleMassmatrixLagrangeDiagBlockRepeat2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu);
 void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu);
-void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras);
+void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
 void assembleBiGradCrouzeixRaviart2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu);
-void assembleRHSCrouzeixRaviart2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras);
+void assembleRHSCrouzeixRaviart2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
+void assembleMassmatrixRaviartThomas2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF);
+void assembleDivRaviartThomasL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1);
+void assembleRHSdgPoly2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
 void assembleBiGradMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
-void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras);
+void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
 void assembleBiHessC0ipdg2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double parapenalty);
 void assembleBiGradCrouzeixRaviartDiagBlockRepeat2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double mu);
 void assembleDivCrouzeixRaviartL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1);
@@ -812,7 +822,8 @@ void bernstein2d_basis1(double *lambda, double **gradLambda, int index, int dop,
 void cr_basis(int n, double *lambda, int index, double *phi);
 void cr_basis1(int n, double **gradLambda, int index, double *phi);
 void rt_basis(double *lambda, double *height, double **tij, short *eorien, int index, int dop, double phi[2]);
-void rt_basis1(double *lambda, double s, double elen[3], double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4]);
+void rt_basisDIV(double *lambda, double **grd_lambda, double *height, double **tij, short *eorien, int index, int dop, double *phi);
+void rt_basis1(double *lambda, double **grd_lambda, double *height, double **tij, short *eorien, int index, int dop, double phi[4]);
 void bdm_basis(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[2]);
 void bdm_basis1(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4]);
 void arnoldwinther_basis(double *lambda, double *x, double *y, ddenmat3 *basisCoeffs, int element, int index, double *phi);
@@ -855,10 +866,12 @@ int LU_Decomp(double *A, int pivot[], int n);
 int LU_Solve(double *A, double b[], int pivot[], double x[], int n);
 
 /* post_processing.c */
+void projL2Pk2d(dvector *Qhu, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, void (*u)(double *, double *, double *), double *paras);
 void projL2PkVec2d(dvector *Qhu, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, void (*u)(double *, double *, double *), double *paras);
-void projPiecewiseLagrangeRHS(dvector *Qhf, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, double *paras);
+
+/* linearElaspostprocessing.c */
 void postprocess2newDisplacementHuZhang2d(dvector *uhstar, dvector *sigmah, dvector *uh, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
-void postprocess2newDisplacementHuangZhou2d(dvector *uhstar, dvector *sigmah, dvector *uh, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
+
 
 
 /* output.c */

@@ -81,7 +81,8 @@ void geterrorsBiharmonicMorley2d(double *errors, dvector *uh, ELEMENT *elements,
 		for(i1=0;i1<num_qp;i1++)
 		{	
 			baryToCart2d(lambdas[i1], x, vertices);
-			val[0] = -biharmonic2d_u(x, NULL);
+			biharmonic2d_u(x, &val[0], NULL);
+			val[0] *= -1;
 
 			for(k1=0;k1<elementDOF->col;k1++)
 			{
@@ -192,7 +193,8 @@ void geterrorsBiharmonicC0ipdg2d(double *errors, dvector *uh, ELEMENT *elements,
 		for(i1=0;i1<num_qp;i1++)
 		{	
 			baryToCart2d(lambdas[i1], x, vertices);
-			val[0] = -biharmonic2d_u(x, NULL);
+			biharmonic2d_u(x, &val[0], NULL);
+			val[0] *= -1;
 
 			for(k1=0;k1<elementDOF->col;k1++)
 			{
@@ -449,7 +451,8 @@ void geterrorsBiharmonicC0ipdgExtrap2d(double *errors, dvector *uh, ELEMENT *ele
 		x = nodes[0].val[i];
 		if(fabs(x[0]-0.5)<0.25+1e-10 && fabs(x[1]-0.5)<0.25+1e-10){
 			phi0 = c[0][0]*wh[0].val[i] + c[0][1]*wh[1].val[i];
-			phi0 -= biharmonic2d_u(x, NULL);
+			biharmonic2d_u(x, &val[0], NULL);
+			phi0 -= val[0];
 			phi0 = fabs(phi0);
 			if(phi0>errors[0]) errors[0]=phi0;
 
@@ -472,7 +475,8 @@ void geterrorsBiharmonicC0ipdgExtrap2d(double *errors, dvector *uh, ELEMENT *ele
 			x = nodes[l].val[i];
 			if(fabs(x[0]-0.5)<0.25+1e-10 && fabs(x[1]-0.5)<0.25+1e-10){
 				phi0 = wh[l].val[i];
-				phi0 -= biharmonic2d_u(x, NULL);
+				biharmonic2d_u(x, &val[0], NULL);
+				phi0 -= val[0];
 				phi0 = fabs(phi0);
 				if(phi0>errors[3+3*l]) errors[3+3*l]=phi0;
 

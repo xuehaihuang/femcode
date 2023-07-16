@@ -510,8 +510,8 @@ void lagrange_basis(double *lambda, int index, int dop, double *phi)
 /** 
  * \fn void lagrange_basis1(double *lambda, double **gradLambda, int index, int dop, double phi[2])
  * \brief the first order derivative of Lagrange element basis function: (\partial_{x}phi, \partial_{y}phi)
- * \param *lambda pointer to the area coordiante
- * \param **gradLambda pointer to the gradient of the barycentric coordinate
+ * \param lambda pointer to the area coordiante
+ * \param gradLambda pointer to the gradient of the barycentric coordinate
  * \param index the indicator of the basis function
  * \param dop degree of polynomial
  * \param phi[2] the first order derivative of Morley element basis function: (\partial_{x}phi, \partial_{y}phi)
@@ -1135,14 +1135,10 @@ void cr_basis1(int n, double **gradLambda, int index, double *phi)
 /** 
  * \fn void rt_basis(double *lambda, double *height, double **tij, short *eorien, int index, int dop, double phi[2])
  * Arnold, D. N.; Falk, R. S. & Winther, R. Geometric decompositions and local bases for spaces of finite element differential forms Comput. Methods Appl. Mech. Engrg., 2009, 198, 1660-1672
- * \param x the x-axis coordiante
- * \param y the y-axis coordiante
- * \param (*T)[2] point the coordiantes of all vertices of current element
- * \param s the area of the triangule
- * \param elen[3] length of three edge
- * \param eta[3] some auxiliary parameter
- * \param xi[3] some auxiliary parameter
- * \param orient[3] some auxiliary parameter
+ * \param lambda the barycentric coordinate
+ * \param height pointer to height to three edges
+ * \param tij pointer to three edge vectors
+ * \param eorien pointer to orient of three edges
  * \param index the indicator of the basis function
  * \param dop degree of polynomial
  * \param phi[2] basis function of Raviart-Thomas element: (phi1, phi2)
@@ -1160,6 +1156,7 @@ void rt_basis(double *lambda, double *height, double **tij, short *eorien, int i
 
 	int i, i1, i2, j, k, jk[0];
 	int in, ie, ii;
+	double val;
 
 	if (dop == 1){
 		i = index;
@@ -1174,15 +1171,15 @@ void rt_basis(double *lambda, double *height, double **tij, short *eorien, int i
 			in = index;
 			i = in / dop;
 			ii = in % dop;
-			jk[0] = (i+1)%3;
-			jk[1] = (i+2)%3;
-			j = jk[0]; k = jk[1];
+			j = (i+1)%3;
+			k = (i+2)%3;
+			jk[0] = j;	jk[1] = k;
 			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
 			ax_array(2, lambda[jk[ii]], phi);
 			ax_array(2, eorien[i]/height[i], phi);
 		}
 		else{
-			i = index - 6;
+			i = index - 3*dop;
 			j = (i+1)%3;
 			k = (i+2)%3;
 			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
@@ -1197,7 +1194,6 @@ void rt_basis(double *lambda, double *height, double **tij, short *eorien, int i
 			ii = in % dop;
 			j = (i+1)%3;
 			k = (i+2)%3;
-			
 			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
 			ax_array(2, pow(lambda[j], dop-1-ii)*pow(lambda[k], ii), phi);
 			ax_array(2, eorien[i]/height[i], phi);
@@ -1232,30 +1228,126 @@ void rt_basis(double *lambda, double *height, double **tij, short *eorien, int i
 			j = (i+1)%3;
 			k = (i+2)%3;
 			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi);
-			ax_array(2, lambda[i]*lambda[ii]/height[ii], phi);
+			bernstein2d_basis(lambda, ii, dop-2, &val);
+			ax_array(2, val*lambda[i]/height[i], phi);
 		}
 	} // dop >= 4
 }
 
 /** 
- * \fn void rt_basis1(double *lambda, double s, double elen[3], double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4])
+ * \fn void rt_basisDIV(double *lambda, double **grd_lambda, double *height, double **tij, short *eorien, int index, int dop, double *phi)
+ * \brief the divergence of Raviart-Thomas element basis function: \partial_{x}phi1 + \partial_{y}phi2
+ * Arnold, D. N.; Falk, R. S. & Winther, R. Geometric decompositions and local bases for spaces of finite element differential forms Comput. Methods Appl. Mech. Engrg., 2009, 198, 1660-1672
+ * \param lambda the barycentric coordinate
+ * \param gradLambda pointer to the gradient of the barycentric coordinate
+ * \param height pointer to height to three edges
+ * \param tij pointer to three edge vectors
+ * \param eorien pointer to orient of three edges
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param phi[4] the first order derivative of Raviart-Thomas element basis function: \partial_{x}phi1 + \partial_{y}phi2
+ * \return void
+ */
+void rt_basisDIV(double *lambda, double **grd_lambda, double *height, double **tij, short *eorien, int index, int dop, double *phi)
+{
+	int dofs = dop *(dop + 2); // degrees of freedom
+	
+	*phi = 0;
+
+	if (dop<1) return;
+
+	if (index >= dofs || index<0)	return;
+
+	int i, i1, i2, j, k, m, jk[0];
+	int in, ie, ii;
+	double c, val[2], phi1[2];
+
+	if (dop == 1)
+		*phi = eorien[index]*2.0/height[index];
+
+	else if (dop == 2){
+		if (index < 3*dop){
+			in = index;
+			i = in / dop;
+			ii = in % dop;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			jk[0] = j;	jk[1] = k;
+			*phi = eorien[i]*3.0*lambda[jk[ii]]/height[i];
+		}
+		else{
+			i = index - 3*dop;
+			// j = (i+1)%3;
+			// k = (i+2)%3;
+			*phi = (3.0*lambda[i]-1)/height[i];
+		}
+	} // dop=2
+
+	else if (dop == 3){
+		if (index < 3*dop){
+			in = index;
+			i = in / dop;
+			ii = in % dop;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			*phi = eorien[i]*4.0*pow(lambda[j], dop-1-ii)*pow(lambda[k], ii)/height[i];
+		}
+		else{
+			in = index - 3*dop;
+			i = in / 3;
+			ii = in % 3;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			*phi = lambda[ii]*(3.0*lambda[i]-1)/height[i];
+			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], val);
+			ax_array(2, lambda[i]/height[i], val);
+			*phi += dot_array(2, val, grd_lambda[ii]);
+		}
+	} // dop=3
+
+	else if (dop >= 4){
+		if (index < 3*dop){
+			in = index;
+			i = in / dop;
+			ii = in % dop;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			*phi = eorien[i]*(dop+1)*pow(lambda[j], dop-1-ii)*pow(lambda[k], ii)/height[i];
+		}
+		else{
+			in = index - 3*dop;
+			i = in / (dop*(dop-1)/2);
+			ii = in % (dop*(dop-1)/2);
+			j = (i+1)%3;
+			k = (i+2)%3;
+			bernstein2d_basis(lambda, ii, dop-2, &c);
+			bernstein2d_basis1(lambda, grd_lambda, ii, dop-2, val);
+			*phi = c*(3.0*lambda[i]-1)/height[i];
+			axpbyz_array(2, lambda[j], tij[k], -lambda[k], tij[j], phi1);
+			ax_array(2, lambda[i]/height[i], phi1);
+			*phi += dot_array(2, val, phi1);
+		}
+	} // dop >= 4
+}
+
+/** 
+ * \fn void rt_basis1(double *lambda, double **grd_lambda, double *height, double **tij, short *eorien, int index, int dop, double phi[4])
  * \brief the first order derivative of Raviart-Thomas element basis function: (\partial_{x}phi1, \partial_{y}phi1, \partial_{x}phi2, \partial_{y}phi2)
  * Arnold, D. N.; Falk, R. S. & Winther, R. Geometric decompositions and local bases for spaces of finite element differential forms Comput. Methods Appl. Mech. Engrg., 2009, 198, 1660-1672
- * \param x the x-axis coordiante
- * \param y the y-axis coordiante
- * \param (*T)[2] point the coordiantes of all vertices of current element
- * \param s the area of the triangule
- * \param elen[3] length of three edge
- * \param eta[3] some auxiliary parameter
- * \param xi[3] some auxiliary parameter
- * \param orient[3] some auxiliary parameter
+ * \param lambda the barycentric coordinate
+ * \param gradLambda pointer to the gradient of the barycentric coordinate
+ * \param height pointer to height to three edges
+ * \param tij pointer to three edge vectors
+ * \param eorien pointer to orient of three edges
  * \param index the indicator of the basis function
  * \param dop degree of polynomial
  * \param phi[4] the first order derivative of Raviart-Thomas element basis function: (\partial_{x}phi1, \partial_{y}phi1, \partial_{x}phi2, \partial_{y}phi2)
  * \return void
  */
-void rt_basis1(double *lambda, double s, double elen[3], double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4])
+void rt_basis1(double *lambda, double **grd_lambda, double *height, double **tij, short *eorien, int index, int dop, double phi[4])
 {
+	double phi1[4], phi2[4];
+
 	int dofs = dop *(dop + 2); // degrees of freedom
 	
 	init_array(4, phi, 0);
@@ -1264,125 +1356,138 @@ void rt_basis1(double *lambda, double s, double elen[3], double eta[3], double x
 
 	if (index >= dofs || index<0)	return;
 
-	int i, i1, i2, j;
+	int i, i1, i2, j, k, m, jk[0];
 	int in, ie, ii;
-	double orient[3], PHI[3][2], PSI[2][2], PHI1[3][4], PSI1[2][4], grad[2];
-	for (i = 0; i < 3; i++)
-		orient[i] = nv[i][0] * nve[i][0] + nv[i][1] * nve[i][1];
+	double c, val[2];
 
-	for (i = 0; i < 3; i++)
-	{
-		i1 = (i + 1) % 3;
-		i2 = (i + 2) % 3;
-		PHI[i][0] = (xi[i1] * lambda[i2] - xi[i2] * lambda[i1]) * elen[i] / (2 * s);
-		PHI[i][1] = (eta[i1] * lambda[i2] - eta[i2] * lambda[i1]) * elen[i] / (2 * s);
-	}
-	for (i = 0; i < 2; i++)
-	{
-		PSI[i][0] = lambda[i] * PHI[i][0];
-		PSI[i][1] = lambda[i] * PHI[i][1];
-	}
-	for (i = 0; i < 3; i++)
-	{
-		PHI1[i][0] = elen[i] / (2 * s);
-		PHI1[i][1] = 0;
-		PHI1[i][2] = 0;
-		PHI1[i][3] = elen[i] / (2 * s);
-	}
-	for (i = 0; i < 2; i++)
-	{
-		grad[0] = eta[i] / (2 * s);
-		grad[1] = -xi[i] / (2 * s);
-		PSI1[i][0] = lambda[i] * PHI1[i][0]+ grad[0] * PHI[i][0];
-		PSI1[i][1] = lambda[i] * PHI1[i][1]+ grad[1] * PHI[i][0];
-		PSI1[i][2] = lambda[i] * PHI1[i][2]+ grad[0] * PHI[i][1];
-		PSI1[i][3] = lambda[i] * PHI1[i][3]+ grad[1] * PHI[i][1];
-	}
-
-	if (dop == 1)
-	{
+	if (dop == 1){
 		i = index;
-		phi[0] = orient[i] * PHI1[i][0];
-		phi[1] = orient[i] * PHI1[i][1];
-		phi[2] = orient[i] * PHI1[i][2];
-		phi[3] = orient[i] * PHI1[i][3];
+		j = (i+1)%3;
+		k = (i+2)%3;
+		for(m=0;m<2;m++)
+			axpbyz_array(2, tij[k][m], grd_lambda[j], -tij[j][m], grd_lambda[k], phi+2*m);
+		ax_array(4, eorien[i]/height[i], phi);
 	}
 
-	else if (dop == 2)
-	{
-		if (index<6)
-		{
+	else if (dop == 2){
+		if (index < 3*dop){
 			in = index;
-			ie = in / 2;
-			ii = in % 2;
-			i = (ie + 1 + ii) % 3;
-			grad[0] = eta[i] / (2 * s);
-			grad[1] = -xi[i] / (2 * s);
-			phi[0] = orient[ie] * (PHI1[ie][0] * lambda[i] + PHI[ie][0] * grad[0]);
-			phi[1] = orient[ie] * (PHI1[ie][1] * lambda[i] + PHI[ie][0] * grad[1]);
-			phi[2] = orient[ie] * (PHI1[ie][2] * lambda[i] + PHI[ie][1] * grad[0]);
-			phi[3] = orient[ie] * (PHI1[ie][3] * lambda[i] + PHI[ie][1] * grad[1]);
+			i = in / dop;
+			ii = in % dop;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			jk[0] = j;	jk[1] = k;
+			for(m=0;m<2;m++){
+				axpbyz_array(2, tij[k][m]*lambda[jk[ii]], grd_lambda[j], tij[k][m]*lambda[j], grd_lambda[jk[ii]], phi1+2*m);
+				axpbyz_array(2, tij[j][m]*lambda[jk[ii]], grd_lambda[k], tij[j][m]*lambda[k], grd_lambda[jk[ii]], phi2+2*m);
+			}
+			axpyz_array(4, -1, phi2, phi1, phi);
+			ax_array(4, eorien[i]/height[i], phi);
 		}
-		else
-		{
-			i = index - 6;
-			phi[0] = PSI1[i][0];
-			phi[1] = PSI1[i][1];
-			phi[2] = PSI1[i][2];
-			phi[3] = PSI1[i][3];
+		else{
+			i = index - 3*dop;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			for(m=0;m<2;m++){
+				axpbyz_array(2, tij[k][m]*lambda[i], grd_lambda[j], tij[k][m]*lambda[j], grd_lambda[i], phi1+2*m);
+				axpbyz_array(2, tij[j][m]*lambda[i], grd_lambda[k], tij[j][m]*lambda[k], grd_lambda[i], phi2+2*m);
+			}
+			axpyz_array(4, -1, phi2, phi1, phi);
+			ax_array(4, 1./height[i], phi);
 		}
 	} // dop=2
 
-	else if (dop == 3)
-	{
-		if (index<9)
-		{
+	else if (dop == 3){
+		if (index < 3*dop){
 			in = index;
-			ie = in / 3;
-			ii = in % 3;
-			i = (ie + 1) % 3;
-			j = (ie + 2) % 3;
-			if (ii == 0)
-			{
-				grad[0] = lambda[i] * eta[i] / s;
-				grad[1] = -lambda[i] * xi[i] / s;
-				phi[0] = orient[ie] * (PHI1[ie][0] * lambda[i] * lambda[i] + PHI[ie][0] * grad[0]);
-				phi[1] = orient[ie] * (PHI1[ie][1] * lambda[i] * lambda[i] + PHI[ie][0] * grad[1]);
-				phi[2] = orient[ie] * (PHI1[ie][2] * lambda[i] * lambda[i] + PHI[ie][1] * grad[0]);
-				phi[3] = orient[ie] * (PHI1[ie][3] * lambda[i] * lambda[i] + PHI[ie][1] * grad[1]);
+			i = in / dop;
+			ii = in % dop;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			if(ii == 0){
+				for(m=0;m<2;m++){
+					axpbyz_array(2, -tij[j][m]*lambda[j]*lambda[j], grd_lambda[k], -tij[j][m]*lambda[k]*lambda[j]*2, grd_lambda[j], phi+2*m);
+					axpy_array(2, tij[k][m]*lambda[j]*lambda[j]*3, grd_lambda[j], phi+2*m);
+				}
 			}
-			else if (ii == 1)
-			{
-				grad[0] = (lambda[i] * eta[j] + lambda[j] * eta[i]) / (2 * s);
-				grad[1] = -(lambda[i] * xi[j] + lambda[j] * xi[i]) / (2 * s);
-				phi[0] = orient[ie] * (PHI1[ie][0] * lambda[i] * lambda[j] + PHI[ie][0] * grad[0]);
-				phi[1] = orient[ie] * (PHI1[ie][1] * lambda[i] * lambda[j] + PHI[ie][0] * grad[1]);
-				phi[2] = orient[ie] * (PHI1[ie][2] * lambda[i] * lambda[j] + PHI[ie][1] * grad[0]);
-				phi[3] = orient[ie] * (PHI1[ie][3] * lambda[i] * lambda[j] + PHI[ie][1] * grad[1]);
-			} 
-			else
-			{
-				grad[0] = lambda[j] * eta[j] / s;
-				grad[1] = -lambda[j] * xi[j] / s;
-				phi[0] = orient[ie] * (PHI1[ie][0] * lambda[j] * lambda[j] + PHI[ie][0] * grad[0]);
-				phi[1] = orient[ie] * (PHI1[ie][1] * lambda[j] * lambda[j] + PHI[ie][0] * grad[1]);
-				phi[2] = orient[ie] * (PHI1[ie][2] * lambda[j] * lambda[j] + PHI[ie][1] * grad[0]);
-				phi[3] = orient[ie] * (PHI1[ie][3] * lambda[j] * lambda[j] + PHI[ie][1] * grad[1]);
+			else if(ii == dop -1){
+				for(m=0;m<2;m++){
+					axpbyz_array(2, tij[k][m]*lambda[k]*lambda[k], grd_lambda[j], tij[k][m]*lambda[j]*lambda[k]*2, grd_lambda[k], phi+2*m);
+					axpy_array(2, -tij[j][m]*lambda[k]*lambda[k]*3, grd_lambda[k], phi+2*m);
+				}
 			}
+			else{
+				for(m=0;m<2;m++){
+					axpbyz_array(2, tij[k][m]*lambda[k]*lambda[j]*2, grd_lambda[j], tij[k][m]*lambda[j]*lambda[j], grd_lambda[k], phi1+2*m);
+					axpbyz_array(2, -tij[j][m]*lambda[j]*lambda[k]*2, grd_lambda[k], -tij[j][m]*lambda[k]*lambda[k], grd_lambda[j], phi2+2*m);
+				}
+				axpyz_array(4, -1, phi2, phi1, phi);
+			}
+			ax_array(4, eorien[i]/height[i], phi);
 		}
-		else
-		{
-			in = index - 9;
-			ie = in / 3;
+		else{
+			in = index - 3*dop;
+			i = in / 3;
 			ii = in % 3;
-			grad[0] = eta[ii] / (2 * s);
-			grad[1] = -xi[ii] / (2 * s);
-			phi[0] = (PSI1[ie][0] * lambda[ii] + PSI[ie][0] * grad[0]);
-			phi[1] = (PSI1[ie][1] * lambda[ii] + PSI[ie][0] * grad[1]);
-			phi[2] = (PSI1[ie][2] * lambda[ii] + PSI[ie][1] * grad[0]);
-			phi[3] = (PSI1[ie][3] * lambda[ii] + PSI[ie][1] * grad[1]);
+			j = (i+1)%3;
+			k = (i+2)%3;
+			for(m=0;m<2;m++){
+				axpbyz_array(2, tij[k][m]*lambda[ii]*lambda[i], grd_lambda[j], tij[k][m]*lambda[ii]*lambda[j], grd_lambda[i], phi1+2*m);
+				axpy_array(2, tij[k][m]*lambda[i]*lambda[j], grd_lambda[ii], phi1+2*m);
+				axpbyz_array(2, tij[j][m]*lambda[ii]*lambda[i], grd_lambda[k], tij[j][m]*lambda[ii]*lambda[k], grd_lambda[i], phi2+2*m);
+				axpy_array(2, tij[j][m]*lambda[i]*lambda[k], grd_lambda[ii], phi2+2*m);
+			}
+			axpyz_array(4, -1, phi2, phi1, phi);
+			ax_array(4, 1.0/height[i], phi);
 		}
 	} // dop=3
+
+	else if (dop >= 4){
+		if (index < 3*dop){
+			in = index;
+			i = in / dop;
+			ii = in % dop;
+			j = (i+1)%3;
+			k = (i+2)%3;
+			if(ii == 0){
+				for(m=0;m<2;m++){
+					axpbyz_array(2, -tij[j][m]*pow(lambda[j], dop-1), grd_lambda[k], -tij[j][m]*lambda[k]*pow(lambda[j], dop-2)*(dop-1), grd_lambda[j], phi+2*m);
+					axpy_array(2, tij[k][m]*pow(lambda[j], dop-1)*dop, grd_lambda[j], phi+2*m);
+				}
+			}
+			else if(ii == dop -1){
+				for(m=0;m<2;m++){
+					axpbyz_array(2, tij[k][m]*pow(lambda[k], dop-1), grd_lambda[j], tij[k][m]*lambda[j]*pow(lambda[k], dop-2)*(dop-1), grd_lambda[k], phi+2*m);
+					axpy_array(2, -tij[j][m]*pow(lambda[k], dop-1)*dop, grd_lambda[k], phi+2*m);
+				}
+			}
+			else{
+				for(m=0;m<2;m++){
+					axpbyz_array(2, tij[k][m]*pow(lambda[k], ii)*pow(lambda[j], dop-1-ii)*(dop-ii), grd_lambda[j], tij[k][m]*pow(lambda[j], dop-ii)*pow(lambda[k], ii-1)*ii, grd_lambda[k], phi1+2*m);
+					axpbyz_array(2, -tij[j][m]*pow(lambda[j], dop-1-ii)*pow(lambda[k], ii)*(ii+1), grd_lambda[k], -tij[j][m]*pow(lambda[k], ii+1)*pow(lambda[j], dop-2-ii)*(dop-1-ii), grd_lambda[j], phi2+2*m);
+				}
+				axpyz_array(4, -1, phi2, phi1, phi);
+			}
+			ax_array(4, eorien[i]/height[i], phi);
+		}
+		else{
+			in = index - 3*dop;
+			i = in / (dop*(dop-1)/2);
+			ii = in % (dop*(dop-1)/2);
+			j = (i+1)%3;
+			k = (i+2)%3;
+			bernstein2d_basis(lambda, ii, dop-2, &c);
+			bernstein2d_basis1(lambda, grd_lambda, ii, dop-2, val);
+			for(m=0;m<2;m++){
+				axpbyz_array(2, tij[k][m]*c*lambda[i], grd_lambda[j], tij[k][m]*c*lambda[j], grd_lambda[i], phi1+2*m);				
+				axpy_array(2, tij[k][m]*lambda[i]*lambda[j], val, phi1+2*m);
+				axpbyz_array(2, tij[j][m]*c*lambda[i], grd_lambda[k], tij[j][m]*c*lambda[k], grd_lambda[i], phi2+2*m);
+				axpy_array(2, tij[j][m]*lambda[i]*lambda[k], val, phi2+2*m);
+			}
+			axpyz_array(4, -1, phi2, phi1, phi);
+			ax_array(4, 1.0/height[i], phi);
+		}
+	} // dop >= 4
 }
 
 /**

@@ -109,33 +109,25 @@ int getmesh(int domain_num, ELEMENT *elements, idenmat *elementEdge, EDGE *edges
 	return 1;
 }
 
-
 /**
- * \fn void getElementDOF1D(ELEMENT_DOF *elementDOF, int ne, int dop)
- * \brief get the degrees of freedom of piecewise Lagrange element on edges
- * \param *elementDOF pointer to relation between elements and DOFs
- * \param ne number of edges
+* \fn void getElementDOFdg(ELEMENT_DOF *elementDOF, int nt, int ldof, int dop)
+ * \brief get the degrees of freedom of piecewise element
+ * \param nt number of elements
+ * \param ldof number of local degrees of freedom
  * \param dop degree of polynomial
- */
-void getElementDOF1D(ELEMENT_DOF *elementDOF, int ne, int dop)
+*/
+void getElementDOFdg(ELEMENT_DOF *elementDOF, int nt, int ldof, int dop)
 {
-	int i,j;
+	int i,k;
 	int count;
-	if(dop<0)
-	{
-		elementDOF=NULL;
-		return;
-	}
 
-	create_elementDOF(dop, ne*(dop+1), ne, dop+1, elementDOF);
+	create_elementDOF(dop, nt * ldof, nt, ldof, elementDOF);
 
-	for(j=0;j<ne;j++)
-	{
-		count=j*elementDOF->col;
+	for(k=0;k<nt;k++){
+		count=k*elementDOF->col;
 		for(i=0;i<elementDOF->col;i++)
-			elementDOF->val[j][i]=count+i;
+			elementDOF->val[k][i]=count+i;
 	}
-
 }
 
 /**
@@ -208,30 +200,6 @@ void getElementDOF1D_Continue(ELEMENT_DOF *edgeDOF, ELEMENT_DOF *elementDOF, ELE
 }
 
 /**
- * \fn void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop)
- * \brief get the degrees of freedom of piecewise Lagrange element
- * \param *elementDOF pointer to relation between elements and DOFs
- * \param nt number of elements
- * \param dop degree of polynomial
- */
-void getElementDOF(ELEMENT_DOF *elementDOF, int nt, int dop)
-{
-	int i,k;
-	int count;
-	if(dop<1)
-		dop=0;
-
-	create_elementDOF(dop, nt*(dop+1)*(dop+2)/2, nt, (dop+1)*(dop+2)/2, elementDOF);
-
-	for(k=0;k<nt;k++)
-	{
-		count=k*elementDOF->col;
-		for(i=0;i<elementDOF->col;i++)
-			elementDOF->val[k][i]=count+i;
-	}
-}
-
-/**
  * \fn void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, int nedges, int nvertices, int dop)
  * \brief get the degrees of freedom of Lagrange element
  * \param *elementDOF pointer to relation between elements and DOFs
@@ -255,28 +223,23 @@ void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 
 	int node, edge;
 	int *perm;
-	for(k=0;k<nt;k++)
-	{
-		for(i=0;i<3;i++)
-		{
+	for(k=0;k<nt;k++){
+		for(i=0;i<3;i++){
 			node=elements->val[k][i];
 			elementDOF->val[k][i]=node;
 		}
 		
-		for(j=0;j<3;j++)
-		{
+		for(j=0;j<3;j++){
 			edge=elementEdge->val[k][j];
 			perm = elements->eperm[k][j];
 
-			for(ii[0]=0;ii[0]<dop-1;ii[0]++)
-			{
+			for(ii[0]=0;ii[0]<dop-1;ii[0]++){
 				ii[1]=dop-2-ii[0];
 				elementDOF->val[k][3+(dop-1)*j+ ii[0]] = nn + edge*(dop-1) + ii[perm[0]];
 			}
 		}
 
-		for(i=0;i<(dop-1)*(dop-2)/2;i++)
-		{
+		for(i=0;i<(dop-1)*(dop-2)/2;i++){
 			elementDOF->val[k][3*dop+i] = nn + ne*(dop-1) + k*(dop-1)*(dop-2)/2 + i;
 		}
 	}
@@ -304,6 +267,84 @@ void getElementDOF_CrouzeixRaviart2d(ELEMENT_DOF *elementDOF, ELEMENT *elements,
 		for(j=0;j<3;j++){
 			edge=elementEdge->val[k][j];
 			elementDOF->val[k][j] = edge;
+		}
+	}
+}
+
+/**
+* \fn void getElementDOF_RaviartThomas2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int dop)
+* \brief get the degrees of freedom of Raviart–Thomas element
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elements pointer to triangulation: the first 3 columns store the indexes of vertices
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param dop degree of polynomial
+*/
+void getElementDOF_RaviartThomas2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int dop)
+{
+	int i, j, k, ii[3];
+	int nt = elements->row;
+	int ne = edges->row;
+	if (dop<2)
+		dop = 1;
+
+	create_elementDOF(dop, ne*dop + nt*(dop - 1)*dop, nt, dop*(dop + 2), elementDOF);
+
+	int edge;
+	int *perm;
+	for (k = 0; k<nt; k++){
+		for (j = 0; j<3; j++){
+			edge = elementEdge->val[k][j];
+			perm = elements->eperm[k][j];
+			
+			for(ii[0]=0;ii[0]<dop;ii[0]++){
+				ii[1]=dop-1-ii[0];
+				elementDOF->val[k][dop*j+ ii[0]] = edge*dop + ii[perm[0]];
+			}
+		}
+
+		for (i = 0; i<(dop - 1)*dop; i++){
+			elementDOF->val[k][3 * dop + i] = ne*dop + k*(dop - 1)*dop + i;
+		}
+	}
+}
+
+/**
+* \fn void getElementDOF_BrezziDouglasMarini2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int dop)
+* \brief get the degrees of freedom of Brezzi-Douglas-Marini element
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elements pointer to triangulation: the first 3 columns store the indexes of vertices
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param dop degree of polynomial
+*/
+void getElementDOF_BrezziDouglasMarini2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int dop)
+{
+	int i, j, k, ii[3];
+	int nt = elements->row;
+	int ne = edges->row;
+	if (dop<2)
+		dop = 1;
+
+	create_elementDOF(dop, ne*(dop + 1) + nt*(dop*dop - 1), nt, (dop + 1)*(dop + 2), elementDOF);
+
+	int edge;
+	int *perm;
+	for (k = 0; k<nt; k++){
+		for (j = 0; j<3; j++){
+			edge = elementEdge->val[k][j];
+			perm = elements->eperm[k][j];
+			
+			for(ii[0]=0;ii[0]<dop+1;ii[0]++){
+				ii[1]=dop-ii[0];
+				elementDOF->val[k][(dop+1)*j+ ii[0]] = edge*(dop+1) + ii[perm[0]];
+			}
+		}
+
+		for (i = 0; i<dop*dop - 1; i++){
+			elementDOF->val[k][3 * (dop + 1) + i] = ne*(dop + 1) + k*(dop*dop - 1) + i;
 		}
 	}
 }
@@ -1064,11 +1105,11 @@ void assembleBiGradLagrange2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdg
  * \param *elementdofTran pointer to transpose of elementDOF
  * \return void
  */
-void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras)
+void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras)
 {
 	int i,j,k,k1,i1;
 	
-	double phi;
+	double phi, fval;
 	double x[2], **gradLambda, **vertices;
 	double s;
 
@@ -1096,7 +1137,8 @@ void assembleRHSLagrange2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDO
 			{
 				lagrange_basis(lambdas[i1], i, elementDOF->dop, &phi);
 				baryToCart2d(lambdas[i1], x, vertices);
-				lb.val[i] += s*weight[i1] * f(x, paras)*phi;
+				f(x, &fval, paras);
+				lb.val[i] += s*weight[i1] * fval *phi;
 			} // i1
 		} // k1
 
@@ -1214,11 +1256,11 @@ void assembleBiGradCrouzeixRaviart2d(dCSRmat *A, ELEMENT *elements, idenmat *ele
  * \param *elementdofTran pointer to transpose of elementDOF
  * \return void
  */
-void assembleRHSCrouzeixRaviart2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras)
+void assembleRHSCrouzeixRaviart2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras)
 {
 	int i,j,k,k1,i1;
 	
-	double phi;
+	double phi, fval;
 	double x[2], **gradLambda, **vertices;
 	double s;
 
@@ -1246,7 +1288,8 @@ void assembleRHSCrouzeixRaviart2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *el
 			{
 				cr_basis(2, lambdas[i1], i, &phi);
 				baryToCart2d(lambdas[i1], x, vertices);
-				lb.val[i] += s*weight[i1] * f(x, paras)*phi;
+				f(x, &fval, paras);
+				lb.val[i] += s*weight[i1] * fval *phi;
 			} // i1
 		} // k1
 
@@ -1258,6 +1301,243 @@ void assembleRHSCrouzeixRaviart2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *el
 	} // k
 	free_dvector(&lb);
 }
+
+/**
+* \fn void assembleMassmatrixRaviartThomas2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF)
+* \brief assemble mass matrix
+* \param *A pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \param mu Lame constant or Poisson ratio of plate
+* \return void
+*/
+void assembleMassmatrixRaviartThomas2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k, l;
+
+	//	create_dvector(A->row, b);
+
+	// int nvertices = nodes->row;
+	int nedges = edges->row;
+	int element, edge, node;
+
+	double phi, phi1[2], phi2[2];
+	int k1, k2, i1, j1, l1, l2, ej;
+	double val, s, **gradLambda, **tij, *height;
+	short *eorien;
+	// int count;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF->col*elementDOF->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+
+	num_qp=getNumQuadPoints(elementDOF->dop * 2, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++){
+		// set parameters
+		s = elements->vol[k];
+		tij = elements->tij[k];
+		height = elements->height[k];
+		eorien = elements->eorien[k];
+		// gradLambda = elements->gradLambda[k];
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF->col; k1++){
+			for (k2 = 0; k2<elementDOF->col; k2++){
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++){
+					rt_basis(lambdas[i1], height, tij, eorien, k1, elementDOF->dop, phi1);
+					rt_basis(lambdas[i1], height, tij, eorien, k2, elementDOF->dop, phi2);
+					val += s*weight[i1] * dot_array(2, phi1, phi2);
+				}
+				lA.val[k1][k2] += val;
+			} // k2
+		} // k1
+
+		l = elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++){
+			for (j = 0; j<elementDOF->col; j++){
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
+	} // k
+	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
+}
+
+/**
+* \fn void assembleDivRaviartThomasL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
+* \brief assemble mass matrix
+* \param *A pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \param mu Lame constant or Poisson ratio of plate
+* \return void
+*/
+void assembleDivRaviartThomasL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
+{
+	/**	
+	Ax1 + B^Tx2 = b
+	Bx1         = 0
+	where x1: sigma_h, x2: u_h
+	**/
+
+	int i, j, k, l;
+
+	//	create_dvector(A->row, b);
+
+	// int nvertices = nodes->row;
+	int nedges = edges->row;
+	int element, edge, node;
+
+	double phi, phi1[2], phi2[2];
+	int k1, k2, i1, j1, l1, l2, ej;
+	double val, s, **gradLambda, **tij, *height;
+	short *eorien;
+	// int count;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF0->col*elementDOF1->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF0->col, elementDOF1->col, &lA);
+
+	num_qp=getNumQuadPoints(elementDOF0->dop+elementDOF1->dop-1, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++){
+		// set parameters
+		s = elements->vol[k];
+		tij = elements->tij[k];
+		height = elements->height[k];
+		eorien = elements->eorien[k];
+		gradLambda = elements->gradLambda[k];
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF0->col; k1++){
+			for (k2 = 0; k2<elementDOF1->col; k2++){
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++){
+					rt_basisDIV(lambdas[i1], gradLambda, height, tij, eorien, k1, elementDOF0->dop, phi1);
+					lagrange_basis(lambdas[i1], k2, elementDOF1->dop, phi2);
+					val += s*weight[i1] * phi1[0]*phi2[0];
+				}
+				lA.val[k1][k2] += val;
+			} // k2
+		} // k1
+
+		l = elementDOF0->col*elementDOF1->col * k;
+		for (i = 0; i<elementDOF0->col; i++){
+			for (j = 0; j<elementDOF1->col; j++){
+				ia[l] = elementDOF0->val[k][i];
+				ja[l] = elementDOF1->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
+	} // k
+	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
+}
+
+/**
+ * \fn void assembleRHSdgPoly2d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double (*f)(double *))
+ * \brief assemble stiffness matrix (f, v)
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \return void
+ */
+void assembleRHSdgPoly2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras)
+{
+	int i,j,k,k1,i1;
+	
+	double phi, fval;
+	double x[2], **gradLambda, **vertices;
+	double s;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+			
+	dvector lb;
+	create_dvector(elementDOF->col, &lb);
+	/************************************************** right hand side b *****************************************************************/
+	create_dvector(elementDOF->dof, b);
+	num_qp = 49; 
+	init_Gauss2d(num_qp, lambdas, weight);
+
+	for (k = 0; k<elements->row; k++){
+		// set parameters
+		s = elements->vol[k];
+		vertices = elements->vertices[k];
+		// end set parameters
+
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOF->col; i++){
+			for (i1 = 0; i1<num_qp; i1++){
+				lagrange_basis(lambdas[i1], i, elementDOF->dop, &phi);
+				baryToCart2d(lambdas[i1], x, vertices);
+				f(x, &fval, paras);
+				lb.val[i] += s*weight[i1] * fval *phi;
+			} // i1
+		} // k1
+
+		for (k1 = 0; k1<elementDOF->col; k1++){
+			i = elementDOF->val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1
+	} // k
+	free_dvector(&lb);
+}
+
 
 /**
 * \fn void assembleBiGradMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
@@ -1455,11 +1735,11 @@ void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge,
  * \param *elementdofTran pointer to transpose of elementDOF
  * \return void
  */
-void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, double (*f)(double *, double *), double *paras)
+void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras)
 {
 	int i,j,k,k1,i1;
 	
-	double phi;
+	double phi, fval;
 	double x[2], **gradLambda, *nve[3], **vertices;
 	double s;
 
@@ -1492,7 +1772,8 @@ void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, ED
 			{
 				morley_basis(lambdas[i1], gradLambda, nve, i, &phi);
 				baryToCart2d(lambdas[i1], x, vertices);
-				lb.val[i] += s*weight[i1] * f(x, paras)*phi;
+				f(x, &fval, paras);
+				lb.val[i] += s*weight[i1] * fval * phi;
 			} // i1
 		} // k1
 
@@ -2507,7 +2788,6 @@ void assembleweightedMassmatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_
 	double phi, phi1[3], phi2[3], val1;
 	int k1, k2, i1, j1, l1, l2, ej;
 	double x, y, xs[3], ys[3], s, *eta, *xi;
-	int rowstart[2], row21[2], taustart;
 	int count;
 
 	int num_qp;
@@ -2898,7 +3178,9 @@ void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, E
 	} // edge
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
-	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
+	dIJtoCSReps(A, ia, ja, va, N, elementDOF->dof*2, elementDOF->dof*2, 0);
+	printf("cascasasdasdas dof = %d\n", elementDOF->dof);
+	printf("As.row = %d, As.col = %d\n", A->row, A->col);
 }
 
 /**

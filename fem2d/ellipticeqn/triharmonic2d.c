@@ -25,7 +25,7 @@
  * \param *x the cooridates of the point in three dimensions
  * \return function value
  */
-double triharmonic2d_f(double *x, double *paras)
+void triharmonic2d_f(double *x, double *val, double *paras)
 {
 	double t0, t2, t3, t4, t5, t6, t7;
 	t2 = pi*x[0];
@@ -35,7 +35,7 @@ double triharmonic2d_f(double *x, double *paras)
   	t6 = t4*t4;
   	t7 = t5*t5;
   	t0 = (pi*pi*pi*pi*pi*pi)*t4*t5*(t6*1.51E+2+t7*1.51E+2-t6*t7*2.43E+2-9.0E+1)*-2.4E+1;
-	return t0;
+	*val = t0;
 }
 
 /**
@@ -44,9 +44,9 @@ double triharmonic2d_f(double *x, double *paras)
  * \param *x the cooridates of the point in three dimensions
  * \return function value 
  */
-double triharmonic2d_u(double *x, double *paras)
+void triharmonic2d_u(double *x, double *val, double *paras)
 {
-	return pow(sin(pi*x[0]),3.0)*pow(sin(pi*x[1]),3.0);
+	*val = pow(sin(pi*x[0]),3.0)*pow(sin(pi*x[1]),3.0);
 }
 
 /**

@@ -789,7 +789,7 @@ void biharmonicPSP_MorleyNcfmP1P0Morley2d(ELEMENT *elements, idenmat *elementEdg
 	getElementDOF_CrouzeixRaviart2d(elementDOF+2, elements, elementEdge, edges);
 	getFreenodesInfoCrouzeixRaviart2d(edges, elementDOF+2);
 	repeatElementDoF(elementDOF+2, elementDOF+1, 2);
-	getElementDOF(elementDOF+3, elements->row, 0);
+	getElementDOFdg(elementDOF+3, elements->row, 1, 0);
 	getFreenodesInfoDG(elementDOF+3);
 
 	/** Step 2. assemble stiffmatrix and right hand side term */

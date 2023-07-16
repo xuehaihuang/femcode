@@ -86,7 +86,8 @@ void geterrorsTriharmonicMorleyMINIMorley2d(double *errors, dvector *uh, dvector
 		// L2 norm of u-u_h
 		for(i1=0;i1<num_qp;i1++){	
 			baryToCart2d(lambdas[i1], x, vertices);
-			val[0] = -triharmonic2d_u(x, NULL);
+			triharmonic2d_u(x, &val[0], NULL);
+			val[0] *= -1;
 
 			for(k1=0;k1<elementDOF0->col;k1++){
 				morley_basis(lambdas[i1], gradLambda, nve, k1, &phi0);

@@ -2482,7 +2482,7 @@ int dIJtoCSReps(dCSRmat *A, int *ia, int *ja, double *va, int N, int row, int co
 {
 	int i;
 	if(eps<1e-20){
-		dIJtoCSR(A, ia, ja, va, N, 0, 0);
+		dIJtoCSR(A, ia, ja, va, N, row, col);
 	free(ia); free(ja); free(va);
 	}
 	else{
