@@ -1490,6 +1490,192 @@ void rt_basis1(double *lambda, double **grd_lambda, double *height, double **tij
 	} // dop >= 4
 }
 
+/** 
+ * \fn void bdm_basis(double *lambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double phi[2])
+ * \param lambda the barycentric coordinate
+ * \param height pointer to height to three edges
+ * \param tij pointer to three edge vectors
+ * \param eorien pointer to orient of three edges
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param phi[2] basis function of Brezzi–Douglas–Marini element: (phi1, phi2)
+ * \return void
+ */
+void bdm_basis(double *lambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double phi[2])
+{
+	int dofs = (dop + 1)*(dop + 2); // degrees of freedom
+	
+	init_array(2, phi, 0);
+		
+	if (dop<1) return;
+
+	if (index >= dofs || index<0)	return;
+
+	int i, i1, i2, j, k;
+	int in, ie, ii;
+	double val;
+
+	if (index < 3*(dop+1)){
+		in = index;
+		i = in / (dop+1);
+		ii = in % (dop+1);
+		j = (i+1)%3;
+		k = (i+2)%3;
+		if(ii==0){
+			lagrange_basis(lambda, j, dop, &val);
+			axy_array(2, eorien[i]*val/height[i], tij[k], phi);
+		}
+		else if(ii==dop){
+			lagrange_basis(lambda, k, dop, &val);
+			axy_array(2, -eorien[i]*val/height[i], tij[j], phi);
+		}
+		else{
+			lagrange_basis(lambda, 3 + i*(dop-1) + ii -1, dop, &val);
+			axy_array(2, eorien[i]*val, nv[i], phi);
+		}
+	}
+	else if(index < 6*dop){
+		in = index - 3*(dop+1);
+		i = in / (dop-1);
+		ii = in % (dop-1);
+		lagrange_basis(lambda, 3 + i*(dop-1) + ii, dop, &val);
+		axy_array(2, val, tv[i], phi);
+	}
+	else{
+		in = index - 6*dop;
+		i = in / ((dop-1)*(dop-2)/2);
+		ii = in % ((dop-1)*(dop-2)/2);
+		lagrange_basis(lambda, 3*dop + ii, dop, &phi[i]);
+	}
+}
+
+/** 
+ * \fn void bdm_basisDIV(double *lambda, double **gradLambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double *phi)
+ * \param lambda the barycentric coordinate
+ * \param height pointer to height to three edges
+ * \param tij pointer to three edge vectors
+ * \param eorien pointer to orient of three edges
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param phi[2] basis function of Brezzi–Douglas–Marini element: (phi1, phi2)
+ * \return void
+ */
+void bdm_basisDIV(double *lambda, double **gradLambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double *phi)
+{
+	int dofs = (dop + 1)*(dop + 2); // degrees of freedom
+	
+	*phi = 0;
+		
+	if (dop<1) return;
+
+	if (index >= dofs || index<0)	return;
+
+	int i, i1, i2, j, k;
+	int in, ie, ii;
+	double val[2];
+
+	if (index < 3*(dop+1)){
+		in = index;
+		i = in / (dop+1);
+		ii = in % (dop+1);
+		j = (i+1)%3;
+		k = (i+2)%3;
+		if(ii==0){
+			lagrange_basis1(lambda, gradLambda, j, dop, val);
+			*phi = eorien[i]*dot_array(2, val, tij[k])/height[i];
+		}
+		else if(ii==dop){
+			lagrange_basis1(lambda, gradLambda, k, dop, val);
+			*phi = -eorien[i]*dot_array(2, val, tij[j])/height[i];
+		}
+		else{
+			lagrange_basis1(lambda, gradLambda, 3 + i*(dop-1) + ii -1, dop, val);
+			*phi = eorien[i]*dot_array(2, val, nv[i]);
+		}
+	}
+	else if(index < 6*dop){
+		in = index - 3*(dop+1);
+		i = in / (dop-1);
+		ii = in % (dop-1);
+		lagrange_basis1(lambda, gradLambda, 3 + i*(dop-1) + ii, dop, val);
+		*phi = dot_array(2, val, tv[i]);
+	}
+	else{
+		in = index - 6*dop;
+		i = in / ((dop-1)*(dop-2)/2);
+		ii = in % ((dop-1)*(dop-2)/2);
+		lagrange_basis1(lambda, gradLambda, 3*dop + ii, dop, val);
+		*phi = val[i];
+	}
+}
+
+/** 
+ * \fn void bdm_basis1(double *lambda, double **gradLambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double phi[4])
+ * \param lambda the barycentric coordinate
+ * \param height pointer to height to three edges
+ * \param tij pointer to three edge vectors
+ * \param eorien pointer to orient of three edges
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param phi[2] basis function of Brezzi–Douglas–Marini element: (phi1, phi2)
+ * \return void
+ */
+void bdm_basis1(double *lambda, double **gradLambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double phi[4])
+{
+	int dofs = (dop + 1)*(dop + 2); // degrees of freedom
+	
+	init_array(4, phi, 0);
+	
+	if (dop<1) return;
+
+	if (index >= dofs || index<0)	return;
+
+	int i, i1, i2, j, k, m;
+	int in, ie, ii;
+	double val[2];
+
+	if (index < 3*(dop+1)){
+		in = index;
+		i = in / (dop+1);
+		ii = in % (dop+1);
+		j = (i+1)%3;
+		k = (i+2)%3;
+		if(ii==0){
+			lagrange_basis1(lambda, gradLambda, j, dop, val);
+			for(m=0;m<2;m++)
+				axy_array(2, tij[k][m], val, phi+2*m);
+			ax_array(4, eorien[i]/height[i], phi);
+		}
+		else if(ii==dop){
+			lagrange_basis1(lambda, gradLambda, k, dop, val);
+			for(m=0;m<2;m++)
+				axy_array(2, tij[j][m], val, phi+2*m);
+			ax_array(4, -eorien[i]/height[i], phi);
+		}
+		else{
+			lagrange_basis1(lambda, gradLambda, 3 + i*(dop-1) + ii -1, dop, val);
+			for(m=0;m<2;m++)
+				axy_array(2, nv[i][m], val, phi+2*m);
+			ax_array(4, eorien[i], phi);
+		}
+	}
+	else if(index < 6*dop){
+		in = index - 3*(dop+1);
+		i = in / (dop-1);
+		ii = in % (dop-1);
+		lagrange_basis1(lambda, gradLambda, 3 + i*(dop-1) + ii, dop, val);
+		for(m=0;m<2;m++)
+			axy_array(2, tv[i][m], val, phi+2*m);
+	}
+	else{
+		in = index - 6*dop;
+		i = in / ((dop-1)*(dop-2)/2);
+		ii = in % ((dop-1)*(dop-2)/2);
+		lagrange_basis1(lambda, gradLambda, 3*dop + ii, dop, val);
+		copy_array(2, val, phi+2*i);
+	}
+}
+
 /**
 * \fn void bdm_basis(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[2])
 * \brief basis function of Brezzi-Douglas-Marini element: (phi1, phi2)
@@ -1506,7 +1692,7 @@ void rt_basis1(double *lambda, double **grd_lambda, double *height, double **tij
 * \param phi[2] basis function of Raviart-Thomas element: (phi1, phi2)
 * \return void
 */
-void bdm_basis(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[2])
+void bdm_basisOld(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[2])
 {
 	if (dop<1)
 	{
@@ -1648,7 +1834,7 @@ void bdm_basis(double *lambda, double s, double eta[3], double xi[3], double **n
 * \param phi[4] the first order derivative of Raviart-Thomas element basis function: (\partial_{x}phi1, \partial_{y}phi1, \partial_{x}phi2, \partial_{y}phi2)
 * \return void
 */
-void bdm_basis1(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4])
+void bdm_basis1Old(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4])
 {
 	if (dop<1)
 	{

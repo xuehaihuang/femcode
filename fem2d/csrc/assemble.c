@@ -1479,6 +1479,186 @@ void assembleDivRaviartThomasL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *el
 }
 
 /**
+* \fn void assembleMassmatrixBrezziDouglasMarini2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF)
+* \brief assemble mass matrix
+* \param *A pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \param mu Lame constant or Poisson ratio of plate
+* \return void
+*/
+void assembleMassmatrixBrezziDouglasMarini2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k, l;
+
+	//	create_dvector(A->row, b);
+
+	// int nvertices = nodes->row;
+	int nedges = edges->row;
+	int element, edge, node;
+
+	double phi, phi1[2], phi2[2];
+	int k1, k2, i1, j1, l1, l2, ej;
+	double val, s, **gradLambda, **tij, *height, **nv, **tv;
+	short *eorien;
+	// int count;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF->col*elementDOF->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+
+	num_qp=getNumQuadPoints(elementDOF->dop * 2, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++){
+		// set parameters
+		s = elements->vol[k];
+		tij = elements->tij[k];
+		height = elements->height[k];
+		nv = elements->nvector[k];
+		tv = elements->tvector[k];
+		eorien = elements->eorien[k];
+		// gradLambda = elements->gradLambda[k];
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF->col; k1++){
+			for (k2 = 0; k2<elementDOF->col; k2++){
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++){
+					bdm_basis(lambdas[i1], height, tij, nv, tv, eorien, k1, elementDOF->dop, phi1);
+					bdm_basis(lambdas[i1], height, tij, nv, tv, eorien, k2, elementDOF->dop, phi2);
+					val += s*weight[i1] * dot_array(2, phi1, phi2);
+				}
+				lA.val[k1][k2] += val;
+			} // k2
+		} // k1
+
+		l = elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++){
+			for (j = 0; j<elementDOF->col; j++){
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
+	} // k
+	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
+}
+
+/**
+* \fn void assembleDivBrezziDouglasMariniL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
+* \brief assemble mass matrix
+* \param *A pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \param mu Lame constant or Poisson ratio of plate
+* \return void
+*/
+void assembleDivBrezziDouglasMariniL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1)
+{
+	/**	
+	Ax1 + B^Tx2 = b
+	Bx1         = 0
+	where x1: sigma_h, x2: u_h
+	**/
+
+	int i, j, k, l;
+
+	//	create_dvector(A->row, b);
+
+	// int nvertices = nodes->row;
+	int nedges = edges->row;
+	int element, edge, node;
+
+	double phi, phi1[2], phi2[2];
+	int k1, k2, i1, j1, l1, l2, ej;
+	double val, s, **gradLambda, **tij, *height, **nv, **tv;
+	short *eorien;
+	// int count;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	
+	/***************************** stiffness matrix A ***************************************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF0->col*elementDOF1->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF0->col, elementDOF1->col, &lA);
+
+	num_qp=getNumQuadPoints(elementDOF0->dop+elementDOF1->dop-1, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++){
+		// set parameters
+		s = elements->vol[k];
+		tij = elements->tij[k];
+		height = elements->height[k];
+		nv = elements->nvector[k];
+		tv = elements->tvector[k];
+		eorien = elements->eorien[k];
+		gradLambda = elements->gradLambda[k];
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF0->col; k1++){
+			for (k2 = 0; k2<elementDOF1->col; k2++){
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++){
+					bdm_basisDIV(lambdas[i1], gradLambda, height, tij, nv, tv, eorien, k1, elementDOF0->dop, phi1);
+					lagrange_basis(lambdas[i1], k2, elementDOF1->dop, phi2);
+					val += s*weight[i1] * phi1[0]*phi2[0];
+				}
+				lA.val[k1][k2] += val;
+			} // k2
+		} // k1
+
+		l = elementDOF0->col*elementDOF1->col * k;
+		for (i = 0; i<elementDOF0->col; i++){
+			for (j = 0; j<elementDOF1->col; j++){
+				ia[l] = elementDOF0->val[k][i];
+				ja[l] = elementDOF1->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
+	} // k
+	free_dden_matrix(&lA);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
+}
+
+/**
  * \fn void assembleRHSdgPoly2d(dvector *b, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double (*f)(double *))
  * \brief assemble stiffness matrix (f, v)
  * \param *b pointer to right hand side

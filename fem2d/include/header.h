@@ -639,12 +639,15 @@ void poissonCrouzeixRaviart2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edg
 void assemble_poissonCrouzeixRaviart2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void poissonRaviartThomas2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
 void assemble_poissonRaviartThomas2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void poissonBrezziDouglasMarini2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, Input_data *Input);
+void assemble_poissonBrezziDouglasMarini2d(dCSRmat *A, dvector *b, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 
 
 /* poissonerror2d.c */
 void geterrorsPoissonLagrange2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void geterrorsPoissonCrouzeixRaviart2d(double *errors, dvector *uh, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void geterrorsPoissonRaviartThomas2d(double *errors, dvector *uh, dvector *Qhu, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
+void geterrorsPoissonBrezziDouglasMarini2d(double *errors, dvector *uh, dvector *Qhu, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 
 /* biharmonic2d.c */
 void biharmonic2d_f(double *x, double *val, double *paras);
@@ -728,6 +731,8 @@ void assembleBiGradCrouzeixRaviart2d(dCSRmat *A, ELEMENT *elements, idenmat *ele
 void assembleRHSCrouzeixRaviart2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
 void assembleMassmatrixRaviartThomas2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF);
 void assembleDivRaviartThomasL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1);
+void assembleMassmatrixBrezziDouglasMarini2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF);
+void assembleDivBrezziDouglasMariniL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1);
 void assembleRHSdgPoly2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
 void assembleBiGradMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
@@ -805,7 +810,7 @@ void patchtogether22(dCSRmat *A11, dCSRmat *A12, dCSRmat *A21, dCSRmat *A22, dCS
 void patchtogether33(dCSRmat *A11, dCSRmat *A12, dCSRmat *A13, dCSRmat *A21, dCSRmat *A22, dCSRmat *A23, dCSRmat *A31, dCSRmat *A32, dCSRmat *A33, dCSRmat *A);
 void getPenaltyParameters(ddenmat *etas, idenmat *elementEdge, EDGE *edges, double *alpha, double *beta);
 
-/* basicData.c */
+/* basic.c */
 void cartToPol2d(double x, double y, double *r, double *theta);
 void cartToBary2d(double *x, double *lambda, double **tri);
 void baryToCart2d(double *lambda, double *x, double **tri);
@@ -824,8 +829,9 @@ void cr_basis1(int n, double **gradLambda, int index, double *phi);
 void rt_basis(double *lambda, double *height, double **tij, short *eorien, int index, int dop, double phi[2]);
 void rt_basisDIV(double *lambda, double **grd_lambda, double *height, double **tij, short *eorien, int index, int dop, double *phi);
 void rt_basis1(double *lambda, double **grd_lambda, double *height, double **tij, short *eorien, int index, int dop, double phi[4]);
-void bdm_basis(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[2]);
-void bdm_basis1(double *lambda, double s, double eta[3], double xi[3], double **nv, double **nve, int index, int dop, double phi[4]);
+void bdm_basis(double *lambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double phi[2]);
+void bdm_basisDIV(double *lambda, double **gradLambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double *phi);
+void bdm_basis1(double *lambda, double **gradLambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double phi[4]);
 void arnoldwinther_basis(double *lambda, double *x, double *y, ddenmat3 *basisCoeffs, int element, int index, double *phi);
 void arnoldwinther_basisDIV(double *lambda, ddenmat3 *basisCoeffs, int element, double s, double eta[3], double xi[3], int index, double *phi);
 void arnoldwinther_basisDIV2(ddenmat3 *basisCoeffs, int element, double s, double eta[3], double xi[3], int index, double *phi);
