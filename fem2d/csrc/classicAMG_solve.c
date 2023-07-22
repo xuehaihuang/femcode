@@ -40,8 +40,8 @@ void classicAMG_solve(dCSRmat *A, dvector *b, dvector *x, dCSRmat *P, dCSRmat *P
 											int levelNum, AMG_param *param)
 {
 	int m=b->row;
-	double r[A[0].row];
 	double error;
+	double *r = (double*)calloc(A[0].row, sizeof(double));
 	
 	int MaxIt = param->max_iter; 
 	double tol = param->tol;
@@ -84,4 +84,6 @@ void classicAMG_solve(dCSRmat *A, dvector *b, dvector *x, dCSRmat *P, dCSRmat *P
 		printf("Maximal iteration %d exceeded with relative residual %e.\n", MaxIt, error);
 	else
 		printf("Number of iterations = %d with relative residual %e.\n", iter, error);
+
+	free(r);
 }

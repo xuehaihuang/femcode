@@ -179,20 +179,18 @@ int classicAMG_PCG(dCSRmat *A, dvector *b, dvector *x, AMG_param *param, int pri
 	
 	double classicAMGduration = (double)(classicAMG_end - classicAMG_start)/(double)(CLOCKS_PER_SEC);
 
-	if (print_level>0) {
+	if (print_level>0){
 		printf("Classic AMG preconditioned CG costs %f seconds.\n", classicAMGduration);
 		printf("Number of iterations = %d.\n", iter);		
 	}
 	
-	for(l=0;l<levelNum;l++)
-	{
+	for(l=0;l<levelNum;l++){
 		free(AA[l].IA);
 		free(AA[l].JA);
 		free(AA[l].val);
 	}
 	
-	for(l=0;l<levelNum-1;l++)
-	{
+	for(l=0;l<levelNum-1;l++){
 		free(P[l].IA);
 		free(P[l].JA);
 		free(P[l].val);

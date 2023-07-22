@@ -159,13 +159,13 @@ void poissonLagrange2d(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, den
 
 	/* PCG+AMG */
 	if (itsolver_type == 1) {
-		printf("AMG iterative solver\n");
+		printf("AMG preconditioned CG solver\n");
 		classicAMG_PCG(&A, &b, &uh, &amgparam, print_level);
 	}
 
 	/* AMG solver */
 	else if (itsolver_type == 2) {
-		printf("AMG preconditioned CG solver\n");
+		printf("AMG iterative solver\n");
 		classicAMG(&A, &b, &uh, &amgparam);
 	}
 

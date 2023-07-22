@@ -40,8 +40,7 @@ void classicAMG(dCSRmat *A, dvector *b, dvector *x, AMG_param *param)
 	dCSRmat AA[max_levels];
 	dCSRmat P[max_levels], PT[max_levels];	
 		
-	for(i=0;i<max_levels;i++)
-	{
+	for(i=0;i<max_levels;i++){
 		AA[i].row=0;
 		AA[i].col=0;
 		AA[i].IA=NULL;
@@ -69,7 +68,7 @@ void classicAMG(dCSRmat *A, dvector *b, dvector *x, AMG_param *param)
 	AA[0].JA=(int*)calloc(AA[0].IA[AA[0].row], sizeof(int));
 	AA[0].val=(double*)calloc(AA[0].IA[AA[0].row], sizeof(double));
 	
-	for(i=0;i<AA[0].IA[AA[0].row];i++) {
+	for(i=0;i<AA[0].IA[AA[0].row];i++){
 		AA[0].JA[i]=A->JA[i];
 		AA[0].val[i]=A->val[i];
 	}
@@ -77,23 +76,21 @@ void classicAMG(dCSRmat *A, dvector *b, dvector *x, AMG_param *param)
 	classicAMG_start=clock();
 
 	classicAMG_setup(AA, P, PT, &levelNum, param); /**< classic AMG setup */
-	classicAMG_solve(AA, b, x, P, PT, levelNum, param); /**< 	classic AMG solve */
-	
+	classicAMG_solve(AA, b, x, P, PT, levelNum, param); /**< classic AMG solve */
+
 	classicAMG_end=clock();
 	
 	double classicAMGduration = (double)(classicAMG_end - classicAMG_start)/(double)(CLOCKS_PER_SEC);
 	
 	printf("Ruge-Stuben AMG costs %f seconds.\n", classicAMGduration);
 	
-	for(l=0;l<levelNum;l++)
-	{
+	for(l=0;l<levelNum;l++){
 		free(AA[l].IA);
 		free(AA[l].JA);
 		free(AA[l].val);
 	}
 	
-	for(l=0;l<levelNum-1;l++)
-	{
+	for(l=0;l<levelNum-1;l++){
 		free(P[l].IA);
 		free(P[l].JA);
 		free(P[l].val);
@@ -102,4 +99,5 @@ void classicAMG(dCSRmat *A, dvector *b, dvector *x, AMG_param *param)
 		free(PT[l].JA);
 		free(PT[l].val);
 	}
+
 }
