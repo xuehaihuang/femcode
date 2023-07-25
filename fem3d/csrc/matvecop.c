@@ -3,8 +3,8 @@
  *
  *------------------------------------------------------
  *
- *		Created by Chensong Zhang on 03/31/2009.
- *		Copyright 2009 PSU. All rights reserved. 
+ *		Created by Xuehai Huang on 07/25/2023.
+ *		Copyright 2023 SUFE. All rights reserved. 
  *
  *------------------------------------------------------
  */
@@ -140,14 +140,15 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 	A->lambdaConst=(double**)calloc(A->row, sizeof(double *));
 	A->gradLambda=(double***)calloc(A->row, sizeof(double **));
 	A->nvector=(double***)calloc(A->row, sizeof(double **));
+	A->tij = (double****)malloc(A->row * sizeof(double ***));
+	A->height = (double**)malloc(A->row * sizeof(double *));
 	A->fperm = (int***)malloc(A->row * sizeof(int **));
 	A->fpermi = (int***)malloc(A->row * sizeof(int **));
 	A->forien = (short**)malloc(A->row * sizeof(short *));
 	A->eperm = (int***)malloc(A->row * sizeof(int **));
 	A->eorien = (short**)malloc(A->row * sizeof(short *));
-	int i,j;
-	for(i=0;i<A->row;i++)
-	{
+	int i,j,k;
+	for(i=0;i<A->row;i++){
 		A->val[i]=(int*)calloc(A->col, sizeof(int));
 		A->vertices[i]=(double**)calloc(A->col, sizeof(double *));
 		A->barycenter[i]=(double*)calloc(A->col-1, sizeof(double));
@@ -155,17 +156,22 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
 		A->lambdaConst[i]=(double*)calloc(A->col, sizeof(double));
 		A->gradLambda[i]=(double**)calloc(A->col, sizeof(double *));
 		A->nvector[i]=(double**)calloc(A->col, sizeof(double *));
+		A->tij[i] = (double***)malloc(A->col * sizeof(double **));
+		A->height[i] = (double*)calloc(A->col, sizeof(double));
 		A->fperm[i] = (int**)malloc(A->col * sizeof(int *));
 		A->fpermi[i] = (int**)malloc(A->col * sizeof(int *));
 		A->forien[i] = (short*)malloc(A->col * sizeof(short));
 		A->eperm[i] = (int**)malloc(A->col*(A->col - 1) / 2 * sizeof(int *));
 		A->eorien[i] = (short*)malloc(A->col*(A->col - 1) / 2 * sizeof(short));
-		for(j=0;j<A->col;j++)
-		{
+		for(j=0;j<A->col;j++){
 			A->vertices[i][j]=(double*)calloc(A->col-1, sizeof(double));
 			A->bcFace[i][j]=(double*)calloc(A->col-1, sizeof(double));
 			A->gradLambda[i][j]=(double*)calloc(A->col-1, sizeof(double));
 			A->nvector[i][j]=(double*)calloc(A->col-1, sizeof(double));
+			A->tij[i][j]=(double**)malloc(A->col * sizeof(double*));
+			for(k=0;k<A->col;k++){
+				A->tij[i][j][k]=(double*)calloc(A->col-1, sizeof(double));
+			}
 			A->fperm[i][j] = (int*)malloc((A->col - 1) * sizeof(int));
 			A->fpermi[i][j] = (int*)malloc((A->col - 1) * sizeof(int));
 		}
@@ -184,18 +190,20 @@ int create_ELEMENT(int m, int n, ELEMENT *A)
  */
 int free_ELEMENT(ELEMENT *A)
 {	
-	int i,j;
-	for(i=0;i<A->row;i++)
-	{
+	int i,j,k;
+	for(i=0;i<A->row;i++){
 		free(A->val[i]);
 		free(A->barycenter[i]);
 		free(A->lambdaConst[i]);
-		for(j=0;j<A->col;j++)
-		{
+		for(j=0;j<A->col;j++){
 			free(A->vertices[i][j]);
 			free(A->bcFace[i][j]);
 			free(A->gradLambda[i][j]);
 			free(A->nvector[i][j]);
+			for(k=0;k<A->col;k++){
+				free(A->tij[i][j][k]);
+			}
+			free(A->tij[i][j]);
 			free(A->fperm[i][j]);
 			free(A->fpermi[i][j]);
 		}
@@ -203,6 +211,8 @@ int free_ELEMENT(ELEMENT *A)
 		free(A->bcFace[i]);
 		free(A->gradLambda[i]);
 		free(A->nvector[i]);
+		free(A->tij[i]);
+		free(A->height[i]);
 		free(A->fperm[i]);
 		free(A->fpermi[i]);
 		free(A->forien[i]);
@@ -221,6 +231,8 @@ int free_ELEMENT(ELEMENT *A)
 	free(A->lambdaConst);
 	free(A->gradLambda);
 	free(A->nvector);
+	free(A->tij);
+	free(A->height);
 	free(A->fperm);
 	free(A->fpermi);
 	free(A->forien);
@@ -1255,6 +1267,57 @@ double twonorm_dvector(dvector *x)
 	double twonorm;
 	for (twonorm=i=0;i<x->row;i++) twonorm+=pow(x->val[i],2.0);
 	return sqrt(twonorm);
+}
+
+/**
+ * \fn double lpnorm_array(int n, double *x, double p)
+ * \brief lp norm of vector x
+ * \param *x pointer to vector
+ * \return lp norm of x
+ */
+double lpnorm_array(int n, double *x, double p)
+{
+	int i;
+	double lpnorm=0, absx;
+	for (i=0;i<n;i++){
+		absx=fabs(x[i]);
+		lpnorm+=pow(absx, p);
+	}
+	return pow(lpnorm, 1.0/p);
+}
+
+/**
+ * \fn double lpnormp_array(int n, double *x, double p)
+ * \brief power p of lp norm of vector x
+ * \param *x pointer to vector
+ * \return power p of lp norm of x
+ */
+double lpnormp_array(int n, double *x, double p)
+{
+	int i;
+	double powerp=0, absx;
+	for (i=0;i<n;i++){
+		absx=fabs(x[i]);
+		powerp+=pow(absx, p);
+	}
+	return powerp;
+}
+
+/**
+ * \fn double maxnorm_array(int n, double *x, double p)
+ * \brief max norm of vector x
+ * \param *x pointer to vector
+ * \return max norm of x
+ */
+double maxnorm_array(int n, double *x, double p)
+{
+	int i;
+	double maxnorm=0, absx;
+	for (i=0;i<n;i++){
+		absx=fabs(x[i]);
+		if (maxnorm<absx) maxnorm=absx;
+	}
+	return maxnorm;
 }
 
 /**

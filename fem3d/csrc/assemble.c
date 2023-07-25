@@ -4304,11 +4304,10 @@ void getElementFaceEdgeGeoInfo(ELEMENT *elements, idenmat *elementFace, FACE *fa
 	double tet[4][3], a[3], b[3], len, vol;
 	double t01[3], t12[3], t23[3], t30[3];
 	int *perm, *permi;
+	double ***tij;
 
-	for(i=0;i<elements->row;i++)
-	{
-		for(j=0;j<4;j++)
-		{
+	for(i=0;i<elements->row;i++){
+		for(j=0;j<4;j++){
 			vertex=elements->val[i][j];
 			copy_array(3, nodes->val[vertex], tet[j]);
 			copy_array(3, nodes->val[vertex], elements->vertices[i][j]); 
@@ -4328,26 +4327,32 @@ void getElementFaceEdgeGeoInfo(ELEMENT *elements, idenmat *elementFace, FACE *fa
 			exit(1);
 		}
 
-		axpyz_array(3, -1.0, tet[0], tet[1], t01);
-		axpyz_array(3, -1.0, tet[1], tet[2], t12);
-		axpyz_array(3, -1.0, tet[2], tet[3], t23);
-		axpyz_array(3, -1.0, tet[3], tet[0], t30);
+		tij = elements->tij[i];
+		for(j=0;j<4;j++){
+			for(k=0;k<4;k++){
+				if(j==k)
+					init_array(3, tij[j][k], 0);
+				else
+					axpyz_array(3, -1.0, tet[j], tet[k], tij[j][k]);
+			}
+		}
 
-		cross_array(t23, t12, elements->gradLambda[i][0]);
+		cross_array(tij[2][3], tij[1][2], elements->gradLambda[i][0]);
 		ax_array(3, 1.0/(6*vol), elements->gradLambda[i][0]);
 
-		cross_array(t23, t30, elements->gradLambda[i][1]);
+		cross_array(tij[2][3], tij[3][0], elements->gradLambda[i][1]);
 		ax_array(3, 1.0/(6*vol), elements->gradLambda[i][1]);
 		
-		cross_array(t01, t30, elements->gradLambda[i][2]);
+		cross_array(tij[0][1], tij[3][0], elements->gradLambda[i][2]);
 		ax_array(3, 1.0/(6*vol), elements->gradLambda[i][2]);
 		
-		cross_array(t01, t12, elements->gradLambda[i][3]);
+		cross_array(tij[0][1], tij[1][2], elements->gradLambda[i][3]);
 		ax_array(3, 1.0/(6*vol), elements->gradLambda[i][3]);
 
-		for(j=0;j<4;j++)
-		{
+		for(j=0;j<4;j++){
 			elements->lambdaConst[i][j] = 1 - dot_array(3, tet[j], elements->gradLambda[i][j]);
+
+			elements->height[i][j] = 1.0 / lpnorm_array(3, elements->gradLambda[i][j], 2);
 
 			face2vertices3d(j, v);
 			axpyz_array(3, -1.0, tet[v[0]], tet[v[1]], a);
@@ -4364,18 +4369,15 @@ void getElementFaceEdgeGeoInfo(ELEMENT *elements, idenmat *elementFace, FACE *fa
 			for(k=0;k<3;k++) permi[perm[k]]=k;
 		} // j
 
-		for (j = 0; j < 6; j++)
-		{
+		for (j = 0; j < 6; j++){
 			edge2vv3d(j, v);
 			edge = elementEdge->val[i][j];
-			if (elements->val[i][v[0]] == edges->val[edge][0])
-			{
+			if (elements->val[i][v[0]] == edges->val[edge][0]){
 				elements->eperm[i][j][0] = 0;
 				elements->eperm[i][j][1] = 1;
 				elements->eorien[i][j] = 1;
 			}
-			else
-			{
+			else{
 				elements->eperm[i][j][0] = 1;
 				elements->eperm[i][j][1] = 0;
 				elements->eorien[i][j] = -1;
@@ -4383,10 +4385,8 @@ void getElementFaceEdgeGeoInfo(ELEMENT *elements, idenmat *elementFace, FACE *fa
 		}
 	} // elements i
 
-	for(i=0;i<faces->row;i++)
-	{
-		for(j=0;j<3;j++)
-		{
+	for(i=0;i<faces->row;i++){
+		for(j=0;j<3;j++){
 			vertex=faces->val[i][j];
 			copy_array(3, nodes->val[vertex], tet[j]);
 			// for(k=0;k<3;k++)
@@ -4409,10 +4409,8 @@ void getElementFaceEdgeGeoInfo(ELEMENT *elements, idenmat *elementFace, FACE *fa
 		faces->area[i] = len/2.0;		
 	} // faces i
 	
-	for(i=0;i<edges->row;i++)
-	{
-		for(j=0;j<2;j++)
-		{
+	for(i=0;i<edges->row;i++){
+		for(j=0;j<2;j++){
 			vertex=edges->val[i][j];
 			copy_array(3, nodes->val[vertex], tet[j]);
 			// for(k=0;k<3;k++)
@@ -4426,10 +4424,8 @@ void getElementFaceEdgeGeoInfo(ELEMENT *elements, idenmat *elementFace, FACE *fa
 		orthocomplement_array(edges->tvector[i], edges->n1vector[i], edges->n2vector[i]);
 	} // edges i
 
-	for(i=0;i<elements->row;i++)
-	{
-		for(j=0;j<4;j++)
-		{
+	for(i=0;i<elements->row;i++){
+		for(j=0;j<4;j++){
 			face = elementFace->val[i][j];
 
 			if(dot_array(3, elements->nvector[i][j], faces->nvector[face]) > 0)

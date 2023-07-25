@@ -94,6 +94,9 @@ double maxnorm_dvector(dvector *x);
 double maxdiff_dvector(dvector *a, dvector *b);
 double onenorm_dvector(dvector *x);
 double twonorm_dvector(dvector *x);
+double lpnorm_array(int n, double *x, double p);
+double lpnormp_array(int n, double *x, double p);
+double maxnorm_array(int n, double *x, double p);
 
 int sparse_mv0(double alpha, dCSRmat *A, double *x, double *y);
 int sparse_mv(double alpha, dCSRmat *A, double *x, double *y);

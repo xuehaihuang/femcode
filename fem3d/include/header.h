@@ -212,6 +212,10 @@ typedef struct ELEMENT{
 	double ***gradLambda;
 	/** unit normal vector of four faces*/
 	double ***nvector;
+	/** tangential vector of three edges*/
+	double ****tij;
+	/** height to three faces*/
+	double **height;
 	/** permutation of four faces*/
 	int ***fperm;
 	/** inverse of the permutation fperm*/
