@@ -428,6 +428,22 @@ typedef struct ELEMENT_DOF{
 	ivector index;
 }ELEMENT_DOF;
 
+/** 
+ * \brief Dense three-dimensional matrix of double type.
+ *
+ * A dense three-dimensional double matrix
+ */ 
+typedef struct ddenmat3{
+	/** number of pages */
+	int pag;	  
+	/** number of rows */
+	int row;	  
+	/** number of columns */
+	int col;	
+	/** actual matrix entries */
+	double ***val;
+}ddenmat3;
+
 /**
 * \brief AS_param: parameters for auxiliary space preconditioner.
 *
@@ -445,6 +461,7 @@ typedef struct {
 
 	int precond_type; /**< type of precondition in ASP: 1 additive; 2 multiplicative  */
 	double *precond_scale; /**< scale for the preconditioned variables in precondition  */
+	int interptype; /**< type of interpolation  */
 	int smoother;									/**< smoother type */
 	int smooth_iter;						/**< number of smoothers */
 
@@ -464,6 +481,8 @@ typedef struct {
 	ELEMENT_DOF *elementDOF;
 	iCSRmat *elementdofTran;
 
+	ddenmat3 *basisCoeffs;
+
 	/************* Material information *************/
 	double lambda; /**< Lame constant */
 	double mu; 
@@ -477,23 +496,6 @@ typedef struct {
 	double AMG_truncation_threshold; /**< truncation factor for interpolation */
 	double AMG_max_row_sum; /**< maximal row sum */
 } ASP_param;
-
-
-/** 
- * \brief Dense three-dimensional matrix of double type.
- *
- * A dense three-dimensional double matrix
- */ 
-typedef struct ddenmat3{
-	/** number of pages */
-	int pag;	  
-	/** number of rows */
-	int row;	  
-	/** number of columns */
-	int col;	
-	/** actual matrix entries */
-	double ***val;
-}ddenmat3;
 
 
 /** 
@@ -545,6 +547,7 @@ void classicAMG_solve(dCSRmat *A, dvector *b, dvector *x, dCSRmat *P, dCSRmat *P
 void interpP1toDG2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg);
 void interpP1toP2_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFp2, EDGE *edges);
 void interpVecP1toDG2d(dCSRmat *P, int n, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg);
+void interpVecP1toDGRM2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg, ELEMENT *elements);
 void interpVecP1toNcP1_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFcr, EDGE *edges);
 void interpVecP1toMINI_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFmini);
 void interpStensorP1toMINI_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFmini);
@@ -583,8 +586,8 @@ int AbfpAsP1StokesNcP1P0_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *pa
 int DiagAsP1symStokesMINI_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level);
 int AbfpAsP1symStokesMINI_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level);
 int asP1ElasDG_PCG(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level);
-int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ELEMENT *, ELEMENT_DOF *, double, double));
-int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ELEMENT *, ELEMENT_DOF *, double, double));
+int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ddenmat3 *basisCoeffs, ELEMENT *, ELEMENT_DOF *, double, double));
+int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ddenmat3 *basisCoeffs, ELEMENT *, ELEMENT_DOF *, double, double));
 int classicAMG_GMRES(dCSRmat *A, dvector *b, dvector *x, AMG_param *param, int print_level);
 int cg_pcg(dCSRmat *A, dvector *b, dvector *sigma, dvector *u, int MaxIt, double tol, AMG_param *param, int itsolver_type, int print_level);
 
@@ -699,11 +702,14 @@ void linearElasHuZhang2d_mfem(ELEMENT *elements, idenmat *elementEdge, EDGE *edg
 void assemble_linearElasHuZhang2d(dCSRmat *ptr_A, dvector *ptr_b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
 void linearElasHuangZhou2d_mfem(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, iCSRmat *edgesTran, ivector *nodeCEdge, Input_data *Input);
 void assemble_linearElasHuangZhou2d(dCSRmat *ptr_A, dvector *ptr_b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
+void linearElasReducedHuangZhou2d_mfem(ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, iCSRmat *edgesTran, ivector *nodeCEdge, Input_data *Input);
+void assemble_linearElasReducedHuangZhou2d(dCSRmat *ptr_A, dvector *ptr_b, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
 
 /* linearElaserror.c */
 void geterrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
 void getposteriorierrorslinearElasHuZhang2d(double *errors, dvector *sigmah, dvector *uh, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
 void geterrorslinearElasHuangZhou2d(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvector *uhstar, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
+void geterrorslinearElasReducedHuangZhou2d(double *errors, dvector *sigmah, dvector *uh, dvector *Qhu, dvector *uhstar, ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);
 
 
 /* assemble.c */
@@ -718,6 +724,7 @@ void getElementDOF_MINI2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, int nverti
 void getElementDOF_Morley2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices);
 void getElementDOF_HuZhang(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF_HuangZhou(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices);
+void getElementDOF_reducedHuangZhou(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices);
 void getFreenodesInfoLagrange2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void getFreenodesInfoCrouzeixRaviart2d(EDGE *edges, ELEMENT_DOF *elementDOF);
 void getFreenodesInfoMINI2d(dennode *nodes, ELEMENT_DOF *elementDOF);
@@ -734,6 +741,7 @@ void assembleDivRaviartThomasL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *el
 void assembleMassmatrixBrezziDouglasMarini2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF);
 void assembleDivBrezziDouglasMariniL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1);
 void assembleRHSdgPoly2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
+void assembleRHSdgRM2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
 void assembleBiGradMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleBiHessMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF);
 void assembleRHSMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
@@ -747,18 +755,21 @@ void assembleBiGradMINIsymtensorDiagBlockRepeat2d(dCSRmat *A, ELEMENT *elements,
 void assembleRotSMINILagrange2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1);
 void assembleRHShessMorleySMINI2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1, dvector *uh);
 void assembleRHSSMINIhessMorley2d(dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF0, ELEMENT_DOF *elementDOF1, dvector *uh);
-void assembleweightedMassmatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu);
+void assembleweightedMassmatrixHuZhang2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu);
 void assembleDivHuZhangL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF);
-void assembleRHSdgPolyVector2d(dvector *b, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
+void assembleRHSdgPolyVector2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras);
 void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, double parapenalty);
-void assembleweightedMassmatrixHuangZhou2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu);
+void assembleweightedMassmatrixHuangZhou2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu);
 void assembleDivHuangZhouL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF);
+void assembleweightedMassmatrixReducedHuangZhou2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu);
+void assembleDivReducedHuangZhouL2RM2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF);
 // void assembleStiffmatrixHuZhangIP2d(dCSRmat *A, dCSRmat *BT, dCSRmat *C, dvector *b, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double lambda, double mu);
 void assembleStiffmatrixElasLagrange(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, double mu);
 void assembleStiffmatrixVecLagrange(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF, iCSRmat *elementdofTran, double mu);
 void sumNormalDerivativeEta(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, ddenmat *etas, double *sum);
 void jumpOperatorVectorTensor(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump);
 void jumpOperatorVector(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump);
+void jumpOperatorRM(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump);
 void jumpOperator(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump);
 void getinfo4jump(double lambda1, double lambda2, int *edgeNode, double elen, int element, ELEMENT *elements, int dop, int index, double *jump);
 void TangentDerivative4Edge(double lambda1, double lambda2, int edge, int element, ELEMENT *elements, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *val);
@@ -832,6 +843,8 @@ void rt_basis1(double *lambda, double **grd_lambda, double *height, double **tij
 void bdm_basis(double *lambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double phi[2]);
 void bdm_basisDIV(double *lambda, double **gradLambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double *phi);
 void bdm_basis1(double *lambda, double **gradLambda, double *height, double **tij, double **nv, double **tv, short *eorien, int index, int dop, double phi[4]);
+void nedelec1st_basis(double *lambda, double **gradLambda, double *edgeslength, short *eorien, int index, int dop, double phi[2]);
+void nedelec1st_basis1(double *lambda, double **gradLambda, double *edgeslength, short *eorien, int index, int dop, double phi[4]);
 void arnoldwinther_basis(double *lambda, double *x, double *y, ddenmat3 *basisCoeffs, int element, int index, double *phi);
 void arnoldwinther_basisDIV(double *lambda, ddenmat3 *basisCoeffs, int element, double s, double eta[3], double xi[3], int index, double *phi);
 void arnoldwinther_basisDIV2(ddenmat3 *basisCoeffs, int element, double s, double eta[3], double xi[3], int index, double *phi);
@@ -846,12 +859,15 @@ void divS_huangzhou_prebasis(double *lambda, double **tij, int i, double phi[3])
 void divS_huangzhou_prebasisDIV(double *lambda, double **tij, int i, double phi[2]);
 void divS_huangzhou_basis(double *lambda, double s, double **nv, double **tv, double **tij, int index, double phi[3]);
 void divS_huangzhou_basisDIV(double *lambda, double **gradLambda, double s, double **nv, double **tv, double **tij, int index, double phi[2]);
+void divS_reducedhuangzhou_basis(double *lambda, double **lbc, double s, double **nv, double **tv, double **tij, int index, double phi[3]);
+void divS_reducedhuangzhou_basisDIV(double *lambda, double **gradLambda, double **lbc, double s, double **nv, double **tv, double **tij, int index, double phi[2]);
 void mini_basis(double *lambda, int index, double *phi);
 void mini_basis1(double *lambda, double **gradLambda, int index, double phi[2]);
 double area(double **tri);
 double area0(double *v0, double *v1, double *v2);
 
 /* basiscoeff.c */
+void generateReducedHuangZhou2dBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements);
 void generateBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes);
 void generateBasisCoeffsEdgeProj(dBDmat *B, dBDmat *bC, EDGE *edges, int dopl, int dopk);
 
@@ -874,6 +890,7 @@ int LU_Solve(double *A, double b[], int pivot[], double x[], int n);
 /* post_processing.c */
 void projL2Pk2d(dvector *Qhu, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, void (*u)(double *, double *, double *), double *paras);
 void projL2PkVec2d(dvector *Qhu, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, void (*u)(double *, double *, double *), double *paras);
+void projL2RM2d(dvector *Qhu, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, void (*u)(double *, double *, double *), double *paras);
 
 /* linearElaspostprocessing.c */
 void postprocess2newDisplacementHuZhang2d(dvector *uhstar, dvector *sigmah, dvector *uh, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, double lambda, double mu);

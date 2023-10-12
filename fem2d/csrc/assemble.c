@@ -542,6 +542,60 @@ void getElementDOF_HuangZhou(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat
 }
 
 /**
+ * \fn void getElementDOF_reducedHuangZhou(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices)
+ * \brief get the degrees of freedom of reduced Huang-Zhou element
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elements pointer to triangulation: the first 3 columns store the indexes of vertices
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+                                   the fourth column stores -1 if the edge is on boundary
+ * \param nvertices number of vertices
+ * \param dop degree of polynomial
+ */
+void getElementDOF_reducedHuangZhou(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices)
+{
+	int i,j,k;
+	int nt=elements->row;
+	int ne=edges->row;
+	int nn=nvertices;
+
+	create_elementDOF(3, nn*3 + ne*3, nt, 18, elementDOF);
+
+	int node, edge;
+	int orient;
+	for(k=0;k<nt;k++){
+		for(i=0;i<3;i++){
+			node=elements->val[k][i];
+			elementDOF->val[k][i]=node;
+			elementDOF->val[k][i+3]=node+nn;
+			elementDOF->val[k][i+6]=node+nn*2;
+		}
+		
+		for(j=0;j<3;j++){
+			edge=elementEdge->val[k][j];
+			if(elements->val[k][(j+1)%3]== edges->val[edge][0])
+				orient=1;
+			else
+				orient=0;
+			
+			if(orient==1){
+				for(i=0;i<2;i++)
+					elementDOF->val[k][9+2*j+i] = nn*3 + edge*2 + i;
+			}
+			else{
+				for(i=0;i<2;i++)
+					elementDOF->val[k][9+2*j+1-i] = nn*3 + edge*2 + i;
+			}
+			
+			elementDOF->val[k][15+j] = nn*3 + ne*2 + edge;
+		} // j
+
+		// for(i=0;i<3;i++)
+		// 	elementDOF->val[k][18+i] = nn*3 + ne*3 + k*3 + i;
+	} // k
+}
+
+/**
 * \fn void getFreenodesInfoLagrange2d(EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
 * \brief get freenodes information of Lagrange element in two dimensions
 * \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
@@ -1718,6 +1772,69 @@ void assembleRHSdgPoly2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF,
 	free_dvector(&lb);
 }
 
+/**
+ * \fn void assembleRHSdgRM2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras)
+ * \brief assemble stiffness matrix (f, v)
+ * \param *b pointer to right hand side
+ * \param *elements pointer to the structure of the triangulation
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces the first three columns store the three vertices corresponding to the face; 
+ *				 the 4th and 5th columns store the elements which the face belongs to;
+ *				 if the face is a boundary, the 5th column will stores -1;
+ *				 the first column is in ascend order.
+ * \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+ * \param *edges stores the two vertice corresponding to the edge
+ *				 the first column is in ascend order.
+ * \param *nodes pointer to the nodes location of the triangulation
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elementdofTran pointer to transpose of elementDOF
+ * \return void
+ */
+void assembleRHSdgRM2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras)
+{
+	int i,j,k,k1,i1;
+	
+	double phi[2], val[2];
+	double x[2], **gradLambda, **vertices, *edgeslength;
+	double s;
+	short *eorien;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+			
+	dvector lb;
+	create_dvector(elementDOF->col, &lb);
+	/************************************************** right hand side b *****************************************************************/
+	create_dvector(elementDOF->dof, b);
+	num_qp = 49; 
+	init_Gauss2d(num_qp, lambdas, weight);
+
+	for (k = 0; k<elements->row; k++){
+		// set parameters
+		s = elements->vol[k];
+		vertices = elements->vertices[k];
+		gradLambda = elements->gradLambda[k];
+		edgeslength = elements->edgeslength[k];
+		eorien = elements->eorien[k];
+		// end set parameters
+
+		init_dvector(&lb, 0.0);
+		for (i = 0; i<elementDOF->col; i++){
+			for (i1 = 0; i1<num_qp; i1++){
+				nedelec1st_basis(lambdas[i1], gradLambda, edgeslength, eorien, i, 1, phi);
+				baryToCart2d(lambdas[i1], x, vertices);
+				f(x, val, paras);
+				lb.val[i] += s*weight[i1] * (val[0]*phi[0] + val[1]*phi[1]);
+			} // i1
+		} // k1
+
+		for (k1 = 0; k1<elementDOF->col; k1++){
+			i = elementDOF->val[k][k1];
+			b->val[i] += lb.val[k1];
+		} // k1
+	} // k
+	free_dvector(&lb);
+}
 
 /**
 * \fn void assembleBiGradMorley2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes, ELEMENT_DOF *elementDOF)
@@ -2942,7 +3059,7 @@ void assembleRHSSMINIhessMorley2d(dvector *b, ELEMENT *elements, idenmat *elemen
 }
 
 /**
-* \fn void assembleweightedMassmatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu)
+* \fn void assembleweightedMassmatrixHuZhang2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu)
 * \brief assemble stiffness matrix
 * \param *A pointer to stiffness matrix
 * \param *BT pointer to stiffness matrix
@@ -2959,7 +3076,7 @@ the fourth column stores -1 if the edge is on boundary
 * \param mu Lame constant or Poisson ratio of plate
 * \return void
 */
-void assembleweightedMassmatrixHuZhang2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu)
+void assembleweightedMassmatrixHuZhang2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu)
 {
 	int i, j, k, l;
 
@@ -3116,7 +3233,7 @@ void assembleDivHuZhangL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elem
 }
 
 /**
-* \fn void assembleRHSdgPolyVector2d(dvector *b, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras)
+* \fn void assembleRHSdgPolyVector2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras)
 * \brief assemble stiffness matrix
 * \param *A pointer to stiffness matrix
 * \param *BT pointer to stiffness matrix
@@ -3131,7 +3248,7 @@ the fourth column stores -1 if the edge is on boundary
 * \param *elementdofTran pointer to transpose of elementDOF
 * \return void
 */
-void assembleRHSdgPolyVector2d(dvector *b, ELEMENT *elements, dennode *nodes, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras)
+void assembleRHSdgPolyVector2d(dvector *b, ELEMENT *elements, ELEMENT_DOF *elementDOF, void (*f)(double *, double *, double *), double *paras)
 {
 	int i, j, k, l;
 
@@ -3364,7 +3481,7 @@ void assembleJumpL2poly2d(dCSRmat *A, ELEMENT *elements, idenmat *elementEdge, E
 }
 
 /**
-* \fn void assembleweightedMassmatrixHuangZhou2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu)
+* \fn void assembleweightedMassmatrixHuangZhou2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu)
 * \brief assemble stiffness matrix
 * \param *A pointer to stiffness matrix
 * \param *BT pointer to stiffness matrix
@@ -3381,7 +3498,7 @@ the fourth column stores -1 if the edge is on boundary
 * \param mu Lame constant or Poisson ratio of plate
 * \return void
 */
-void assembleweightedMassmatrixHuangZhou2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu)
+void assembleweightedMassmatrixHuangZhou2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu)
 {
 	int i, j, k, l;
 
@@ -3389,7 +3506,7 @@ void assembleweightedMassmatrixHuangZhou2d(dCSRmat *A, ELEMENT *elements, ELEMEN
 
 	double phi, phi1[3], phi2[3], val1;
 	int k1, k2, i1, j1, l1, l2, ej;
-	double x, y, xs[3], ys[3], s, *eta, *xi;
+	double x, y, xs[3], ys[3], s, **nv, **tv, **tij;
 	int count;
 
 	int num_qp;
@@ -3413,6 +3530,9 @@ void assembleweightedMassmatrixHuangZhou2d(dCSRmat *A, ELEMENT *elements, ELEMEN
 	{
 		// set parameters
 		s = elements->vol[k];
+		tij = elements->tij[k];
+		nv = elements->nvector[k];
+		tv = elements->tvector[k];
 		// end set parameters
 
 		init_dden_matrix(&lA, 0.0);
@@ -3420,8 +3540,8 @@ void assembleweightedMassmatrixHuangZhou2d(dCSRmat *A, ELEMENT *elements, ELEMEN
 			for (k2 = 0; k2<elementDOF->col; k2++){
 				val1 = 0;
 				for (i1 = 0; i1<num_qp; i1++){
-					divS_huangzhou_basis(lambdas[i1], s, elements->nvector[k], elements->tvector[k], elements->tij[k], k1, phi1);
-					divS_huangzhou_basis(lambdas[i1], s, elements->nvector[k], elements->tvector[k], elements->tij[k], k2, phi2);
+					divS_huangzhou_basis(lambdas[i1], s, nv, tv, tij, k1, phi1);
+					divS_huangzhou_basis(lambdas[i1], s, nv, tv, tij, k2, phi2);
 					if (lambda>-0.5)
 						val1 += s*weight[i1] * ((phi1[0] * phi2[0] + phi1[1] * phi2[1] + 2 * phi1[2] * phi2[2]) - lambda / (2 * lambda + 2 * mu)*(phi1[0] + phi1[1])*(phi2[0] + phi2[1])) / (2 * mu);
 					else // lambda = inf
@@ -3473,7 +3593,7 @@ void assembleDivHuangZhouL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 
 	double phi, phi1[3], phi2[3], val[2];
 	int k1, k2, i1, j1, l1, l2, ej;
-	double x, y, xs[3], ys[3], s, **gradLambda;
+	double x, y, xs[3], ys[3], s, **gradLambda, **nv, **tv, **tij;
 
 	int num_qp;
 	double lambdas[100][3], weight[100], gauss[100][3];
@@ -3498,6 +3618,9 @@ void assembleDivHuangZhouL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 		// set parameters
 		s = elements->vol[k];
 		gradLambda = elements->gradLambda[k];
+		tij = elements->tij[k];
+		nv = elements->nvector[k];
+		tv = elements->tvector[k];
 		// end set parameters
 
 		init_dden_matrix(&lA[0], 0.0); init_dden_matrix(&lA[1], 0.0);
@@ -3505,7 +3628,7 @@ void assembleDivHuangZhouL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 			for (k2 = 0; k2<elementDOF[1].col; k2++){
 				val[0] = 0; val[1] = 0;
 				for (i1 = 0; i1<num_qp; i1++){
-					divS_huangzhou_basisDIV(lambdas[i1], gradLambda, s, elements->nvector[k], elements->tvector[k], elements->tij[k], k1, phi1);
+					divS_huangzhou_basisDIV(lambdas[i1], gradLambda, s, nv, tv, tij, k1, phi1);
 					lagrange_basis(lambdas[i1], k2, elementDOF[1].dop, &phi);
 					val[0] += s*weight[i1] * phi1[0] * phi;
 					val[1] += s*weight[i1] * phi1[1] * phi;
@@ -3532,6 +3655,181 @@ void assembleDivHuangZhouL2poly2d(dCSRmat *A, ELEMENT *elements, ELEMENT_DOF *el
 	} // k
 	free_dden_matrix(&lA[0]);
 	free_dden_matrix(&lA[1]);
+
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
+}
+
+/**
+* \fn void assembleweightedMassmatrixReducedHuangZhou2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu)
+* \brief assemble stiffness matrix
+* \param *A pointer to stiffness matrix
+* \param *BT pointer to stiffness matrix
+* \param *C pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \param lambda Lame constant
+* \param mu Lame constant or Poisson ratio of plate
+* \return void
+*/
+void assembleweightedMassmatrixReducedHuangZhou2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF, double lambda, double mu)
+{
+	int i, j, k, l;
+
+	int element[2], edge, node;
+
+	double phi, phi1[3], phi2[3], val1;
+	int k1, k2, i1, j1, l1, l2, ej;
+	double x, y, xs[3], ys[3], s, **nv, **tv, **tij;
+	double **lbc;
+	int count;
+
+	int num_qp;
+	double lambdas[100][3], weight[100], gauss[100][3];
+
+	/******************** matrix A ********************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF->col*elementDOF->col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF->col, elementDOF->col, &lA);
+
+	// num_qp = getNumQuadPoints_ShunnWilliams(elementDOF->dop * 2, 2); // the number of numerical intergation points
+	// init_ShunnWilliams2d(num_qp, lambdas, weight); // Shunn-Williams intergation initial
+	num_qp = getNumQuadPoints(elementDOF->dop * 2, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++)
+	{
+		// set parameters
+		s = elements->vol[k];
+		tij = elements->tij[k];
+		nv = elements->nvector[k];
+		tv = elements->tvector[k];
+		lbc = basisCoeffs->val[k];
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF->col; k1++){
+			for (k2 = 0; k2<elementDOF->col; k2++){
+				val1 = 0;
+				for (i1 = 0; i1<num_qp; i1++){
+					divS_reducedhuangzhou_basis(lambdas[i1], lbc, s, nv, tv, tij, k1, phi1);
+					divS_reducedhuangzhou_basis(lambdas[i1], lbc, s, nv, tv, tij, k2, phi2);
+					if (lambda>-0.5)
+						val1 += s*weight[i1] * ((phi1[0] * phi2[0] + phi1[1] * phi2[1] + 2 * phi1[2] * phi2[2]) - lambda / (2 * lambda + 2 * mu)*(phi1[0] + phi1[1])*(phi2[0] + phi2[1])) / (2 * mu);
+					else // lambda = inf
+						val1 += s*weight[i1] * ((phi1[0] * phi2[0] + phi1[1] * phi2[1] + 2 * phi1[2] * phi2[2]) - 1.0 / 2.0*(phi1[0] + phi1[1])*(phi2[0] + phi2[1])) / (2 * mu);
+				}
+				lA.val[k1][k2] += val1;
+			} // k2
+		} // k1
+
+		l = elementDOF->col*elementDOF->col * k;
+		for (i = 0; i<elementDOF->col; i++)
+		{
+			for (j = 0; j<elementDOF->col; j++)
+			{
+				ia[l] = elementDOF->val[k][i];
+				ja[l] = elementDOF->val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
+	} // k
+	free_dden_matrix(&lA);
+	
+	// remove zero elements and transform matrix A from its IJ format to its CSR format
+	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
+}
+
+/**
+* \fn void assembleDivReducedHuangZhouL2RM2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF)
+* \brief assemble stiffness matrix
+* \param *A pointer to stiffness matrix
+* \param *BT pointer to stiffness matrix
+* \param *C pointer to stiffness matrix
+* \param *b pointer to right hand side
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *nodes pointer to the nodes location of the triangulation
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param *elementdofTran pointer to transpose of elementDOF
+* \return void
+*/
+void assembleDivReducedHuangZhouL2RM2d(dCSRmat *A, ddenmat3 *basisCoeffs, ELEMENT *elements, ELEMENT_DOF *elementDOF)
+{
+	int i, j, k, l;
+
+	int element[2], edge, node;
+
+	double phi, phi1[3], phi2[3], val;
+	int k1, k2, i1, j1, l1, l2, ej;
+	double x, y, xs[3], ys[3], s, **gradLambda, **nv, **tv, **tij, *edgeslength;
+	double **lbc;
+	short *eorien;
+	
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	/***************** matrix A *****************/
+	int *ia, *ja;
+	double *va;
+	int N = elementDOF[0].col*elementDOF[1].col*elements->row;
+	ia = (int*)malloc(N * sizeof(int));
+	ja = (int*)malloc(N * sizeof(int));
+	va = (double*)malloc(N * sizeof(double));
+	ddenmat lA; // local A
+	create_dden_matrix(elementDOF[0].col, elementDOF[1].col, &lA);
+	
+	num_qp = getNumQuadPoints(2, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for (k = 0; k<elements->row; k++){
+		// set parameters
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		tij = elements->tij[k];
+		nv = elements->nvector[k];
+		tv = elements->tvector[k];
+		edgeslength = elements->edgeslength[k];
+		eorien = elements->eorien[k];
+		lbc = basisCoeffs->val[k];
+		// end set parameters
+
+		init_dden_matrix(&lA, 0.0);
+		for (k1 = 0; k1<elementDOF[0].col; k1++){
+			for (k2 = 0; k2<elementDOF[1].col; k2++){
+				val = 0;
+				for (i1 = 0; i1<num_qp; i1++){
+					divS_reducedhuangzhou_basisDIV(lambdas[i1], gradLambda, lbc, s, nv, tv, tij, k1, phi1);
+					nedelec1st_basis(lambdas[i1], gradLambda, edgeslength, eorien, k2, 1, phi2);
+					val += s*weight[i1] * (phi1[0] * phi2[0] + phi1[1] * phi2[1]);
+				}
+				lA.val[k1][k2] += val;
+			} // k2
+		} // k1
+
+		l = elementDOF[0].col*elementDOF[1].col * k;
+		for (i = 0; i<elementDOF[0].col; i++){
+			for (j = 0; j<elementDOF[1].col; j++){
+				ia[l] = elementDOF[0].val[k][i];
+				ja[l] = elementDOF[1].val[k][j];
+				va[l] = lA.val[i][j];
+				l++;
+			} // i
+		} // j
+	} // k
+	free_dden_matrix(&lA);
 
 	// remove zero elements and transform matrix A from its IJ format to its CSR format
 	dIJtoCSReps(A, ia, ja, va, N, 0, 0, 0);
@@ -4147,6 +4445,77 @@ void jumpOperatorVector(double lambda1, double lambda2, int edge, ELEMENT *eleme
 	jump[li] = phi*sgn;
 }
 
+/**
+* \fn void jumpOperatorRM(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump)
+* \brief the jump operator for vector
+* \param lambda1 the first length coordiante
+* \param lambda2 the second length coordiante
+* \param edge the index of current edge
+* \param *elements pointer to the structure of the triangulation
+* \param *elementEdge pointer to relation between tirangles and edges: each row stores 3 edges index
+* \param *edges pointer to edges: the first two columns store the two vertice, the third and fourth columns store the affiliated elements
+the fourth column stores -1 if the edge is on boundary
+* \param *elementDOF pointer to relation between elements and DOFs
+* \param node index of current node variable
+* \param *jump pointer to the result of jump operator
+* \return void
+*/
+void jumpOperatorRM(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump)
+{
+	int i, j, l;
+	int nodeindex, edgeindex, ni2;
+	int element, edgeNode[2];
+	double lambdas[3];
+	double *eta, *xi, nv[2], nve[2];
+	double phi[2];
+	double elen = edges->length[edge];
+
+	jump[0] = 0;
+	jump[1] = 0;
+
+	if (node<0 && node >= elementDOF->dof)
+		return;
+
+	element = node / elementDOF->col;
+	nodeindex = node % elementDOF->col;
+
+	for (edgeindex = 0; edgeindex<3; edgeindex++)
+	{
+		if (elementEdge->val[element][edgeindex] == edge)
+			break;
+	}
+
+	if (edgeindex == 3)
+		return;
+
+	double **gradLambda = elements->gradLambda[element];
+	double *edgeslength = elements->edgeslength[element];
+	short *eorien = elements->eorien[element];
+	double sgn = eorien[edgeindex];
+		
+
+	edgeNode[0] = edges->val[edge][0];
+	edgeNode[1] = edges->val[edge][1];
+	for (i = 0; i<3; i++)
+	{
+		if (elements->val[element][i] == edgeNode[0])
+			break;
+	}
+	for (j = 0; j<3; j++)
+	{
+		if (elements->val[element][j] == edgeNode[1])
+			break;
+	}
+	l = 3 - i - j;
+	lambdas[i] = lambda1;
+	lambdas[j] = lambda2;
+	lambdas[l] = 0;
+
+	nedelec1st_basis(lambdas, gradLambda, edgeslength, eorien, nodeindex, 1, phi);
+	
+	jump[0] = phi[0]*sgn;
+	jump[1] = phi[1]*sgn;
+}
 
 /**
  * \fn void jumpOperator(double lambda1, double lambda2, int edge, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, ELEMENT_DOF *elementDOF, int node, double *jump)

@@ -774,6 +774,8 @@ void getElementDOF_Lagrange2d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, idenmat *elementEdge, int nfaces, int nedges, int nvertices, int dop);
 void getElementDOF_NoncfmP13d(ELEMENT_DOF *elementDOF, idenmat *elementFace, int nf);
 void getElementDOF_Morley3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges);
+void getElementDOF_RaviartThomas3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, int nfaces, int dop);
+void getElementDOF_BrezziDouglasMarini3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, int nfaces, int dop);
 void getElementDOF_HuZhang(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF_HuZhang3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, int nvertices, int dop);
 void getElementDOF_Nedelec1st3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, FACE *faces, idenmat *elementEdge, EDGE *edges, int dop);

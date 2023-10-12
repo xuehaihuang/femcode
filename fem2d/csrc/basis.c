@@ -2011,6 +2011,81 @@ void bdm_basis1Old(double *lambda, double s, double eta[3], double xi[3], double
 }
 
 /** 
+ * \fn void nedelec1st_basis(double *lambda, double **gradLambda, double *edgeslength, short *eorien, int index, int dop, double phi[2])
+ * \brief basis function of the first kind Nedelec element
+ * Arnold, D. N.; Falk, R. S. & Winther, R. Geometric decompositions and local bases for spaces of finite element differential forms Comput. Methods Appl. Mech. Engrg., 2009, 198, 1660-1672
+ * \param lambda the barycentric coordinate
+ * \param gradLambda gradient of the barycentric coordinate
+ * \param edgeslength pointer to length to three edges
+ * \param eorien pointer to orient of three edges
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param phi[2] basis function of Raviart-Thomas element: (phi1, phi2)
+ * \return void
+ */
+void nedelec1st_basis(double *lambda, double **gradLambda, double *edgeslength, short *eorien, int index, int dop, double phi[2])
+{
+	int dofs = dop *(dop + 2); // degrees of freedom
+	
+	init_array(2, phi, 0);
+		
+	if (dop<1) return;
+
+	if (index >= dofs || index<0)	return;
+
+	int i, i1, i2, j, k, jk[0];
+	int in, ie, ii;
+	double val;
+
+	if (dop == 1){
+		i = index;
+		j = (i+1)%3;
+		k = (i+2)%3;
+		axpbyz_array(2, lambda[j], gradLambda[k], -lambda[k], gradLambda[j], phi);
+		ax_array(2, eorien[i]*edgeslength[i], phi);
+	}
+}
+
+/** 
+ * \fn void nedelec1st_basis1(double *lambda, double **gradLambda, double *edgeslength, short *eorien, int index, int dop, double phi[4])
+ * \brief the first order derivative of the first kind Nedelec element basis function: (\partial_{x}phi1, \partial_{y}phi1, \partial_{x}phi2, \partial_{y}phi2)
+ * Arnold, D. N.; Falk, R. S. & Winther, R. Geometric decompositions and local bases for spaces of finite element differential forms Comput. Methods Appl. Mech. Engrg., 2009, 198, 1660-1672
+ * \param lambda the barycentric coordinate
+ * \param gradLambda pointer to the gradient of the barycentric coordinate
+ * \param edgeslength pointer to length to three edges
+ * \param eorien pointer to orient of three edges
+ * \param index the indicator of the basis function
+ * \param dop degree of polynomial
+ * \param phi[4] the first order derivative of Raviart-Thomas element basis function: (\partial_{x}phi1, \partial_{y}phi1, \partial_{x}phi2, \partial_{y}phi2)
+ * \return void
+ */
+void nedelec1st_basis1(double *lambda, double **gradLambda, double *edgeslength, short *eorien, int index, int dop, double phi[4])
+{
+	double phi1[4], phi2[4];
+
+	int dofs = dop *(dop + 2); // degrees of freedom
+	
+	init_array(4, phi, 0);
+
+	if (dop<1) return;
+
+	if (index >= dofs || index<0)	return;
+
+	int i, i1, i2, j, k, m, jk[0];
+	int in, ie, ii;
+	double c, val[2];
+
+	if (dop == 1){
+		i = index;
+		j = (i+1)%3;
+		k = (i+2)%3;
+		for(m=0;m<2;m++)
+			axpbyz_array(2, gradLambda[k][m], gradLambda[j], -gradLambda[j][m], gradLambda[k], phi+2*m);
+		ax_array(4, eorien[i]*edgeslength[i], phi);
+	}
+}
+
+/** 
  * \fn void arnoldwinther_basis(double *lambda, double *x, double *y, ddenmat3 *basisCoeffs, int element, int index, double *phi)
  * \brief basis function of Arnold-Winther element
  * \param *lambda pointer to the area coordiante
@@ -2990,6 +3065,66 @@ void divS_huangzhou_basisDIV(double *lambda, double **gradLambda, double s, doub
 		lagrange_basis1(lambda, gradLambda, 3+i, 2, val);
 		phi[0]=val[0]*tt[i][0]+val[1]*tt[i][2];
 		phi[1]=val[0]*tt[i][2]+val[1]*tt[i][1];
+	}
+}
+
+/** 
+ * \fn void divS_reducedhuangzhou_basis(double *lambda, double **lbc, double s, double **nv, double **tv, double **tij, int index, double phi[3])
+ * \brief basis function of reduced Huang-Zhou element
+ * \param *lambda pointer to the area coordiante
+ * \param s pointer to the area of the triangle
+ * \param **nv the unit normal vectors of the three edges
+ * \param **tv the unit tangential vectors of the three edges
+ * \param **tij the tangential vectors from vertex i to vertex j
+ * \param index the indicator of the basis function
+ * \param *phi basis function
+ * \return void
+ */
+void divS_reducedhuangzhou_basis(double *lambda, double **lbc, double s, double **nv, double **tv, double **tij, int index, double phi[3])
+{
+	phi[0]=0;
+	phi[1]=0;
+	phi[2]=0;
+	if(index>= 18 || index<0)
+		return;
+	
+	int i;
+	double *bc = lbc[index];
+	double phi1[3];
+	divS_huangzhou_basis(lambda, s, nv, tv, tij, index, phi);
+
+	for(i=0;i<3;i++){
+		divS_huangzhou_basis(lambda, s, nv, tv, tij, 18+i, phi1);
+		axpy_array(3, bc[i], phi1, phi);
+	}
+}
+
+/** 
+ * \fn void divS_reducedhuangzhou_basisDIV(double *lambda, double **gradLambda, double **lbc, double s, double **nv, double **tv, double **tij, int index, double phi[2])
+ * \brief divergence of basis function of Huang-Zhou element
+ * \param *lambda pointer to the area coordiante
+ * \param gradLambda gradient of the barycentric coordinate
+ * \param **nv the unit normal vectors of the three edges
+ * \param **tv the unit tangential vectors of the three edges
+ * \param index the indicator of the basis function
+ * \param *phi divergence of basis function
+ * \return void
+ */
+void divS_reducedhuangzhou_basisDIV(double *lambda, double **gradLambda, double **lbc, double s, double **nv, double **tv, double **tij, int index, double phi[2])
+{
+	phi[0]=0;
+	phi[1]=0;
+	if(index>= 18 || index<0)
+		return;
+
+	int i;
+	double *bc = lbc[index];
+	double phi1[2];
+	divS_huangzhou_basisDIV(lambda, gradLambda, s, nv, tv, tij, index, phi);
+
+	for(i=0;i<3;i++){
+		divS_huangzhou_basisDIV(lambda, gradLambda, s, nv, tv, tij, 18+i, phi1);
+		axpy_array(2, bc[i], phi1, phi);
 	}
 }
 

@@ -50,7 +50,7 @@ void postprocess2newDisplacementHuZhang2d(dvector *uhstar, dvector *sigmah, dvec
 
 	double phi[2], phi1[3], phi2[3];
 	int i, j, k, i1, j1, k1;
-	double **gradLambda, s;
+	double **gradLambda, s, **nv, **tv;
 	double value[4];
 
 	int num_qp, num_qp0;
@@ -68,6 +68,8 @@ void postprocess2newDisplacementHuZhang2d(dvector *uhstar, dvector *sigmah, dvec
 		// set parameters
 		s = elements->vol[k];
 		gradLambda = elements->gradLambda[k];
+		nv = elements->nvector[k];
+		tv = elements->tvector[k];
 		// end set parameters
 
 		// initial
@@ -118,7 +120,7 @@ void postprocess2newDisplacementHuZhang2d(dvector *uhstar, dvector *sigmah, dvec
 				lagrange_basis1(lambdas0[i1], gradLambda, i, dop2, phi2);
 				for (k1 = 0; k1<elementDOF[0].col; k1++)
 				{
-					huzhang_basis(lambdas0[i1], elements->nvector[k], elements->tvector[k], k1, elementDOF[0].dop, phi1);
+					huzhang_basis(lambdas0[i1], nv, tv, k1, elementDOF[0].dop, phi1);
 					j1 = elementDOF[0].val[k][k1];
 					value[0] += phi1[0] * sigmah->val[j1];
 					value[1] += phi1[1] * sigmah->val[j1];

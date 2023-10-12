@@ -20,7 +20,7 @@ FglevelNum     = 6    % geometric level number of fine grid
 glevelNum      = 2
 cDOP           = 1    % degree of polynomial on coarse grid
 rDOP           = 1    % degree of polynomial for lifting operator, only take value 1,2,3 now
-dop1           = 2    % degree of polynomial for stress tensor
+dop1           = 1    % degree of polynomial for stress tensor
 dop2           = 1    % degree of polynomial for displacement 
 dop3           = -1    % degree of polynomial for trace of normal derivative of displacement 
 dop4           = -1    % degree of polynomial for trace of displacement 
@@ -32,7 +32,7 @@ fem_num        = 1    % FEM number: 1 1st kind Nedelec element | 2 2nd kind Nede
 nitsche        = 0    % Use the Nitsche’s technique or not. 1 Yes | 0 No 
 
 itsolver_type  = 1     % Solver type: Stokes: 1 ABFP; 2 Diagonal ASP | Elasticity: 1 ABFP; 2 Diagonal ASP 
-itsolver_tol   = 1e-8 % Solver tolerance
+itsolver_tol   = 1e-10 % Solver tolerance
 itsolver_maxit = 150000   % Maximal iteration number
 itsolver_restart = 20   % Restart number
 stress_fem_type      = 1  % type of fem space for stress

@@ -345,10 +345,8 @@ void getElementDOF_Lagrange3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenma
 				int curleft, curright, rotl, roti;
 				curleft = 4 + (dop - 1) * 6 + (dop - 1) * (dop - 2) / 2 * j;
 				curright = nn + ne * (dop - 1) + face * (dop - 1) * (dop - 2) / 2;
-				for (l = 0; l <= dop - 3; l++)
-				{
-					for (i = 0; i <= l; i++)
-					{
+				for (l = 0; l <= dop - 3; l++){
+					for (i = 0; i <= l; i++){
 						v[perm[0]] = dop - 3 - l;
 						v[perm[1]] = l - i;
 						v[perm[2]] = i;
@@ -414,6 +412,115 @@ void getElementDOF_Morley3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat 
 
 		for (j = 0; j<4; j++)
 			elementDOF->val[k][6 + j] = ne + elementFace->val[k][j];
+	}
+}
+
+/**
+ * \fn void getElementDOF_RaviartThomas3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, int nfaces, int dop)
+ * \brief get the degrees of freedom of Raviart-Thomas element in three dimensions
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elements pointer to triangulation: the first 4 columns store the indexes of vertices
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces pointer to faces: the first three columns store the three vertices, the fourth and fifth columns store the affiliated elements
+                                   the fifth column stores -1 if the face is on boundary
+ * \param *elementEdge pointer to relation between tetrahedrons and edges: each row stores 6 edges index
+ * \param *edges pointer to edges: store the two vertice
+ * \param nvertices number of vertices
+ * \param dop degree of polynomial
+ */
+void getElementDOF_RaviartThomas3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, int nfaces, int dop)
+{
+	int i,j,k,l;
+	int nt=elements->row;
+	int nf=nfaces;
+	if(dop<2)
+		dop=1;
+
+	create_elementDOF(dop, nf*(dop+1)*dop/2 + nt*(dop-1)*dop*(dop+1)/2, nt, dop*(dop+1)*(dop+3)/2, elementDOF);
+	
+	int node, edge, face, v[3];
+	int *perm;
+
+	for(k=0;k<nt;k++){
+		for(j=0;j<4;j++){
+			face = elementFace->val[k][j];
+			perm = elements->fperm[k][j];
+
+			if(dop==1)
+				elementDOF->val[k][j] = face;
+
+			if (dop > 1){
+				int curleft, curright, rotl, roti;
+				curleft = (dop + 1) * dop / 2 * j;
+				curright = face * (dop + 1) * dop / 2;
+				for (l = 0; l <= dop - 1; l++){
+					for (i = 0; i <= l; i++){
+						v[perm[0]] = dop - 1 - l;
+						v[perm[1]] = l - i;
+						v[perm[2]] = i;
+						rotl = dop - 1 - v[0];
+						roti = v[2];
+						elementDOF->val[k][curleft + (l + 1) * l / 2 + i] = curright + (rotl + 1) * rotl / 2 + roti;
+					}
+				}
+			}
+		}
+
+		for (i = 0; i < (dop-1)*dop*(dop+1)/2; i++){
+			elementDOF->val[k][2*(dop+1)*dop + i] = nf * (dop+1)*dop/2 + k * (dop-1)*dop*(dop+1)/2 + i;
+		}
+	}
+}
+
+/**
+ * \fn void getElementDOF_BrezziDouglasMarini3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, int nfaces, int dop)
+ * \brief get the degrees of freedom of Brezzi-Douglas-Marini element in three dimensions
+ * \param *elementDOF pointer to relation between elements and DOFs
+ * \param *elements pointer to triangulation: the first 4 columns store the indexes of vertices
+ * \param *elementFace pointer to relation between tetrahedrons and faces: each row stores 4 faces index
+ * \param *faces pointer to faces: the first three columns store the three vertices, the fourth and fifth columns store the affiliated elements
+                                   the fifth column stores -1 if the face is on boundary
+ * \param *elementEdge pointer to relation between tetrahedrons and edges: each row stores 6 edges index
+ * \param *edges pointer to edges: store the two vertice
+ * \param nvertices number of vertices
+ * \param dop degree of polynomial
+ */
+void getElementDOF_BrezziDouglasMarini3d(ELEMENT_DOF *elementDOF, ELEMENT *elements, idenmat *elementFace, int nfaces, int dop)
+{
+	int i,j,k,l;
+	int nt=elements->row;
+	int nf=nfaces;
+	if(dop<2)
+		dop=1;
+
+	create_elementDOF(dop, nf*(dop+1)*(dop+2)/2 + nt*(dop+1)*(dop+2)*(dop-1)/2, nt, (dop+1)*(dop+2)*(dop+3)/2, elementDOF);
+	
+	int node, edge, face, v[3];
+	int *perm;
+
+	for(k=0;k<nt;k++){
+		for(j=0;j<4;j++){
+			face = elementFace->val[k][j];
+			perm = elements->fperm[k][j];
+
+			int curleft, curright, rotl, roti;
+			curleft = (dop+1)*(dop+2) / 2 * j;
+			curright = face * (dop+1)*(dop+2) / 2;
+			for (l = 0; l <= dop; l++){
+				for (i = 0; i <= l; i++){
+					v[perm[0]] = dop - l;
+					v[perm[1]] = l - i;
+					v[perm[2]] = i;
+					rotl = dop - v[0];
+					roti = v[2];
+					elementDOF->val[k][curleft + (l + 1) * l / 2 + i] = curright + (rotl + 1) * rotl / 2 + roti;
+				}
+			}
+		}
+
+		for (i = 0; i < (dop+1)*(dop+2)*(dop-1)/2; i++){
+			elementDOF->val[k][2*(dop+1)*(dop+2) + i] = nf * (dop+1)*(dop+2)/2 + k * (dop+1)*(dop+2)*(dop-1)/2 + i;
+		}
 	}
 }
 

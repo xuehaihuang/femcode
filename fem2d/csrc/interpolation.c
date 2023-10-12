@@ -318,6 +318,65 @@ void interpVecP1toDG2d(dCSRmat *P, int n, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF
 }
 
 /**
+* \fn void interpVecP1toDGRM2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg, ELEMENT *elements)
+* \brief the vector-version interpolation matrix from the 1st order Lagrange element to piecewise kth order polynomial in 2d
+* \param *P pointer to the vector-version interpolation matrix
+* \param *elementDOFp1 pointer to the relation between elements and degrees of freedom of the 1st order Lagrange element
+* \param *elementDOFdg pointer to the relation between elements and degrees of freedom of the piecewise kth order polynomial
+*/
+void interpVecP1toDGRM2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFdg, ELEMENT *elements)
+{
+	int i, j, ie, ii, k, l;
+	int dop = elementDOFdg->dop;
+	int Nt = elementDOFdg->row;
+	double **tv;
+	short *eorien;
+
+	if (elementDOFp1->dop != 1)
+	{
+		P = NULL;
+		return;
+	}
+
+	int *ia, *ja;
+	double *va;
+	int N = 3*4;
+	int NNt = N * Nt;
+	ia = (int*)malloc(NNt * sizeof(int));
+	ja = (int*)malloc(NNt * sizeof(int));
+	va = (double*)malloc(NNt * sizeof(double));
+
+	for (k = 0; k < Nt; k++){
+		l = N * k;
+		// set parameters
+		tv = elements->tvector[k];
+		eorien = elements->eorien[k];
+		// end set parameters
+
+		for (i = 0; i < 3; i++){ //  for each dof in edge
+			ia[l] = elementDOFdg->val[k][i];
+			ja[l] = elementDOFp1->val[k][(i + 1) % 3];
+			va[l] = eorien[i]*tv[i][0] / 2;
+			l++;
+			ia[l] = elementDOFdg->val[k][i];
+			ja[l] = elementDOFp1->val[k][(i + 2) % 3];
+			va[l] = eorien[i]*tv[i][0] / 2;
+			l++;
+			ia[l] = elementDOFdg->val[k][i];
+			ja[l] = elementDOFp1->val[k][(i + 1) % 3] + elementDOFp1->dof;
+			va[l] = eorien[i]*tv[i][1] / 2;
+			l++;
+			ia[l] = elementDOFdg->val[k][i];
+			ja[l] = elementDOFp1->val[k][(i + 2) % 3] + elementDOFp1->dof;
+			va[l] = eorien[i]*tv[i][1] / 2;
+			l++;
+		}
+	} // k
+	
+	dIJtoCSReps(P, ia, ja, va, NNt, elementDOFdg->dof, 2*elementDOFp1->dof, 0);
+}
+
+/**
 * \fn void interpVecP1toNcP1_2d(dCSRmat *P, ELEMENT_DOF *elementDOFp1, ELEMENT_DOF *elementDOFcr, EDGE *edges)
 * \brief the vector-version interpolation matrix from the 1st order Lagrange element to nonconforming P1 element in 2d
 * \param *P pointer to the vector-version interpolation matrix

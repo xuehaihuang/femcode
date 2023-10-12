@@ -1589,7 +1589,7 @@ int asP1ElasDG_PCG(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int pri
 * \param print_level how much information to print out
 * \return the number of iterations
 */
-int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ELEMENT *, ELEMENT_DOF *, double, double))
+int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ddenmat3 *basisCoeffs, ELEMENT *, ELEMENT_DOF *, double, double))
 {
 	int levelNum = 1;
 	int iter, i;
@@ -1650,7 +1650,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 
 	// setup preconditioner
 //	assembleweightedMassatrixHuZhang2d(&M, &elements[levelNum - 1], elementDOF, elementdofTran, 0, mu);
-	assembleMassmatrix(&M, elements, elementDOF, 0, mu);
+	assembleMassmatrix(&M, param->basisCoeffs, elements, elementDOF, 0, mu);
 
 	dvector diag, diaginv;
 	getdiag(M.row, &M, &diag);
@@ -1684,7 +1684,11 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 	// interpVecP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
 	// extractFreenodesMatrix1cBlock(&tempA, &P, &elementDOFas);
 	// free_csr_matrix(&tempA);
-	interpVecP1toDG2d(&P, 2, &elementDOFas, elementDOFdg);
+	int interptype = param->interptype;
+	if(interptype == 1)
+		interpVecP1toDG2d(&P, 2, &elementDOFas, elementDOFdg);
+	if(interptype == 2)
+		interpVecP1toDGRM2d(&P, &elementDOFas, elementDOFdg, elements);
 	getTransposeOfSparse(&P, &PT);
 
 
@@ -1777,7 +1781,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 }
 
 /**
-* \fn int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ELEMENT *, ELEMENT_DOF *, double, double))
+* \fn int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ddenmat3 *basisCoeffs, ELEMENT *, ELEMENT_DOF *, double, double))
 * \brief Solve Ax=b by block triangular preconditioned GMRES solver with auxiliary space method
 * \param *A	pointer to the dCSRmat matrix
 * \param *b	pointer to the dvector of right hand side
@@ -1786,7 +1790,7 @@ int DiagAsP1ElasDG_MINRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, 
 * \param print_level how much information to print out
 * \return the number of iterations
 */
-int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ELEMENT *, ELEMENT_DOF *, double, double))
+int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, int print_level, void(*assembleMassmatrix)(dCSRmat *, ddenmat3 *basisCoeffs, ELEMENT *, ELEMENT_DOF *, double, double))
 {
 	int levelNum = 1;
 	int iter, i;
@@ -1847,7 +1851,7 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 
 	// setup preconditioner
 	// assembleweightedMassatrixHuZhang2d(&M, elements, elementDOF, elementdofTran, 0, mu);
-	assembleMassmatrix(&M, elements, elementDOF, 0, mu);
+	assembleMassmatrix(&M, param->basisCoeffs, elements, elementDOF, 0, mu);
 
 	dvector diag, diaginv;
 	getdiag(M.row, &M, &diag);
@@ -1880,7 +1884,11 @@ int TriAsP1ElasDG_GMRES(dCSRmat *A, dvector *b, dvector *x, ASP_param *param, in
 	// interpVecP1toDG2d(&tempA, &elementDOFas, elementDOFdg);
 	// extractFreenodesMatrix1cBlock(&tempA, &P, &elementDOFas);
 	// free_csr_matrix(&tempA);
-	interpVecP1toDG2d(&P, 2, &elementDOFas, elementDOFdg);
+	int interptype = param->interptype;
+	if(interptype == 1)
+		interpVecP1toDG2d(&P, 2, &elementDOFas, elementDOFdg);
+	if(interptype == 2)
+		interpVecP1toDGRM2d(&P, &elementDOFas, elementDOFdg, elements);
 	getTransposeOfSparse(&P, &PT);
 
 

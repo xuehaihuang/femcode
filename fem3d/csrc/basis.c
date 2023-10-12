@@ -864,30 +864,24 @@ void lagrange3d_basis(double *lambda, int index, int dop, double *phi)
 {
 	int fi, ei[2], ii, vi[3], fl, l, i;
 	int dofs = (dop+1)*(dop+2)*(dop+3)/6; // degrees of freedom
-	if(index>= dofs || index<0)
-	{
+	if(index>= dofs || index<0){
 		*phi=0;
 		return;
 	}
 
-	if(dop==0)
-	{
+	if(dop==0){
 		*phi = 1;
 	}
 
-	else if(dop==1)
-	{
+	else if(dop==1){
 		*phi = lambda[index];
 	} // dop=1
 
-	else if(dop==2)
-	{
-		if(index<4)
-		{
+	else if(dop==2){
+		if(index<4){
 			*phi = lambda[index]*(2*lambda[index]-1);
 		}
-		else
-		{
+		else{
 			// edge: 01, 12, 23, 30, 02, 13 
 		//	ei[0] = (index-4)%4;
 		//	ei[1] = (ei[0]+index/4)%4;
@@ -896,14 +890,11 @@ void lagrange3d_basis(double *lambda, int index, int dop, double *phi)
 		}
 	} // dop=2
 	
-	else if(dop==3)
-	{
-		if(index<4)
-		{
+	else if(dop==3){
+		if(index<4){
 			*phi = lambda[index]*(3*lambda[index]-1)*(3*lambda[index]-2)/2.0;
 		}
-		else if(index < 4+6*(dop-1)) 
-		{
+		else if(index < 4+6*(dop-1)){
 			// edge: 01, 12, 23, 30, 02, 13 
 //			ei[0] = (index-4)/(dop-1)%4;
 //			ei[1] = (ei[0] + (index-4)/(dop-1)/4 +1)%4;
@@ -911,26 +902,21 @@ void lagrange3d_basis(double *lambda, int index, int dop, double *phi)
 			ii = (index-4)%(dop-1); // ii=0 or 1 if dop=3
 			*phi = lambda[ei[0]]*lambda[ei[1]]*(3*lambda[ei[ii]]-1)*9.0/2.0;
 		}
-		else
-		{
+		else{
 			fi=index-16;
 			*phi = 27.0*lambda[(fi+1)%4]*lambda[(fi+2)%4]*lambda[(fi+3)%4];
 		}
 	} // dop=3
 
-	else if(dop==4)
-	{
-		if(index<4)
-		{
+	else if(dop==4){
+		if(index<4){
 			*phi = lambda[index]*(4*lambda[index]-1)*(4*lambda[index]-2)*(4*lambda[index]-3)/6.0;
 		}
-		else if(index < 4+6*(dop-1)) 
-		{
+		else if(index < 4+6*(dop-1)){
 			// edge: 01, 12, 23, 30, 02, 13 
 			edge2vv3d((index-4)/(dop-1), ei);
 			ii = (index-4)%(dop-1); // ii=0, 1 or 2 if dop=4
-			switch(ii)
-			{
+			switch(ii){
 			case 0:
 				*phi = lambda[ei[0]]*lambda[ei[1]]*(4*lambda[ei[0]]-1)*(4*lambda[ei[0]]-2)*8.0/3.0;
 				break; 
@@ -944,15 +930,13 @@ void lagrange3d_basis(double *lambda, int index, int dop, double *phi)
 				*phi = 0;
 			}
 		}
-		else if(index < 2*(dop*dop+1)) 
-		{
+		else if(index < 2*(dop*dop+1)){
 			fi=(index-(6*dop-2))/((dop-1)*(dop-2)/2);
 			face2vertices3d(fi, vi);
 			ii=(index-(6*dop-2))%((dop-1)*(dop-2)/2);
 			*phi = 32.0*lambda[vi[0]]*lambda[vi[1]]*lambda[vi[2]]*(4*lambda[vi[ii]]-1);
 		}
-		else
-		{
+		else{
 			*phi = 256.0*lambda[0]*lambda[1]*lambda[2]*lambda[3];
 		}
 	} // dop=4

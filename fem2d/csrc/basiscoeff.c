@@ -18,6 +18,78 @@
 
 
 /**
+ * \fn void generateReducedHuangZhou2dBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements)
+ * \brief generate the coefficients of basis functions
+ * \param *basisCoeffs pointer to the coefficients of basis functions
+ * \param *elements pointer to the structure of the triangulation
+ * \return void
+ */
+void generateReducedHuangZhou2dBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements)
+{
+	int i, j, k, k1, k2;
+	double phi1[2], phi2[2], val;
+	double s, **gradLambda, **nv, **tv, **tij;
+	ddenmat A, B;
+	double **C;
+
+	int num_qp;
+	double lambdas[100][3], weight[100];
+
+	
+	create_dden_matrix(3, 3, &A);
+	create_dden_matrix(3, 18, &B);
+
+	num_qp = getNumQuadPoints(2, 2); // the number of numerical intergation points
+	init_Gauss2d(num_qp, lambdas, weight);
+	for(k=0;k<elements->row;k++){
+		// set parameters
+		s = elements->vol[k];
+		gradLambda = elements->gradLambda[k];
+		tij = elements->tij[k];
+		nv = elements->nvector[k];
+		tv = elements->tvector[k];
+		// end set parameters
+		
+		init_dden_matrix(&A, 0.0);
+		init_dden_matrix(&B, 0.0);
+		
+		for (k1 = 0; k1<3; k1++){
+			for (k2 = 0; k2<3; k2++){
+				val = 0;
+				for (i = 0; i<num_qp; i++){
+					divS_huangzhou_basisDIV(lambdas[i], gradLambda, s, nv, tv, tij, 18+k1, phi1);
+					divS_huangzhou_basisDIV(lambdas[i], gradLambda, s, nv, tv, tij, 18+k2, phi2);
+					val += s*weight[i] * (phi1[0] * phi2[0]+phi1[1] * phi2[1]);
+				}
+				A.val[k1][k2] += val;
+			}
+		}
+
+		for (k1 = 0; k1<3; k1++){
+			for (k2 = 0; k2<18; k2++){
+				val = 0;
+				for (i = 0; i<num_qp; i++){
+					divS_huangzhou_basisDIV(lambdas[i], gradLambda, s, nv, tv, tij, 18+k1, phi1);
+					divS_huangzhou_basisDIV(lambdas[i], gradLambda, s, nv, tv, tij, k2, phi2);
+					val += s*weight[i] * (phi1[0] * phi2[0]+phi1[1] * phi2[1]);
+				}
+				B.val[k1][k2] -= val;
+			}
+		}
+
+		AxBrref(&A, &B);
+		C=basisCoeffs->val[k];
+		for(i=0;i<basisCoeffs->row;i++){
+			for(j=0;j<basisCoeffs->col;j++)
+				C[i][j]=B.val[j][i];
+		}
+	}
+
+	free_dden_matrix(&A);
+	free_dden_matrix(&B);
+}
+
+/**
  * \fn void generateBasisCoeffs(ddenmat3 *basisCoeffs, ELEMENT *elements, idenmat *elementEdge, EDGE *edges, dennode *nodes)
  * \brief generate the coefficients of basis functions
  * \param *basisCoeffs pointer to the coefficients of basis functions
