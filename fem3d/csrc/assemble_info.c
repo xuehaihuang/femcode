@@ -42,7 +42,7 @@ int getCoarseInfo(int domain_num, dennode *nodes, ELEMENT *elements, FACE *faces
 {
 	// get data from inputFile
 	char *str1 = "data/testdata.dat";
-	char *str2 = "data/testdata.dat";
+	char *str2 = "data/unstructuredmesh1.dat";
 	char *str3 = "data/testdata.dat";
 
 	char *filename;
